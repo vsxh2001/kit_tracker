@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
-import { listEntities, updateEntity } from "../services/entities";
+import { listEntities, updateEntity, deleteEntity } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
 import type { Entity } from "../types";
 
@@ -14,6 +14,7 @@ export function EntitiesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Entity | undefined>();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -44,6 +45,17 @@ export function EntitiesPage() {
     load();
   }
 
+  async function handleDelete(e: Entity) {
+    if (!confirm(`Delete "${e.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteEntity(e.id);
+      setError(null);
+      load();
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to delete entity.");
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -55,6 +67,10 @@ export function EntitiesPage() {
           </Button>
         )}
       </div>
+
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
 
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
@@ -92,6 +108,9 @@ export function EntitiesPage() {
                               Deactivate
                             </Button>
                           )}
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(e)}>
+                            Delete
+                          </Button>
                         </div>
                       </td>
                     )}

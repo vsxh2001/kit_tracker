@@ -24,6 +24,10 @@ export async function updateEntity(
   return pb.collection("entities").update<Entity>(id, data);
 }
 
+export async function deleteEntity(id: string): Promise<void> {
+  await pb.collection("entities").delete(id);
+}
+
 export async function getEntityTransactions(entityId: string) {
   return pb.collection("transactions").getFullList<Transaction>({
     filter: `from_entity = "${entityId}" || to_entity = "${entityId}"`,
