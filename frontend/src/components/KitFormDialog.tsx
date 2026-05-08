@@ -60,16 +60,18 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label>Serial</Label>
+            <Label htmlFor="kit-serial">Serial</Label>
             <Input
+              id="kit-serial"
               value={serial}
               onChange={(e) => setSerial(e.target.value)}
               placeholder="KIT-001"
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Notes</Label>
+            <Label htmlFor="kit-notes">Notes</Label>
             <Textarea
+              id="kit-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional notes…"

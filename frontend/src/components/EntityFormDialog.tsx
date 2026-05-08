@@ -60,12 +60,13 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Logistics" />
+            <Label htmlFor="entity-name">Name</Label>
+            <Input id="entity-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Logistics" />
           </div>
           <div className="space-y-1.5">
-            <Label>Description</Label>
+            <Label htmlFor="entity-description">Description</Label>
             <Textarea
+              id="entity-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description…"
