@@ -50,7 +50,10 @@ export function KitsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Kits</h1>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Kits</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{rows.length} kit{rows.length !== 1 ? "s" : ""} registered</p>
+        </div>
         {isAdmin && (
           <Button size="sm" onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4" />
@@ -67,48 +70,48 @@ export function KitsPage() {
       />
 
       {loading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground text-sm">Loading…</p>
       ) : (
-        <Card>
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium text-muted-foreground">Serial</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Current entity</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Last moved</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Notes</th>
-                  <th className="p-3" />
+              <thead>
+                <tr className="border-b bg-slate-50/80">
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Current entity</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Last moved</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">
                       No kits found.
                     </td>
                   </tr>
                 )}
                 {filtered.map(({ kit, latest }) => (
-                  <tr key={kit.id} className="border-b last:border-0 hover:bg-slate-50">
-                    <td className="p-3 font-mono font-medium">{kit.serial}</td>
-                    <td className="p-3">
+                  <tr key={kit.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
+                    <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</td>
+                    <td className="px-4 py-3">
                       {latest?.expand?.to_entity?.name ? (
                         <Badge variant="secondary">{latest.expand.to_entity.name}</Badge>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground opacity-40">—</span>
                       )}
                     </td>
-                    <td className="p-3 text-muted-foreground">
-                      {latest ? formatDate(latest.timestamp) : "—"}
+                    <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                      {latest ? formatDate(latest.timestamp) : <span className="opacity-40">—</span>}
                     </td>
-                    <td className="p-3 text-muted-foreground max-w-[200px] truncate">
-                      {kit.notes ?? "—"}
+                    <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">
+                      {kit.notes ?? <span className="opacity-40">—</span>}
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">
                       <Link to={`/kits/${kit.id}`}>
-                        <Button variant="ghost" size="icon">
-                          <ArrowRight className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
                       </Link>
                     </td>

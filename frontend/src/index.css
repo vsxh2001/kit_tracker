@@ -1,26 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 220 16% 96%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 18% 95%;
+    --foreground: 222 30% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 30% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --border: 220 13% 89%;
-    --input: 220 13% 89%;
+    --popover-foreground: 222 30% 12%;
+    --border: 220 16% 88%;
+    --input: 220 16% 88%;
     --primary: 243 75% 58%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 220 14% 93%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 220 14% 93%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 220 14% 93%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 220 16% 92%;
+    --secondary-foreground: 222 30% 20%;
+    --muted: 220 16% 92%;
+    --muted-foreground: 215 14% 48%;
+    --accent: 220 16% 92%;
+    --accent-foreground: 222 30% 12%;
+    --destructive: 0 78% 55%;
     --destructive-foreground: 210 40% 98%;
     --ring: 243 75% 58%;
     --radius: 0.5rem;
@@ -31,6 +33,37 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Apply DM Mono to all mono elements */
+  code, pre, .font-mono {
+    font-family: 'DM Mono', ui-monospace, monospace;
+  }
+}
+
+/* Subtle dot-grid texture for the app background */
+.bg-background {
+  background-color: hsl(var(--background));
+  background-image: radial-gradient(hsl(220 16% 82% / 0.5) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Login page specific: no dot grid on the login wrapper */
+.login-bg {
+  background-color: hsl(222 47% 11%);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 40%, hsl(243 75% 30% / 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 70%, hsl(243 60% 20% / 0.25) 0%, transparent 60%);
+}
+
+/* Smooth transitions on interactive elements */
+a, button {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

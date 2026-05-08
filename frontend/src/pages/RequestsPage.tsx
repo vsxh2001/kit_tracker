@@ -37,7 +37,10 @@ export function RequestsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Requests</h1>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Equipment request queue</p>
+        </div>
         <Button size="sm" onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4" />
           New request
@@ -46,7 +49,7 @@ export function RequestsPage() {
 
       <div className="flex items-center gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -58,45 +61,48 @@ export function RequestsPage() {
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
+        {statusFilter !== "all" && (
+          <span className="text-xs text-muted-foreground">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
+        )}
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground text-sm">Loading…</p>
       ) : (
-        <Card>
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium text-muted-foreground">Date</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Requester</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Kit</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Target</th>
-                  <th className="p-3" />
+              <thead>
+                <tr className="border-b bg-slate-50/80">
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Date</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Requester</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Target</th>
+                  <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No requests.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No requests.</td></tr>
                 )}
                 {filtered.map((r) => (
-                  <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50">
-                    <td className="p-3 text-muted-foreground">{formatDateOnly(r.date)}</td>
-                    <td className="p-3">
-                      {r.expand?.requester?.name ?? r.expand?.requester?.email ?? "—"}
+                  <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
+                    <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">{formatDateOnly(r.date)}</td>
+                    <td className="px-4 py-3">
+                      {r.expand?.requester?.name ?? r.expand?.requester?.email ?? <span className="opacity-40">—</span>}
                     </td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">
                       <Badge variant={REQUEST_STATUS_VARIANTS[r.status]}>{r.status}</Badge>
                     </td>
-                    <td className="p-3 font-mono">
-                      {r.expand?.designated_kit?.serial ?? "—"}
+                    <td className="px-4 py-3 font-mono text-xs text-indigo-700 font-medium">
+                      {r.expand?.designated_kit?.serial ?? <span className="opacity-40 font-normal font-sans text-muted-foreground">—</span>}
                     </td>
-                    <td className="p-3">{r.expand?.target_entity?.name ?? "—"}</td>
-                    <td className="p-3">
+                    <td className="px-4 py-3">{r.expand?.target_entity?.name ?? <span className="opacity-40">—</span>}</td>
+                    <td className="px-4 py-3">
                       <Link to={`/requests/${r.id}`}>
-                        <Button variant="ghost" size="icon">
-                          <ArrowRight className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
                       </Link>
                     </td>

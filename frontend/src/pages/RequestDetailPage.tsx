@@ -109,18 +109,22 @@ export function RequestDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/requests")}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => navigate("/requests")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-semibold">Request</h1>
-        <Badge variant={REQUEST_STATUS_VARIANTS[request.status]}>{request.status}</Badge>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold tracking-tight">Request</h1>
+          <Badge variant={REQUEST_STATUS_VARIANTS[request.status]}>{request.status}</Badge>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         {/* Info */}
         <Card>
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Details</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm pt-0">
             <Row label="Requester" value={request.expand?.requester?.name ?? request.expand?.requester?.email ?? "—"} />
             <Row label="Date" value={formatDateOnly(request.date)} />
             <Row label="Status" value={request.status} />
@@ -134,8 +138,10 @@ export function RequestDetailPage() {
         {/* Admin actions */}
         {isAdmin && request.status !== "fulfilled" && request.status !== "cancelled" && request.status !== "rejected" && (
           <Card>
-            <CardHeader><CardTitle>Admin actions</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admin actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-0">
               <div className="space-y-1.5">
                 <Label>Assign kit</Label>
                 <Select value={assignKit} onValueChange={setAssignKit}>
@@ -190,8 +196,10 @@ export function RequestDetailPage() {
         {/* User cancel */}
         {isOwner && request.status === "open" && (
           <Card>
-            <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
-            <CardContent>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
               <Button size="sm" variant="destructive" onClick={handleCancel} disabled={actionLoading}>
                 Cancel request
               </Button>
@@ -207,9 +215,9 @@ export function RequestDetailPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p>{value}</p>
+    <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
+      <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">{label}</p>
+      <p className="text-sm text-right break-all">{value}</p>
     </div>
   );
 }

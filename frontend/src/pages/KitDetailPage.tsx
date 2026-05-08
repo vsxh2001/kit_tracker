@@ -56,18 +56,22 @@ export function KitDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/kits")}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => navigate("/kits")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-semibold font-mono">{kit.serial}</h1>
-        {!kit.is_active && <Badge variant="destructive">Retired</Badge>}
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold font-mono tracking-wide">{kit.serial}</h1>
+          {!kit.is_active && <Badge variant="destructive">Retired</Badge>}
+        </div>
       </div>
 
       {/* Info card */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-0 text-sm pt-0">
             <Row label="Serial" value={kit.serial} mono />
             <Row label="Notes" value={kit.notes ?? "—"} />
             <Row label="Current location" value={currentEntity?.name ?? "Unknown"} />
@@ -77,8 +81,10 @@ export function KitDetailPage() {
 
         {isAdmin && (
           <Card>
-            <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 pt-0">
               <Button size="sm" onClick={() => setShowMove(true)}>
                 <ArrowRight className="h-4 w-4" />
                 Move kit
@@ -99,33 +105,36 @@ export function KitDetailPage() {
 
       {/* Transaction history */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Transaction history</h2>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-base font-semibold tracking-tight">Transaction history</h2>
+          <span className="text-xs text-muted-foreground">{history.length} record{history.length !== 1 ? "s" : ""}</span>
+        </div>
         {history.length === 0 ? (
           <p className="text-sm text-muted-foreground">No transactions.</p>
         ) : (
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent className="p-0">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr className="border-b">
-                    <th className="text-left p-3 font-medium text-muted-foreground">Time</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">From</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">To</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">Notes</th>
-                    <th className="text-left p-3 font-medium text-muted-foreground">By</th>
+                <thead>
+                  <tr className="border-b bg-slate-50/80">
+                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Time</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">From</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">To</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">By</th>
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((tx) => (
-                    <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50">
-                      <td className="p-3 text-muted-foreground whitespace-nowrap">
+                    <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
                         {formatDate(tx.timestamp)}
                       </td>
-                      <td className="p-3">{tx.expand?.from_entity?.name ?? "—"}</td>
-                      <td className="p-3 font-medium">{tx.expand?.to_entity?.name ?? tx.to_entity}</td>
-                      <td className="p-3 text-muted-foreground">{tx.notes ?? "—"}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? "—"}
+                      <td className="px-4 py-3 text-muted-foreground">{tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}</td>
+                      <td className="px-4 py-3 font-medium">{tx.expand?.to_entity?.name ?? tx.to_entity}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{tx.notes ?? <span className="opacity-30">—</span>}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? <span className="opacity-30">—</span>}
                       </td>
                     </tr>
                   ))}
@@ -156,9 +165,9 @@ export function KitDetailPage() {
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p className={mono ? "font-mono" : ""}>{value}</p>
+    <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
+      <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">{label}</p>
+      <p className={`text-sm text-right break-all ${mono ? "font-mono text-xs tracking-wide text-indigo-700" : ""}`}>{value}</p>
     </div>
   );
 }

@@ -33,11 +33,14 @@ export function DashboardPage() {
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="space-y-7">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Equipment overview and recent activity</p>
+      </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground text-sm">Loading…</p>
       ) : (
         <>
           {/* Stats */}
@@ -50,39 +53,42 @@ export function DashboardPage() {
 
           {/* Recent transactions */}
           <div>
-            <h2 className="text-lg font-semibold mb-3">Recent transactions</h2>
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-base font-semibold tracking-tight">Recent transactions</h2>
+              <span className="text-xs text-muted-foreground">{recentTx.length} shown</span>
+            </div>
             {recentTx.length === 0 ? (
               <p className="text-sm text-muted-foreground">No transactions yet.</p>
             ) : (
-              <Card>
+              <Card className="overflow-hidden">
                 <CardContent className="p-0">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr className="border-b">
-                        <th className="text-left p-3 font-medium text-muted-foreground">Time</th>
-                        <th className="text-left p-3 font-medium text-muted-foreground">Kit</th>
-                        <th className="text-left p-3 font-medium text-muted-foreground">From</th>
-                        <th className="text-left p-3 font-medium text-muted-foreground">To</th>
-                        <th className="text-left p-3 font-medium text-muted-foreground">Notes</th>
+                    <thead>
+                      <tr className="border-b bg-slate-50/80">
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Time</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">From</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">To</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
                       {recentTx.map((tx) => (
-                        <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50">
-                          <td className="p-3 text-muted-foreground whitespace-nowrap">
+                        <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
                             {formatDate(tx.timestamp)}
                           </td>
-                          <td className="p-3 font-mono font-medium">
+                          <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
                             {tx.expand?.kit?.serial ?? tx.kit}
                           </td>
-                          <td className="p-3 text-muted-foreground">
-                            {tx.expand?.from_entity?.name ?? "—"}
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}
                           </td>
-                          <td className="p-3">
+                          <td className="px-4 py-3 font-medium">
                             {tx.expand?.to_entity?.name ?? tx.to_entity}
                           </td>
-                          <td className="p-3 text-muted-foreground truncate max-w-[200px]">
-                            {tx.notes ?? "—"}
+                          <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
+                            {tx.notes ?? <span className="opacity-30">—</span>}
                           </td>
                         </tr>
                       ))}
@@ -99,10 +105,10 @@ export function DashboardPage() {
 }
 
 const STAT_COLORS = {
-  blue:  "bg-blue-50 text-blue-600",
-  amber: "bg-amber-50 text-amber-600",
-  green: "bg-green-50 text-green-600",
-  slate: "bg-slate-100 text-slate-500",
+  blue:  { chip: "bg-blue-50 text-blue-500 ring-blue-100", bar: "bg-blue-500" },
+  amber: { chip: "bg-amber-50 text-amber-500 ring-amber-100", bar: "bg-amber-500" },
+  green: { chip: "bg-emerald-50 text-emerald-500 ring-emerald-100", bar: "bg-emerald-500" },
+  slate: { chip: "bg-slate-100 text-slate-400 ring-slate-200", bar: "bg-slate-400" },
 } as const;
 
 function StatCard({
@@ -116,16 +122,19 @@ function StatCard({
   value: number;
   color: keyof typeof STAT_COLORS;
 }) {
+  const colors = STAT_COLORS[color];
   return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="text-3xl font-bold mt-1">{value}</p>
+    <Card className="overflow-hidden relative">
+      {/* Subtle top accent bar */}
+      <div className={cn("h-0.5 w-full absolute top-0 left-0", colors.bar)} />
+      <CardContent className="p-5 pt-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider truncate">{label}</p>
+            <p className="text-3xl font-bold mt-1.5 tabular-nums tracking-tight">{value}</p>
           </div>
-          <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", STAT_COLORS[color])}>
-            <Icon className="h-5 w-5" />
+          <div className={cn("h-9 w-9 rounded-lg ring-1 flex items-center justify-center shrink-0 mt-0.5", colors.chip)}>
+            <Icon className="h-4.5 w-4.5" style={{ width: "18px", height: "18px" }} />
           </div>
         </div>
       </CardContent>
