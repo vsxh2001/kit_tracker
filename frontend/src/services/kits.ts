@@ -36,5 +36,6 @@ export async function getKitHistory(kitId: string) {
     filter: `kit = "${kitId}"`,
     sort: "-timestamp,-created",
     expand: "from_entity,to_entity,created_by",
+    requestKey: `kit-history-${kitId}`,
   });
 }

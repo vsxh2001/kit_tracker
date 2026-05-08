@@ -15,6 +15,14 @@ export function formatDate(dateStr: string) {
   });
 }
 
+export const REQUEST_STATUS_VARIANTS = {
+  open: "secondary",
+  approved: "success",
+  rejected: "destructive",
+  fulfilled: "purple",
+  cancelled: "gray",
+} as const;
+
 export function formatDateOnly(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-GB", {
     day: "2-digit",

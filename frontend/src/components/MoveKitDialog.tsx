@@ -30,7 +30,12 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (open) listEntities().then(setEntities);
+    if (open) {
+      setToEntityId("");
+      setNotes("");
+      setError("");
+      listEntities().then(setEntities).catch(() => setError("Failed to load entities."));
+    }
   }, [open]);
 
   async function handleMove() {

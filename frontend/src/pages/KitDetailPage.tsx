@@ -6,7 +6,7 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { MoveKitDialog } from "../components/MoveKitDialog";
 import { KitFormDialog } from "../components/KitFormDialog";
-import { getKit, getLatestTransaction, getKitHistory, updateKit } from "../services/kits";
+import { getKit, getKitHistory, updateKit } from "../services/kits";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
 import type { Kit, Transaction } from "../types";
@@ -25,14 +25,10 @@ export function KitDetailPage() {
   async function load() {
     if (!id) return;
     try {
-      const [k, l, h] = await Promise.all([
-        getKit(id),
-        getLatestTransaction(id),
-        getKitHistory(id),
-      ]);
+      const [k, h] = await Promise.all([getKit(id), getKitHistory(id)]);
       setKit(k);
-      setLatest(l);
       setHistory(h);
+      setLatest(h[0] ?? null);
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
@@ -44,8 +40,12 @@ export function KitDetailPage() {
 
   async function handleRetire() {
     if (!kit || !confirm(`Retire ${kit.serial}?`)) return;
-    await updateKit(kit.id, { is_active: false });
-    navigate("/kits");
+    try {
+      await updateKit(kit.id, { is_active: false });
+      navigate("/kits");
+    } catch (err: any) {
+      console.error(err);
+    }
   }
 
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
@@ -106,8 +106,8 @@ export function KitDetailPage() {
           <Card>
             <CardContent className="p-0">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b">
+                <thead className="bg-slate-50">
+                  <tr className="border-b">
                     <th className="text-left p-3 font-medium text-muted-foreground">Time</th>
                     <th className="text-left p-3 font-medium text-muted-foreground">From</th>
                     <th className="text-left p-3 font-medium text-muted-foreground">To</th>

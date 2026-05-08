@@ -5,7 +5,7 @@ import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
 import { listRecentTransactions } from "../services/transactions";
 import type { Kit, KitRequest, Transaction } from "../types";
-import { formatDate } from "../lib/utils";
+import { cn, formatDate } from "../lib/utils";
 
 export function DashboardPage() {
   const [kits, setKits] = useState<Kit[]>([]);
@@ -42,10 +42,10 @@ export function DashboardPage() {
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard icon={Package} label="Total kits" value={kits.length} color="bg-blue-50 text-blue-600" />
-            <StatCard icon={FileText} label="Open requests" value={openRequests} color="bg-amber-50 text-amber-600" />
-            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="bg-green-50 text-green-600" />
-            <StatCard icon={Clock} label="Total requests" value={requests.length} color="bg-slate-100 text-slate-500" />
+            <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" />
+            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" />
+            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" />
+            <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" />
           </div>
 
           {/* Recent transactions */}
@@ -98,6 +98,13 @@ export function DashboardPage() {
   );
 }
 
+const STAT_COLORS = {
+  blue:  "bg-blue-50 text-blue-600",
+  amber: "bg-amber-50 text-amber-600",
+  green: "bg-green-50 text-green-600",
+  slate: "bg-slate-100 text-slate-500",
+} as const;
+
 function StatCard({
   icon: Icon,
   label,
@@ -107,7 +114,7 @@ function StatCard({
   icon: React.ElementType;
   label: string;
   value: number;
-  color: string;
+  color: keyof typeof STAT_COLORS;
 }) {
   return (
     <Card>
@@ -117,7 +124,7 @@ function StatCard({
             <p className="text-sm text-muted-foreground">{label}</p>
             <p className="text-3xl font-bold mt-1">{value}</p>
           </div>
-          <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+          <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", STAT_COLORS[color])}>
             <Icon className="h-5 w-5" />
           </div>
         </div>

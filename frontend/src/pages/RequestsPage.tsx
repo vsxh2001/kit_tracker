@@ -7,20 +7,10 @@ import { Card, CardContent } from "../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { RequestFormDialog } from "../components/RequestFormDialog";
 import { listRequests } from "../services/requests";
-import { useAuth } from "../context/AuthContext";
-import { formatDateOnly } from "../lib/utils";
-import type { KitRequest, RequestStatus } from "../types";
-
-const STATUS_VARIANTS: Record<RequestStatus, "gray" | "success" | "destructive" | "purple" | "secondary"> = {
-  open: "secondary",
-  approved: "success",
-  rejected: "destructive",
-  fulfilled: "purple",
-  cancelled: "gray",
-};
+import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
+import type { KitRequest } from "../types";
 
 export function RequestsPage() {
-  useAuth();
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
@@ -97,7 +87,7 @@ export function RequestsPage() {
                       {r.expand?.requester?.name ?? r.expand?.requester?.email ?? "—"}
                     </td>
                     <td className="p-3">
-                      <Badge variant={STATUS_VARIANTS[r.status]}>{r.status}</Badge>
+                      <Badge variant={REQUEST_STATUS_VARIANTS[r.status]}>{r.status}</Badge>
                     </td>
                     <td className="p-3 font-mono">
                       {r.expand?.designated_kit?.serial ?? "—"}

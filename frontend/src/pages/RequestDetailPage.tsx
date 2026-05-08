@@ -8,20 +8,11 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { getRequest, updateRequestStatus, fulfillRequest } from "../services/requests";
-import { getLatestTransaction } from "../services/kits";
-import { listKits } from "../services/kits";
+import { getLatestTransaction, listKits } from "../services/kits";
 import { listEntities } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
-import { formatDateOnly } from "../lib/utils";
+import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import type { KitRequest, Kit, Entity } from "../types";
-
-const STATUS_VARIANTS: Record<string, "gray" | "success" | "destructive" | "purple" | "secondary"> = {
-  open: "secondary",
-  approved: "success",
-  rejected: "destructive",
-  fulfilled: "purple",
-  cancelled: "gray",
-};
 
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -122,7 +113,7 @@ export function RequestDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-semibold">Request</h1>
-        <Badge variant={STATUS_VARIANTS[request.status]}>{request.status}</Badge>
+        <Badge variant={REQUEST_STATUS_VARIANTS[request.status]}>{request.status}</Badge>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">

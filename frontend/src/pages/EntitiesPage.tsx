@@ -72,7 +72,7 @@ export function EntitiesPage() {
               </thead>
               <tbody>
                 {entities.length === 0 && (
-                  <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">No entities.</td></tr>
+                  <tr><td colSpan={isAdmin ? 4 : 3} className="p-4 text-center text-muted-foreground">No entities.</td></tr>
                 )}
                 {entities.map((e) => (
                   <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50">

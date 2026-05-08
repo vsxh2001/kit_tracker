@@ -31,10 +31,9 @@ export function RequestFormDialog({ open, onClose, onSaved }: Props) {
 
   useEffect(() => {
     if (open) {
-      Promise.all([listKits(), listEntities()]).then(([k, e]) => {
-        setKits(k);
-        setEntities(e);
-      });
+      Promise.all([listKits(), listEntities()])
+        .then(([k, e]) => { setKits(k); setEntities(e); })
+        .catch(() => setError("Failed to load options."));
       setNotes("");
       setKitId("none");
       setEntityId("none");

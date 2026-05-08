@@ -59,6 +59,36 @@ src/
 
 Role checks (`isAdmin` from `useAuth()`) hide/show UI elements. PocketBase collection rules enforce the same constraints server-side. The `role` field lives on the `users` collection and must be set manually in the PocketBase admin UI — it is not auto-assigned on signup.
 
+### PocketBase SDK auto-cancellation (React StrictMode gotcha)
+
+The PocketBase JS SDK auto-cancels in-flight requests that share the same request key. React StrictMode double-mounts components, which causes the first mount's requests to be cancelled before they resolve — leaving pages stuck at "Loading…" if errors aren't handled.
+
+**Every `load()` function must use this pattern:**
+```ts
+async function load() {
+  setLoading(true);
+  try {
+    setData(await pb.collection(...).getFullList(...));
+  } catch (err: any) {
+    if (!err?.isAbort) console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}
+```
+
+**When calling the same endpoint in parallel** (e.g. `getLatestTransaction` for N kits), pass a unique `requestKey` per call or the SDK will cancel all but the last:
+```ts
+pb.collection("transactions").getList(1, 1, {
+  filter: `kit = "${kitId}"`,
+  requestKey: `latest-tx-${kitId}`,
+});
+```
+
+### CSS variables / theming
+
+`frontend/src/index.css` defines all shadcn CSS variables. Every variable referenced in `components/ui/` must be declared there — missing ones render as transparent (e.g. a missing `--popover` makes Select dropdowns see-through). Current palette: indigo primary (`243 75% 58%`), off-white background (`220 16% 96%`), white cards. Standard Tailwind color classes (`slate-*`, `indigo-*`, etc.) are used directly alongside the CSS vars.
+
 ### Adding a new Radix/UI component
 
 Radix packages are installed individually (no shadcn CLI). Follow the pattern in `components/ui/` — import the Radix primitive, wrap with `cn()` and Tailwind classes, `forwardRef` where needed.
