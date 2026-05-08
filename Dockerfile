@@ -28,11 +28,16 @@ RUN groupadd --gid 1001 pbuser \
 
 WORKDIR /app
 
-# Copy the PocketBase binary
+# Copy the PocketBase binary and entrypoint
 COPY --chown=pbuser:pbuser pb/pocketbase ./pocketbase
+COPY --chown=pbuser:pbuser docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 # Copy the built frontend into pb_public (served by PocketBase)
 COPY --from=builder --chown=pbuser:pbuser /build/dist ./pb_public
+
+# Create pb_data as pbuser so the named volume inherits the correct ownership
+RUN mkdir -p /app/pb_data && chown pbuser:pbuser /app/pb_data
 
 # pb_data is where PocketBase stores the SQLite DB and logs — persist it via a volume
 VOLUME ["/app/pb_data"]
@@ -41,4 +46,4 @@ EXPOSE 8090
 
 USER pbuser
 
-CMD sh -c "./pocketbase serve --http=0.0.0.0:8090 --dir=/app/pb_data --publicDir=/app/pb_public --superuserEmail=${PB_SUPERUSER_EMAIL:-admin@example.com} --superuserPassword=${PB_SUPERUSER_PASSWORD:-changeme123}"
+ENTRYPOINT ["./docker-entrypoint.sh"]
