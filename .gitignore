@@ -1,0 +1,18 @@
+# PocketBase
+pb/pocketbase
+pb/pb_data/
+
+# Playwright MCP runtime
+.playwright-mcp/
+
+# Claude memory
+memory/
+
+# Node
+node_modules/
+
+# Screenshots
+*.png
+
+# Frontend build
+frontend/dist/

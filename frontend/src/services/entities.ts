@@ -1,0 +1,33 @@
+import { pb } from "../lib/pocketbase";
+import type { Entity, Transaction } from "../types";
+
+export async function listEntities(includeInactive = false) {
+  const filter = includeInactive ? "" : "is_active = true";
+  return pb.collection("entities").getFullList<Entity>({ sort: "name", filter });
+}
+
+export async function getEntity(id: string) {
+  return pb.collection("entities").getOne<Entity>(id);
+}
+
+export async function createEntity(data: {
+  name: string;
+  description?: string;
+}) {
+  return pb.collection("entities").create<Entity>({ ...data, is_active: true });
+}
+
+export async function updateEntity(
+  id: string,
+  data: Partial<{ name: string; description: string; is_active: boolean }>
+) {
+  return pb.collection("entities").update<Entity>(id, data);
+}
+
+export async function getEntityTransactions(entityId: string) {
+  return pb.collection("transactions").getFullList<Transaction>({
+    filter: `from_entity = "${entityId}" || to_entity = "${entityId}"`,
+    sort: "-timestamp,-created",
+    expand: "kit,from_entity,to_entity,created_by",
+  });
+}
