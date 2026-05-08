@@ -1,0 +1,35 @@
+{
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/hadassi/Code/kit_tracker/.claude/hooks/tsc-check.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/hadassi/Code/kit_tracker/.claude/hooks/build-check.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
