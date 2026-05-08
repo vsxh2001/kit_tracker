@@ -35,7 +35,7 @@ export async function createRequest(data: {
 export async function updateRequestStatus(
   id: string,
   status: RequestStatus,
-  opts?: { decision_notes?: string; designated_kit?: string; target_entity?: string }
+  opts?: { decision_notes?: string; designated_kit?: string; target_entity?: string; delivery_date?: string }
 ) {
   return pb.collection("requests").update<KitRequest>(id, { status, ...opts });
 }
@@ -63,5 +63,8 @@ export async function fulfillRequest(request: KitRequest, fromEntityId: string) 
     requestId: request.id,
     notes: `Fulfilled request ${request.id}`,
   });
-  return pb.collection("requests").update<KitRequest>(request.id, { status: "fulfilled" });
+  return pb.collection("requests").update<KitRequest>(request.id, {
+    status: "fulfilled",
+    delivery_date: request.delivery_date,
+  });
 }

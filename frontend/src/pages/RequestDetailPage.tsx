@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -39,6 +39,7 @@ export function RequestDetailPage() {
       setEntities(e);
       setAssignKit(r.designated_kit ?? "none");
       setAssignEntity(r.target_entity ?? "none");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
@@ -46,7 +47,8 @@ export function RequestDetailPage() {
     }
   }
 
-  useEffect(() => { load(); }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { startTransition(() => load()); }, [id]);
 
   async function doAction(action: () => Promise<unknown>) {
     setError("");
@@ -54,6 +56,7 @@ export function RequestDetailPage() {
     try {
       await action();
       await load();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? "Action failed.");
     } finally {
@@ -67,6 +70,7 @@ export function RequestDetailPage() {
         decision_notes: decisionNotes.trim() || undefined,
         designated_kit: assignKit === "none" ? undefined : assignKit,
         target_entity: assignEntity === "none" ? undefined : assignEntity,
+        delivery_date: request?.delivery_date,
       })
     );
   }
@@ -75,6 +79,7 @@ export function RequestDetailPage() {
     doAction(() =>
       updateRequestStatus(id!, "rejected", {
         decision_notes: decisionNotes.trim() || undefined,
+        delivery_date: request?.delivery_date,
       })
     );
   }
@@ -91,7 +96,7 @@ export function RequestDetailPage() {
   }
 
   async function handleCancel() {
-    doAction(() => updateRequestStatus(id!, "cancelled"));
+    doAction(() => updateRequestStatus(id!, "cancelled", { delivery_date: request?.delivery_date }));
   }
 
   async function handleSaveAssignment() {
@@ -99,6 +104,7 @@ export function RequestDetailPage() {
       updateRequestStatus(id!, request!.status, {
         designated_kit: assignKit === "none" ? undefined : assignKit,
         target_entity: assignEntity === "none" ? undefined : assignEntity,
+        delivery_date: request?.delivery_date,
       })
     );
   }
@@ -110,6 +116,7 @@ export function RequestDetailPage() {
     try {
       await deleteRequest(id!);
       navigate("/requests");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? "Delete failed.");
       setActionLoading(false);
