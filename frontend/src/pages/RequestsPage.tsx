@@ -79,12 +79,14 @@ export function RequestsPage() {
                   <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit</th>
                   <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Target</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Expected return</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Delivery date</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No requests.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-sm">No requests.</td></tr>
                 )}
                 {filtered.map((r) => (
                   <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
@@ -99,6 +101,12 @@ export function RequestsPage() {
                       {r.expand?.designated_kit?.serial ?? <span className="opacity-40 font-normal font-sans text-muted-foreground">—</span>}
                     </td>
                     <td className="px-4 py-3">{r.expand?.target_entity?.name ?? <span className="opacity-40">—</span>}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                      {r.expected_return ? formatDateOnly(r.expected_return) : <span className="opacity-40">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                      {formatDateOnly(r.delivery_date)}
+                    </td>
                     <td className="px-4 py-3">
                       <Link to={`/requests/${r.id}`}>
                         <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">

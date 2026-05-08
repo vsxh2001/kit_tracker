@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { getRequest, updateRequestStatus, fulfillRequest } from "../services/requests";
+import { getRequest, updateRequestStatus, fulfillRequest, deleteRequest } from "../services/requests";
 import { getLatestTransaction, listKits } from "../services/kits";
 import { listEntities } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
+import { RequestFormDialog } from "../components/RequestFormDialog";
 import type { KitRequest, Kit, Entity } from "../types";
 
 export function RequestDetailPage() {
@@ -27,6 +28,7 @@ export function RequestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -101,6 +103,19 @@ export function RequestDetailPage() {
     );
   }
 
+  async function handleDelete() {
+    if (!window.confirm("Delete this request? This cannot be undone.")) return;
+    setError("");
+    setActionLoading(true);
+    try {
+      await deleteRequest(id!);
+      navigate("/requests");
+    } catch (e: any) {
+      setError(e?.message ?? "Delete failed.");
+      setActionLoading(false);
+    }
+  }
+
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
   if (!request) return <p>Request not found.</p>;
 
@@ -130,6 +145,8 @@ export function RequestDetailPage() {
             <Row label="Status" value={request.status} />
             <Row label="Designated kit" value={request.expand?.designated_kit?.serial ?? "—"} />
             <Row label="Target entity" value={request.expand?.target_entity?.name ?? "—"} />
+            <Row label="Expected return" value={request.expected_return ? formatDateOnly(request.expected_return) : "—"} />
+            <Row label="Delivery date" value={formatDateOnly(request.delivery_date)} />
             <Row label="Notes" value={request.notes ?? "—"} />
             {request.decision_notes && <Row label="Decision notes" value={request.decision_notes} />}
           </CardContent>
@@ -188,20 +205,46 @@ export function RequestDetailPage() {
                 <Button size="sm" variant="outline" onClick={handleSaveAssignment} disabled={actionLoading}>
                   Save assignment
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
+                  Edit request
+                </Button>
+                <Button size="sm" variant="destructive" onClick={handleDelete} disabled={actionLoading}>
+                  Delete request
+                </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* User cancel */}
-        {isOwner && request.status === "open" && (
+        {/* Admin delete — shown for fulfilled/cancelled/rejected where admin actions card is hidden */}
+        {isAdmin && (request.status === "fulfilled" || request.status === "cancelled" || request.status === "rejected") && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admin actions</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 flex flex-wrap gap-2">
+              <Button size="sm" variant="destructive" onClick={handleDelete} disabled={actionLoading}>
+                Delete request
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* User actions (cancel + edit) — shown only to requester when not admin */}
+        {isOwner && !isAdmin && request.status === "open" && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
+                Edit request
+              </Button>
               <Button size="sm" variant="destructive" onClick={handleCancel} disabled={actionLoading}>
                 Cancel request
+              </Button>
+              <Button size="sm" variant="destructive" onClick={handleDelete} disabled={actionLoading}>
+                Delete request
               </Button>
             </CardContent>
           </Card>
@@ -209,6 +252,14 @@ export function RequestDetailPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <RequestFormDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { setEditOpen(false); load(); }}
+        request={request}
+        showKitField={isAdmin}
+      />
     </div>
   );
 }

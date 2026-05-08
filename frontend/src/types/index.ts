@@ -54,6 +54,8 @@ export interface KitRequest {
   target_entity?: string;
   notes?: string;
   decision_notes?: string;
+  expected_return?: string;
+  delivery_date: string;
   created: string;
   updated: string;
   expand?: {

@@ -21,6 +21,8 @@ export async function createRequest(data: {
   notes?: string;
   designated_kit?: string;
   target_entity?: string;
+  expected_return?: string;
+  delivery_date: string;
 }) {
   return pb.collection("requests").create<KitRequest>({
     requester: pb.authStore.model?.id,
@@ -36,6 +38,18 @@ export async function updateRequestStatus(
   opts?: { decision_notes?: string; designated_kit?: string; target_entity?: string }
 ) {
   return pb.collection("requests").update<KitRequest>(id, { status, ...opts });
+}
+
+export async function updateRequest(
+  id: string,
+  data: { notes?: string; target_entity?: string; designated_kit?: string; delivery_date?: string }
+): Promise<KitRequest> {
+  return pb.collection("requests").update<KitRequest>(id, data);
+}
+
+
+export async function deleteRequest(id: string): Promise<void> {
+  await pb.collection("requests").delete(id);
 }
 
 export async function fulfillRequest(request: KitRequest, fromEntityId: string) {
