@@ -1,0 +1,29 @@
+# Dependencies — installed inside the builder stage
+node_modules/
+frontend/node_modules/
+
+# Build artifacts — produced inside the builder stage
+frontend/dist/
+
+# PocketBase persistent data — never bake DB into the image
+pb/pb_data/
+
+# Version control
+.git/
+.gitignore
+
+# Documentation
+*.md
+CHANGELOG.md
+LICENSE.md
+
+# Local env files (may contain secrets)
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+
+# Editor / OS artefacts
+.DS_Store
+*.swp
+*.swo
