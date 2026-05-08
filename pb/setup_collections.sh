@@ -41,7 +41,7 @@ create_collection '{
   "viewRule": "@request.auth.id != \"\"",
   "createRule": "@request.auth.verified = true",
   "updateRule": "@request.auth.verified = true",
-  "deleteRule": null
+  "deleteRule": "@request.auth.role = \"admin\""
 }'
 
 echo "Creating 'kits' collection..."
@@ -91,13 +91,15 @@ create_collection '{
     {"name":"designated_kit","type":"relation","options":{"collectionId":"_KITS_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"target_entity","type":"relation","options":{"collectionId":"_ENTITIES_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"notes","type":"text"},
-    {"name":"decision_notes","type":"text"}
+    {"name":"decision_notes","type":"text"},
+    {"name":"expected_return","type":"date","required":false,"options":{"min":"","max":""}},
+    {"name":"delivery_date","type":"date","required":true,"options":{"min":"","max":""}}
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
   "createRule": "@request.auth.id != \"\"",
-  "updateRule": "@request.auth.verified = true || requester = @request.auth.id",
-  "deleteRule": null
+  "updateRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")",
+  "deleteRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")"
 }'
 
 echo ""
