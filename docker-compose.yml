@@ -8,9 +8,11 @@ services:
     volumes:
       - pb_data:/app/pb_data
     restart: unless-stopped
-    # Optional: drop an .env file next to docker-compose.yml for secrets
-    # env_file:
-    #   - .env.production
+    env_file:
+      - .env
+    environment:
+      PB_SUPERUSER_EMAIL: ${PB_SUPERUSER_EMAIL:-admin@example.com}
+      PB_SUPERUSER_PASSWORD: ${PB_SUPERUSER_PASSWORD:-changeme123}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
       interval: 30s

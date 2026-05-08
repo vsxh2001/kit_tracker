@@ -41,4 +41,4 @@ EXPOSE 8090
 
 USER pbuser
 
-CMD ["./pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/app/pb_data", "--publicDir=/app/pb_public"]
+CMD sh -c "./pocketbase serve --http=0.0.0.0:8090 --dir=/app/pb_data --publicDir=/app/pb_public --superuserEmail=${PB_SUPERUSER_EMAIL:-admin@example.com} --superuserPassword=${PB_SUPERUSER_PASSWORD:-changeme123}"

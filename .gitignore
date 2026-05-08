@@ -1,3 +1,6 @@
+# Environment / secrets
+.env
+
 # PocketBase
 pb/pocketbase
 pb/pb_data/
