@@ -200,11 +200,8 @@ test.describe("Entity edit (admin)", () => {
 
 test.describe("Entity deactivate (admin)", () => {
   const DEACT_NAME = `${TS}-DEACT`;
-  let entityId: string;
-
   test.beforeAll(async () => {
-    const e = await createTestEntity(DEACT_NAME, "to be deactivated");
-    entityId = e.id;
+    await createTestEntity(DEACT_NAME, "to be deactivated");
   });
 
   // No afterAll needed — the test itself deactivates the entity

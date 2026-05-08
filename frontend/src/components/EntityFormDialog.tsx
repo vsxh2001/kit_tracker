@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +27,11 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
 
   useEffect(() => {
     if (open) {
-      setName(entity?.name ?? "");
-      setDescription(entity?.description ?? "");
-      setError("");
+      startTransition(() => {
+        setName(entity?.name ?? "");
+        setDescription(entity?.description ?? "");
+        setError("");
+      });
     }
   }, [open, entity]);
 
@@ -45,6 +47,7 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
       }
       onSaved();
       onClose();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? "Failed to save entity.");
     } finally {

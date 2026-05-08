@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,9 +31,11 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
 
   useEffect(() => {
     if (open) {
-      setToEntityId("");
-      setNotes("");
-      setError("");
+      startTransition(() => {
+        setToEntityId("");
+        setNotes("");
+        setError("");
+      });
       listEntities().then(setEntities).catch(() => setError("Failed to load entities."));
     }
   }, [open]);
@@ -51,6 +53,7 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
       });
       onMoved();
       onClose();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? "Failed to move kit.");
     } finally {

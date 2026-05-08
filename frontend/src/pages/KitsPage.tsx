@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -34,6 +34,7 @@ export function KitsPage() {
         }))
       );
       setRows(withLatest);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
@@ -41,7 +42,7 @@ export function KitsPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { startTransition(() => load()); }, []);
 
   const filtered = rows.filter((r) =>
     r.kit.serial.toLowerCase().includes(search.toLowerCase())

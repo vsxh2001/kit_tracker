@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -20,6 +20,7 @@ export function EntitiesPage() {
     setLoading(true);
     try {
       setEntities(await listEntities(true));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
@@ -27,7 +28,7 @@ export function EntitiesPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { startTransition(() => load()); }, []);
 
   function openEdit(e: Entity) {
     setEditTarget(e);
@@ -51,6 +52,7 @@ export function EntitiesPage() {
       await deleteEntity(e.id);
       setError(null);
       load();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err?.message ?? "Failed to delete entity.");
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -21,6 +21,7 @@ export function RequestsPage() {
     try {
       const all = await listRequests();
       setRequests(all);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
@@ -28,7 +29,7 @@ export function RequestsPage() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { startTransition(() => load()); }, []);
 
   const filtered = statusFilter === "all"
     ? requests

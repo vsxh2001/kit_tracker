@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Pencil, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -29,6 +29,7 @@ export function KitDetailPage() {
       setKit(k);
       setHistory(h);
       setLatest(h[0] ?? null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
@@ -36,13 +37,15 @@ export function KitDetailPage() {
     }
   }
 
-  useEffect(() => { load(); }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { startTransition(() => load()); }, [id]);
 
   async function handleRetire() {
     if (!kit || !confirm(`Retire ${kit.serial}?`)) return;
     try {
       await updateKit(kit.id, { is_active: false });
       navigate("/kits");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error(err);
     }

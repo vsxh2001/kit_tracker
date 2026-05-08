@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -42,13 +42,16 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
         .then(([k, e]) => { setKits(k); setEntities(e); })
         .catch(() => setError("Failed to load options."));
       // Pre-fill from existing request when editing, otherwise reset
-      setNotes(request?.notes ?? "");
-      setKitId(request?.designated_kit ?? "none");
-      setEntityId(request?.target_entity ?? "none");
-      setExpectedReturn(isEdit ? (request?.expected_return ?? "") : "");
-      setDeliveryDate(request?.delivery_date ?? "");
-      setError("");
+      startTransition(() => {
+        setNotes(request?.notes ?? "");
+        setKitId(request?.designated_kit ?? "none");
+        setEntityId(request?.target_entity ?? "none");
+        setExpectedReturn(isEdit ? (request?.expected_return ?? "") : "");
+        setDeliveryDate(request?.delivery_date ?? new Date().toISOString().split("T")[0]);
+        setError("");
+      });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   async function handleSubmit() {
@@ -77,6 +80,7 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
       }
       onSaved();
       onClose();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? (isEdit ? "Failed to update request." : "Failed to create request."));
     } finally {
@@ -121,6 +125,15 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1.5">
+            <Label>Delivery date</Label>
+            <input
+              type="date"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
           {!isEdit && (
             <div className="space-y-1.5">
               <Label>Expected return date (optional)</Label>
@@ -132,15 +145,6 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
               />
             </div>
           )}
-          <div className="space-y-1.5">
-            <Label>Delivery date</Label>
-            <input
-              type="date"
-              value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
           <div className="space-y-1.5">
             <Label>Notes</Label>
             <Textarea

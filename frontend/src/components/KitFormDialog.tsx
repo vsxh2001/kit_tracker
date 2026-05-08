@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +27,11 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
 
   useEffect(() => {
     if (open) {
-      setSerial(kit?.serial ?? "");
-      setNotes(kit?.notes ?? "");
-      setError("");
+      startTransition(() => {
+        setSerial(kit?.serial ?? "");
+        setNotes(kit?.notes ?? "");
+        setError("");
+      });
     }
   }, [open, kit]);
 
@@ -45,6 +47,7 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
       }
       onSaved();
       onClose();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? "Failed to save kit.");
     } finally {

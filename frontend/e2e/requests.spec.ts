@@ -751,6 +751,7 @@ test.describe("Request expected_return field", () => {
     // PocketBase PATCH accepts any valid field — use extra to set expected_return
     await updateRequestStatus(req.id, "open", {
       expected_return: "2030-06-15",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     await loginAs(page, "admin");
