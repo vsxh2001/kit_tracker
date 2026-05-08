@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Package, FileText, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
@@ -8,6 +9,7 @@ import type { Kit, KitRequest, Transaction } from "../types";
 import { cn, formatDate } from "../lib/utils";
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const [kits, setKits] = useState<Kit[]>([]);
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
@@ -45,10 +47,10 @@ export function DashboardPage() {
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" />
-            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" />
-            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" />
-            <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" />
+            <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" onClick={() => navigate("/kits")} />
+            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" onClick={() => navigate("/requests")} />
+            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" onClick={() => navigate("/requests")} />
+            <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" onClick={() => navigate("/requests")} />
           </div>
 
           {/* Recent transactions */}
@@ -74,11 +76,15 @@ export function DashboardPage() {
                     </thead>
                     <tbody>
                       {recentTx.map((tx) => (
-                        <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                        <tr
+                          key={tx.id}
+                          className="border-b last:border-0 hover:bg-indigo-50/40 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/kits/${tx.expand?.kit?.id ?? tx.kit}`)}
+                        >
                           <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
                             {formatDate(tx.timestamp)}
                           </td>
-                          <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
+                          <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700 hover:underline">
                             {tx.expand?.kit?.serial ?? tx.kit}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
@@ -116,15 +122,20 @@ function StatCard({
   label,
   value,
   color,
+  onClick,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
   color: keyof typeof STAT_COLORS;
+  onClick?: () => void;
 }) {
   const colors = STAT_COLORS[color];
   return (
-    <Card className="overflow-hidden relative">
+    <Card
+      className={cn("overflow-hidden relative", onClick && "cursor-pointer hover:shadow-md transition-shadow")}
+      onClick={onClick}
+    >
       {/* Subtle top accent bar */}
       <div className={cn("h-0.5 w-full absolute top-0 left-0", colors.bar)} />
       <CardContent className="p-5 pt-6">
