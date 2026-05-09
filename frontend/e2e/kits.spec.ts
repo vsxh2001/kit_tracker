@@ -172,7 +172,9 @@ test.describe("Kit detail page", () => {
     });
     // Current location section
     await expect(page.getByText("Current location")).toBeVisible();
-    await expect(page.getByText(`${TS}-Entity`)).toBeVisible({
+    // Scope to the Details card to avoid matching entity names in transaction history
+    const detailsCard = page.locator("main").locator("article").first();
+    await expect(detailsCard.getByText(`${TS}-Entity`)).toBeVisible({
       message: "Current entity name should appear",
     });
     // Transaction history section
@@ -248,7 +250,9 @@ test.describe("Kit move (transfer)", () => {
     await page.goto(`/kits/${kitId}`);
 
     // Starting location shown in detail card
-    await expect(page.getByText(`${TS}-FromEnt`)).toBeVisible();
+    // Scope to the Details card to avoid matching entity names in transaction history
+    const detailsCard = page.locator("main").locator("article").first();
+    await expect(detailsCard.getByText(`${TS}-FromEnt`)).toBeVisible();
 
     // Open move dialog
     await page.getByRole("button", { name: /move kit/i }).click();

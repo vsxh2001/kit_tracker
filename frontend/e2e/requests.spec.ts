@@ -64,11 +64,12 @@ test.describe("Requests page — listing", () => {
     await loginAs(page, "admin");
     await page.goto("/requests");
     await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Date" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Requester" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Status" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Kit" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Target" })).toBeVisible();
+    const table = page.locator("table");
+    await expect(table.getByRole("columnheader", { name: "Date" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Requester" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Status" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Kit" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Target" })).toBeVisible();
   });
 
   test("status filter 'Open' shows only open requests", async ({ page }) => {
@@ -242,8 +243,9 @@ test.describe("Request detail — admin approve and reject", () => {
     await page.getByRole("button", { name: "Approve" }).click();
 
     // Status badge in the heading area should update to "approved"
+    // Look for the badge specifically by scoping to the heading area
     await expect(
-      page.getByRole("main").getByText("approved")
+      page.locator("div > h1").nth(0).getByText("approved")
     ).toBeVisible({
       message: "Status should update to 'approved' after approval",
     });
@@ -264,8 +266,9 @@ test.describe("Request detail — admin approve and reject", () => {
     await page.getByRole("button", { name: "Reject" }).click();
 
     // Status badge should update to "rejected"
+    // Look for the badge specifically by scoping to the heading area
     await expect(
-      page.getByRole("main").getByText("rejected")
+      page.locator("div > h1").nth(0).getByText("rejected")
     ).toBeVisible({
       message: "Status should update to 'rejected' after rejection",
     });
@@ -297,12 +300,14 @@ test.describe("Request detail — admin approve and reject", () => {
   test("detail page shows all request fields", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${rejectRequestId}`);
-    await expect(page.getByText("Requester")).toBeVisible();
-    await expect(page.getByText("Date")).toBeVisible();
-    await expect(page.getByText("Status")).toBeVisible();
-    await expect(page.getByText("Designated kit")).toBeVisible();
-    await expect(page.getByText("Target entity")).toBeVisible();
-    await expect(page.getByText("Notes")).toBeVisible();
+    // Scope to the Details card to avoid matching "Date" in other contexts
+    const detailsCard = page.locator("main").locator("article").first();
+    await expect(detailsCard.getByText("Requester")).toBeVisible();
+    await expect(detailsCard.getByText("Date")).toBeVisible();
+    await expect(detailsCard.getByText("Status")).toBeVisible();
+    await expect(detailsCard.getByText("Designated kit")).toBeVisible();
+    await expect(detailsCard.getByText("Target entity")).toBeVisible();
+    await expect(detailsCard.getByText("Notes")).toBeVisible();
     await expect(page.getByText(`${TS}-to-reject`)).toBeVisible({
       message: "Request notes should appear in the Details card",
     });
@@ -367,8 +372,9 @@ test.describe("Request fulfill — atomic transaction + status update", () => {
     await page.getByRole("button", { name: "Fulfill" }).click();
 
     // Status badge should update to "fulfilled"
+    // Look for the badge specifically by scoping to the heading area
     await expect(
-      page.getByRole("main").getByText("fulfilled")
+      page.locator("div > h1").nth(0).getByText("fulfilled")
     ).toBeVisible({
       message: "Status should update to 'fulfilled' after fulfillment",
     });
@@ -405,8 +411,9 @@ test.describe("Request fulfill — atomic transaction + status update", () => {
     await page.getByRole("button", { name: "Fulfill" }).click();
 
     // The handleFulfill guard: "Assign a kit before fulfilling."
+    // Look for the error message in the main content area, not the toast
     await expect(
-      page.getByText(/assign a kit before fulfilling/i)
+      page.locator("p.text-destructive").filter({ hasText: /assign a kit before fulfilling/i })
     ).toBeVisible({
       message: "Error should appear when trying to fulfill without a designated kit",
     });
@@ -802,10 +809,11 @@ test.describe("Request expected_return field", () => {
       page.getByRole("heading", { name: "New Request" })
     ).toBeVisible();
 
-    // The date input should be present
-    await expect(
-      page.getByRole("dialog").locator("input[type='date']")
-    ).toBeVisible({
+    // The expected return date input should be present
+    // In create mode, both delivery date and expected return date inputs are shown
+    // Look for the expected return input by label
+    const expectedReturnInput = page.getByRole("dialog").locator("input[type='date']").nth(1);
+    await expect(expectedReturnInput).toBeVisible({
       message: "Expected return date input should be visible in New Request dialog",
     });
 
