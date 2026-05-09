@@ -26,7 +26,7 @@ create_user() {
   local password="$2"
   local role="$3"
 
-  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+  RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "$PB_URL/api/collections/users/records" \
     -H "Authorization: $TOKEN" \
     -H "Content-Type: application/json" \
@@ -38,11 +38,30 @@ create_user() {
       \"emailVisibility\": true,
       \"verified\": true
     }")
+  HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -1)
+  BODY=$(printf '%s' "$RESPONSE" | head -1)
 
   if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
     echo "  Created $email (role: $role)"
   elif [ "$HTTP_CODE" = "400" ]; then
-    echo "  Skipped $email (already exists or validation error)"
+    # User already exists — look up by email and patch the role
+    USER_ID=$(curl -s "$PB_URL/api/collections/users/records?filter=email='$email'" \
+      -H "Authorization: $TOKEN" \
+      | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -n "$USER_ID" ]; then
+      PATCH_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X PATCH "$PB_URL/api/collections/users/records/$USER_ID" \
+        -H "Authorization: $TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"role\": \"$role\"}")
+      if [ "$PATCH_CODE" = "200" ] || [ "$PATCH_CODE" = "204" ]; then
+        echo "  Updated role for $email to $role"
+      else
+        echo "  WARNING: could not patch role for $email (HTTP $PATCH_CODE)"
+      fi
+    else
+      echo "  Skipped $email (exists but could not find ID)"
+    fi
   else
     echo "  WARNING: unexpected HTTP $HTTP_CODE for $email"
   fi
