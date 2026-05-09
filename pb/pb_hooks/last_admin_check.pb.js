@@ -19,16 +19,19 @@ onRecordBeforeUpdateRequest((e) => {
     return;
   }
 
-  // Count current admins.
-  const admins = $app.dao().findRecordsByFilter(
+  // Count admins *excluding* the record being updated.
+  // If that count is 0, this record is the last admin — reject.
+  // This is atomic: we don't count the record being changed, so two
+  // concurrent demote-last-admin requests both see count=0 and both fail.
+  const otherAdmins = $app.dao().findRecordsByFilter(
     "users",
-    "role = 'admin'",
+    "role = 'admin' && id != '" + e.record.id + "'",
     "",
     0,
     0
   );
 
-  if (admins.length <= 1) {
+  if (otherAdmins.length === 0) {
     throw new BadRequestError("Cannot demote the last admin");
   }
 }, "users");
