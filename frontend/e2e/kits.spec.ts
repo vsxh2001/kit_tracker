@@ -382,15 +382,18 @@ test.describe("Kit retire", () => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: /retire kit/i }).click();
 
-    // After retire, page redirects to /kits
-    await page.waitForURL("**/kits");
+    // Confirm the retire action in the AlertDialog
+    await page.getByRole("alertdialog").getByRole("button", { name: /^retire$/i }).click();
+
+    // After retire, page redirects to /kits - wait for it
+    await page.waitForURL("**/kits", { timeout: 5000 });
 
     // Retired kit (is_active=false) should not appear in active kit list
     await page.getByPlaceholder(/search by serial/i).fill(RETIRE_SERIAL);
     await expect(page.getByText(/no kits found/i)).toBeVisible({
+      timeout: 5000,
       message: "Retired kit should not appear in the active kits list",
     });
   });

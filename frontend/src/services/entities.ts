@@ -14,7 +14,7 @@ export async function createEntity(data: {
   name: string;
   description?: string;
 }) {
-  return pb.collection("entities").create<Entity>({ ...data, is_active: true });
+  return pb.collection("entities").create<Entity>({ ...data, type: "storage", is_active: true });
 }
 
 export async function updateEntity(

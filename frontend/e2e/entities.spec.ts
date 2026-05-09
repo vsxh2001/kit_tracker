@@ -52,8 +52,12 @@ test.describe("Entities page — listing", () => {
   test("new entity appears in list with correct description", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/entities");
-    await expect(page.getByRole("cell", { name: `${TS}-LIST` })).toBeVisible();
-    await expect(page.getByText("list test description")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
+    const nameCell = page.getByRole("cell", { name: `${TS}-LIST` });
+    await expect(nameCell).toBeVisible();
+    // Check that the row contains the description
+    const row = nameCell.locator("..");
+    await expect(row.getByText("list test description")).toBeVisible();
   });
 
   test("admin sees Edit and Deactivate buttons on active entity rows", async ({
@@ -210,21 +214,26 @@ test.describe("Entity deactivate (admin)", () => {
     await loginAs(page, "admin");
     await page.goto("/entities");
 
-    // Accept the browser confirm dialog that appears on Deactivate
-    page.once("dialog", (dialog) => dialog.accept());
+    // Find the row for the entity to deactivate
+    const table = page.locator("table").first();
+    const rows = table.locator("tbody tr");
+    const entityRow = rows.filter({ hasText: DEACT_NAME }).first();
 
-    const row = page.getByRole("row", { name: new RegExp(DEACT_NAME) });
-    await row.getByRole("button", { name: "Deactivate" }).click();
+    // Click Deactivate button
+    await entityRow.getByRole("button", { name: "Deactivate" }).click();
 
-    // After deactivation, Active column for that row should show "No"
-    // and the Deactivate button should be gone (EntitiesPage only renders
-    // Deactivate when e.is_active is true)
-    const updatedRow = page.getByRole("row", { name: new RegExp(DEACT_NAME) });
-    await expect(updatedRow.getByText("No")).toBeVisible({
+    // Confirm the AlertDialog
+    await page.getByRole("alertdialog").getByRole("button", { name: "Deactivate" }).click();
+
+    // After deactivation, wait for the page to reload and check the Active column
+    await expect(entityRow.getByText("No")).toBeVisible({
+      timeout: 5000,
       message: "Active column should show 'No' after deactivation",
     });
+
+    // Deactivate button should be gone
     await expect(
-      updatedRow.getByRole("button", { name: "Deactivate" })
+      entityRow.getByRole("button", { name: "Deactivate" })
     ).not.toBeVisible({ message: "Deactivate button should disappear after deactivation" });
   });
 });
