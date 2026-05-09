@@ -36,6 +36,25 @@ get_collection_id() {
     | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
+echo "Adding 'name' and 'role' fields to users collection..."
+USERS_COL=$(curl -s "$PB_URL/api/collections/_pb_users_auth_" -H "Authorization: $TOKEN")
+curl -s -X PATCH "$PB_URL/api/collections/_pb_users_auth_" \
+  -H "Authorization: $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$(echo "$USERS_COL" | python3 -c "
+import sys, json
+col = json.load(sys.stdin)
+existing = {f['name'] for f in col.get('schema', [])}
+new_fields = []
+if 'name' not in existing:
+    new_fields.append({'name':'name','type':'text','required':False})
+if 'role' not in existing:
+    new_fields.append({'name':'role','type':'select','required':False,'options':{'values':['admin','user','viewer'],'maxSelect':1}})
+col['schema'] = col.get('schema', []) + new_fields
+print(json.dumps(col))
+")" >/dev/null
+echo "Users collection updated."
+
 echo "Creating 'entities' collection..."
 create_collection '{
   "name": "entities",
