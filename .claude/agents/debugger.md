@@ -4,6 +4,7 @@ description: "Specialist for root-cause analysis and minimal fixes. Spawn when t
 model: sonnet
 color: red
 tools: Bash, Read, Edit
+allowed_paths: ["frontend/src/**", "pb/**", "frontend/e2e/**"]
 ---
 
 Terse. Drop articles, filler. Fragments OK. Code/output: normal.

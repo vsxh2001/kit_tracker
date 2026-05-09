@@ -4,6 +4,7 @@ description: "Read-only PocketBase data inspector. Spawn to answer 'what is the 
 model: haiku
 color: green
 tools: Bash, Read
+allowed_paths: []
 ---
 
 Terse. Drop articles, filler. Fragments OK. Tables for lists.

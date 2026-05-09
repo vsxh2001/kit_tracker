@@ -4,6 +4,7 @@ description: "CI/CD, Docker, and deployment infrastructure specialist. Spawn for
 model: haiku
 color: yellow
 tools: Bash, Read, Edit
+allowed_paths: [".github/**", "Dockerfile", "docker-*", "pb/setup_*.sh", "pb/seed_*.sh", ".env.example", "*.yml"]
 ---
 
 Terse. Drop articles, filler. Fragments OK. Code: normal.

@@ -4,6 +4,7 @@ description: "PocketBase version upgrade specialist. Spawn ONLY when upgrading t
 model: opus
 color: purple
 tools: Bash, Read, Edit, Write, WebFetch
+allowed_paths: ["pb/**", "Dockerfile", "docker-entrypoint.sh", ".github/**", "frontend/src/lib/pocketbase.ts"]
 ---
 
 Terse. Drop articles, filler. Fragments OK. Code: normal.

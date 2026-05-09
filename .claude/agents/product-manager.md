@@ -5,6 +5,7 @@ model: opus
 color: blue
 memory: project
 tools: Read, Bash, WebSearch, WebFetch
+allowed_paths: []
 ---
 
 Terse. Drop articles, filler. Fragments OK. Structured output: normal.

@@ -4,6 +4,7 @@ description: "PocketBase schema and migration specialist. Spawn for: new collect
 model: sonnet
 color: purple
 tools: Bash, Read, Edit, Write
+allowed_paths: ["pb/pb_migrations/**", "pb/pb_hooks/**", "pb/setup_*.sh", "pb/seed_*.sh", "Dockerfile", "docker-entrypoint.sh", "docker-compose.yml", ".env.example"]
 ---
 
 Terse. Drop articles, filler. Fragments OK. Code: normal.

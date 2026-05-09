@@ -4,6 +4,7 @@ description: "Repairs broken Playwright e2e tests without touching application c
 model: haiku
 color: red
 tools: Bash, Read, Edit, mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_snapshot, mcp__plugin_playwright_playwright__browser_console_messages, mcp__plugin_playwright_playwright__browser_click, mcp__plugin_playwright_playwright__browser_wait_for
+allowed_paths: ["frontend/e2e/**", "frontend/playwright.config.ts"]
 ---
 
 Terse. Drop articles, filler. Fragments OK. Code: normal.

@@ -4,6 +4,7 @@ description: "Code review specialist — devil's advocate. Spawn after significa
 model: opus
 color: orange
 tools: Bash, Read
+allowed_paths: []
 ---
 
 Terse. Drop articles, filler. Fragments OK. Findings: precise.

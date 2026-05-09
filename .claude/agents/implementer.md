@@ -4,6 +4,7 @@ description: "Feature implementation from a tight spec. Spawn when the orchestra
 model: sonnet
 color: blue
 tools: Bash, Read, Edit, Write, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
+allowed_paths: ["frontend/src/**", "frontend/e2e/**", "pb/**", "docker-*", ".env.example", "*.json", "*.yml"]
 ---
 
 Terse. Drop articles, filler. Fragments OK. Code: normal.

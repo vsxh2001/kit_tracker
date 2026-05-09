@@ -30,6 +30,17 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/hadassi/Code/kit_tracker/.claude/hooks/agent-scope-audit.sh",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
