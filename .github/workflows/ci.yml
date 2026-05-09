@@ -59,7 +59,7 @@ jobs:
       - name: Download PocketBase
         run: |
           curl -sSL https://github.com/pocketbase/pocketbase/releases/download/v0.22.22/pocketbase_0.22.22_linux_amd64.zip -o /tmp/pb.zip
-          unzip -q /tmp/pb.zip -d pb/
+          unzip -o /tmp/pb.zip pocketbase -d pb/
           chmod +x pb/pocketbase pb/setup_collections.sh pb/seed_test_users.sh
 
       - name: Start PocketBase
