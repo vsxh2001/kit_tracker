@@ -88,7 +88,7 @@ create_collection "$(cat <<EOF
   "schema": [
     {"name":"requester","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"date","type":"date","required":true},
-    {"name":"status","type":"select","required":true,"options":{"values":["open","approved","rejected","fulfilled","cancelled"]}},
+    {"name":"status","type":"select","required":true,"options":{"values":["open","approved","rejected","fulfilled","cancelled"],"maxSelect":1}},
     {"name":"designated_kit","type":"relation","options":{"collectionId":"$KITS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"target_entity","type":"relation","options":{"collectionId":"$ENTITIES_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"notes","type":"text"},
