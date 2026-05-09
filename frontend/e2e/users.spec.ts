@@ -270,7 +270,7 @@ test.describe("Users management — multi-user table", () => {
 
       // Assert "Pending" badge
       await expect(
-        pendingRow.getByText("Pending"),
+        pendingRow.getByText("Pending", { exact: true }),
         "Pending badge must appear for role-less user"
       ).toBeVisible();
 
@@ -280,7 +280,7 @@ test.describe("Users management — multi-user table", () => {
       await page.getByRole("option", { name: "User" }).click();
 
       await expect(
-        page.getByText("Role updated"),
+        page.getByText("Role updated", { exact: true }),
         "Success toast must appear after role change"
       ).toBeVisible({ timeout: 6_000 });
 
@@ -326,7 +326,7 @@ test.describe("Users management — multi-user table", () => {
       await page.getByRole("option", { name: "User" }).click();
 
       await expect(
-        page.getByText("Role updated"),
+        page.getByText("Role updated", { exact: true }),
         "Success toast must appear"
       ).toBeVisible({ timeout: 6_000 });
 
@@ -364,7 +364,7 @@ test.describe("Users management — multi-user table", () => {
       ).toBeVisible({ timeout: 5_000 });
 
       await expect(
-        pendingRow.getByText("Pending"),
+        pendingRow.getByText("Pending", { exact: true }),
         "Pending badge must appear in role cell for a user with empty role"
       ).toBeVisible();
     } finally {

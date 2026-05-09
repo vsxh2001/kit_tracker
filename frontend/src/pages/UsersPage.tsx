@@ -75,7 +75,7 @@ export function UsersPage() {
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     return (
-      u.email.toLowerCase().includes(q) ||
+      (u.email ?? "").toLowerCase().includes(q) ||
       (u.name ?? "").toLowerCase().includes(q)
     );
   });
@@ -128,7 +128,7 @@ export function UsersPage() {
                       key={u.id}
                       className={`border-b last:border-0 hover:bg-slate-50 ${isSelf ? "ring-1 ring-inset ring-amber-400" : ""}`}
                     >
-                      <td className="p-3 font-medium">{u.email}</td>
+                      <td className="p-3 font-medium">{u.email ?? "—"}</td>
                       <td className="p-3 text-muted-foreground">{u.name ?? "—"}</td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">

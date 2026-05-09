@@ -27,7 +27,7 @@ onRecordBeforeUpdateRequest((e) => {
     "users",
     "role = 'admin' && id != '" + e.record.id + "'",
     "",
-    0,
+    2,
     0
   );
 
