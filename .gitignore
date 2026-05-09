@@ -1,5 +1,7 @@
 # Environment / secrets
 .env
+client_secret_*.json
+*.googleusercontent.com.json
 
 # PocketBase
 pb/pocketbase

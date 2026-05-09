@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 # Run once after first PocketBase startup to create collections via admin API.
-# Usage: ./setup_collections.sh <admin-email> <admin-password>
+# Usage: ./setup_collections.sh [admin-email] [admin-password]
+# Falls back to PB_SUPERUSER_EMAIL / PB_SUPERUSER_PASSWORD env vars if args omitted.
 
 set -euo pipefail
 
 PB_URL="${PB_URL:-http://127.0.0.1:8090}"
-ADMIN_EMAIL="${1:-admin@example.com}"
-ADMIN_PASSWORD="${2:-password1234}"
+
+if [ $# -ge 2 ]; then
+  ADMIN_EMAIL="$1"
+  ADMIN_PASSWORD="$2"
+else
+  if [ -z "${PB_SUPERUSER_EMAIL:-}" ] || [ -z "${PB_SUPERUSER_PASSWORD:-}" ]; then
+    echo "ERROR: provide credentials as positional args or set PB_SUPERUSER_EMAIL / PB_SUPERUSER_PASSWORD" >&2
+    exit 1
+  fi
+  ADMIN_EMAIL="$PB_SUPERUSER_EMAIL"
+  ADMIN_PASSWORD="$PB_SUPERUSER_PASSWORD"
+fi
 
 echo "Authenticating with PocketBase at $PB_URL..."
 TOKEN=$(curl -s -X POST "$PB_URL/api/admins/auth-with-password" \
@@ -66,9 +77,9 @@ create_collection '{
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
-  "createRule": "@request.auth.verified = true",
-  "updateRule": "@request.auth.verified = true",
-  "deleteRule": "@request.auth.role = \"admin\""
+  "createRule": "@request.auth.role = \"admin\"",
+  "updateRule": "@request.auth.role = \"admin\"",
+  "deleteRule": null
 }' >/dev/null
 
 echo "Creating 'kits' collection..."
@@ -82,8 +93,8 @@ create_collection '{
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
-  "createRule": "@request.auth.verified = true",
-  "updateRule": "@request.auth.verified = true",
+  "createRule": "@request.auth.role = \"admin\"",
+  "updateRule": "@request.auth.role = \"admin\"",
   "deleteRule": null
 }' >/dev/null
 
@@ -147,7 +158,7 @@ create_collection "$(cat <<EOF
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
-  "createRule": "@request.auth.verified = true",
+  "createRule": "@request.auth.id != \"\" && @request.data.created_by = @request.auth.id",
   "updateRule": null,
   "deleteRule": null
 }
