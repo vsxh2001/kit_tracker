@@ -9,8 +9,11 @@
 | `db-engineer` | sonnet | PocketBase schema/migration work. New fields, rule changes, indexes. |
 | `devops` | sonnet | CI failure, Dockerfile break, workflow change. Infrastructure, not app code. |
 | `reviewer` | opus | Independent second opinion after significant implementation. Read-only. |
+| `test-fixer` | sonnet | Repair a specific broken Playwright test. Does NOT write new tests. |
+| `migrator` | opus | PocketBase version upgrade. Touches binary, CLI syntax, endpoints, Docker, CI atomically. |
+| `data-analyst` | sonnet | Read-only DB queries. "What kits are at entity X?" "How many open requests?" |
 | `code-architect` | opus | Design decision. "How should we structure X?" before building. |
-| `qa-playwright-specialist` | sonnet | Write or fix Playwright e2e tests for a specific user flow. |
+| `qa-playwright-specialist` | sonnet | Write new Playwright e2e tests for a user flow. |
 | `product-manager` | opus | Feature prioritization, roadmap, "should we build X?" |
 
 ---
@@ -76,6 +79,36 @@ Changed files:
   - path/to/file2.tsx
 Context: <one sentence — what this change is supposed to do>
 Focus on: <specific concerns — e.g. "atomicity of fulfillRequest", "role gating on new button">
+```
+
+### test-fixer
+
+```
+Failing test: "<exact test name from test('...')"
+Spec file: frontend/e2e/<spec>.spec.ts
+Error: <paste failure output>
+Reproduce: cd frontend && npx playwright test e2e/<spec>.spec.ts --project=chromium --grep "<test name>"
+Stop when: that command exits 0
+Do NOT: touch app code, touch passing tests, change API helpers beyond adding missing fields
+```
+
+### migrator
+
+```
+Target version: 0.XX.X
+Current version: 0.22.22
+Reason: <why upgrading>
+Changelog URL: https://github.com/pocketbase/pocketbase/releases/tag/v0.XX.X
+Test with: run setup_collections.sh + seed_test_users.sh locally after binary swap
+Do NOT: change collection schema, touch frontend code
+```
+
+### data-analyst
+
+```
+Question: <what you want to know about the data>
+PB admin: <email> / <password>
+Scope: <any filters — time range, specific entity/kit, status>
 ```
 
 ### code-architect
