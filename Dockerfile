@@ -42,6 +42,12 @@ RUN chmod +x ./docker-entrypoint.sh
 # Copy the built frontend into pb_public (served by PocketBase)
 COPY --from=builder --chown=pbuser:pbuser /build/dist ./pb_public
 
+# Copy pb directory (migrations + hooks); pb_data is intentionally excluded
+# via .dockerignore / volume mount — only schema files travel in the image.
+COPY --chown=pbuser:pbuser pb/pb_migrations/ ./pb/pb_migrations/
+COPY --chown=pbuser:pbuser pb/pb_hooks/ ./pb/pb_hooks/
+COPY --chown=pbuser:pbuser pb/setup_collections.sh pb/seed_test_users.sh pb/setup_oauth.sh ./pb/
+
 # Create pb_data as pbuser so the named volume inherits the correct ownership
 RUN mkdir -p /app/pb_data && chown pbuser:pbuser /app/pb_data
 
