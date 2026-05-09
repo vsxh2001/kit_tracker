@@ -21,7 +21,7 @@ test.describe("Login page", () => {
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   });
 
   test("unauthenticated user is redirected to /login", async ({ page }) => {
@@ -36,7 +36,7 @@ test.describe("Login page", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("nobody@example.com");
     await page.getByLabel("Password").fill("wrongpassword");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByText(/invalid email or password/i)).toBeVisible({
       message: "Error message should appear for bad credentials",
     });

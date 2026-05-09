@@ -19,7 +19,7 @@ export async function loginAs(page: Page, role: Role): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: /sign in/i }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
 
   // Wait until the dashboard loads (redirected from /login)
   await page.waitForURL("**/dashboard", { timeout: 10_000 });
