@@ -1,12 +1,8 @@
 /**
  * E2E tests for the Users management feature.
  *
- * KNOWN BACKEND BUG (tests 4, 5, 7 marked test.fail):
- *   The users collection has listRule: "id = @request.auth.id".
- *   This means even an admin calling getFullList receives only their own record.
- *   Tests requiring other-user rows in the /users table are expected to fail
- *   until a migration sets:
- *     listRule: @request.auth.role = "admin" || id = @request.auth.id
+ * Backend listRule fix shipped in migration 1778347000_users_admin_listrule.js
+ * (admin OR self). Multi-user table tests below now run as regular tests.
  */
 
 import { test, expect } from "@playwright/test";
@@ -242,24 +238,14 @@ test.describe.serial("Users management — self-row and search", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Group 3 — Multi-user table tests (EXPECTED TO FAIL until listRule fixed)
-// Marked test.fail() so they're reported as "expected failures" rather than
-// blocking the suite. When the backend bug is fixed, remove test.fail().
+// Group 3 — Multi-user table tests (admin lists + manages other users)
 // ---------------------------------------------------------------------------
 
-test.describe("Users management — multi-user table (BLOCKED: listRule bug)", () => {
+test.describe("Users management — multi-user table", () => {
   // -------------------------------------------------------------------------
   // Test 5 — admin promotes pending user to "user" role
-  // KNOWN_BUG: listRule prevents admin from seeing other users' rows
   // -------------------------------------------------------------------------
   test("admin can promote pending user to user role", async ({ page }) => {
-    // test.fail() marks this test as expected-to-fail.
-    // When the backend listRule is fixed, remove the test.fail() call.
-    test.fail(
-      true,
-      "BACKEND BUG: listRule='id=@request.auth.id' prevents admin from listing other users"
-    );
-
     const ts = Date.now();
     const email = `pending-${ts}@test.local`;
     let userId = "";
@@ -313,11 +299,6 @@ test.describe("Users management — multi-user table (BLOCKED: listRule bug)", (
   test("admin can demote another admin when ≥2 admins exist", async ({
     page,
   }) => {
-    test.fail(
-      true,
-      "BACKEND BUG: listRule='id=@request.auth.id' prevents admin from seeing other admins"
-    );
-
     const ts = Date.now();
     const email = `extra-admin-${ts}@test.local`;
     let userId = "";
@@ -361,11 +342,6 @@ test.describe("Users management — multi-user table (BLOCKED: listRule bug)", (
   // KNOWN_BUG: same listRule issue
   // -------------------------------------------------------------------------
   test("Pending badge shown for user with empty role", async ({ page }) => {
-    test.fail(
-      true,
-      "BACKEND BUG: listRule='id=@request.auth.id' prevents admin from seeing pending users"
-    );
-
     const ts = Date.now();
     const email = `pending-badge-${ts}@test.local`;
     let userId = "";
