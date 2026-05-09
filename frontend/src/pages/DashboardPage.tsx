@@ -58,8 +58,8 @@ export function DashboardPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" onClick={() => navigate("/kits")} />
-            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" onClick={() => navigate("/requests")} />
-            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" onClick={() => navigate("/requests")} />
+            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" onClick={() => navigate("/requests?status=open")} />
+            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" onClick={() => navigate("/requests?status=approved")} />
             <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" onClick={() => navigate("/requests")} />
           </div>
 

@@ -126,7 +126,7 @@ test.describe("Dashboard — clickable stat cards", () => {
 
   test("'Open requests' stat card navigates to /requests", async ({ page }) => {
     await page.getByText("Open requests").click();
-    await expect(page).toHaveURL(/\/requests$/);
+    await expect(page).toHaveURL(/\/requests\?status=open$/);
     await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
   });
 
@@ -134,7 +134,7 @@ test.describe("Dashboard — clickable stat cards", () => {
     page,
   }) => {
     await page.getByText("Awaiting fulfillment").click();
-    await expect(page).toHaveURL(/\/requests$/);
+    await expect(page).toHaveURL(/\/requests\?status=approved$/);
     await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
   });
 
