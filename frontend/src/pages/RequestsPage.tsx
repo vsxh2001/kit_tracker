@@ -1,5 +1,5 @@
-import { useEffect, useState, startTransition } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useMemo, startTransition } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Plus, ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -10,13 +10,25 @@ import { listRequests } from "../services/requests";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
-import type { KitRequest } from "../types";
+import type { KitRequest, RequestStatus } from "../types";
+
+const VALID_STATUSES: RequestStatus[] = ["open", "approved", "rejected", "fulfilled", "cancelled"];
+
+function isValidStatus(s: string | null): s is RequestStatus {
+  return VALID_STATUSES.includes(s as RequestStatus);
+}
+
+function getStatusFromParams(params: URLSearchParams): RequestStatus | "all" {
+  const s = params.get("status");
+  return isValidStatus(s) ? s : "all";
+}
 
 export function RequestsPage() {
   const { user, isAdmin } = useAuth();
   const canCreate = isAdmin || user?.role === "user";
+  const [searchParams, setSearchParams] = useSearchParams();
   const [requests, setRequests] = useState<KitRequest[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const statusFilter = useMemo(() => getStatusFromParams(searchParams), [searchParams]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +67,13 @@ export function RequestsPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={(v) => {
+          if (v === "all") {
+            setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("status"); return next; }, { replace: true });
+          } else {
+            setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("status", v); return next; }, { replace: true });
+          }
+        }}>
           <SelectTrigger className="w-44">
             <SelectValue />
           </SelectTrigger>
