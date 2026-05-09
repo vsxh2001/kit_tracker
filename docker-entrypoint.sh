@@ -4,6 +4,17 @@ set -e
 : "${PB_SUPERUSER_EMAIL:?PB_SUPERUSER_EMAIL must be set}"
 : "${PB_SUPERUSER_PASSWORD:?PB_SUPERUSER_PASSWORD must be set}"
 
+# NOTE: PocketBase v0.22's `admin create` command unconditionally requires the
+# password as a positional CLI argument (argv[2]).  It provides no --password-file
+# flag, no stdin mode, and no environment-variable alternative.  As a result the
+# password is briefly visible in /proc/<pid>/cmdline of the pocketbase child
+# process while this command runs.  This is a known upstream CLI limitation —
+# see https://github.com/pocketbase/pocketbase/issues — and cannot be worked
+# around at the call-site without patching PocketBase itself.  Mitigation: run
+# the container in a trusted execution environment and restrict /proc access
+# (e.g. Docker's default hidepid=0 can be tightened with a custom seccomp/pid-ns
+# profile).  Once PB adds a --password-file or stdin option this line should be
+# updated accordingly.
 ./pocketbase admin create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" \
   --dir=/app/pb_data 2>/dev/null || true
 
