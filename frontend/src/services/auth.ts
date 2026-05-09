@@ -17,3 +17,7 @@ export function getCurrentUser(): PBUser | null {
 export function isAdmin(): boolean {
   return getCurrentUser()?.role === "admin";
 }
+
+export async function loginWithGoogle() {
+  return pb.collection("users").authWithOAuth2({ provider: "google" });
+}

@@ -7,13 +7,17 @@ import { listRequests } from "../services/requests";
 import { listRecentTransactions } from "../services/transactions";
 import type { Kit, KitRequest, Transaction } from "../types";
 import { cn, formatDate } from "../lib/utils";
+import { useAuth } from "../context/AuthContext";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [kits, setKits] = useState<Kit[]>([]);
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const pendingApproval = !user?.role;
 
   useEffect(() => {
     Promise.all([
@@ -36,6 +40,12 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-7">
+      {pendingApproval && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Your account is awaiting admin approval. You can browse but actions are limited until your role is assigned.
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Equipment overview and recent activity</p>
