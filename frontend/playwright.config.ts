@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const isDockerMode = process.env.PLAYWRIGHT_TEST_BASE_URL === "http://localhost:8090";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false, // PocketBase is shared state — run serially
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:5173",
     trace: "on-first-retry",
     launchOptions: {
       ...(process.env.CI ? {} : { executablePath: "/usr/bin/google-chrome" }),
@@ -24,7 +26,8 @@ export default defineConfig({
   // Health-check both backing servers before tests run. PocketBase (8090) and
   // Vite (5173) must already be running — these entries fail fast with a clear
   // message instead of timing out test-by-test if a server is down.
-  webServer: [
+  // Skipped if PLAYWRIGHT_TEST_BASE_URL is set (docker compose mode).
+  webServer: isDockerMode ? undefined : [
     {
       command:
         'echo "PocketBase must be running on 8090 — start with ./pb/pocketbase serve --dir=pb/pb_data" && exit 1',

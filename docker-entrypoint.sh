@@ -18,11 +18,16 @@ set -e
 ./pocketbase admin create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" \
   --dir=/app/pb_data 2>/dev/null || true
 
+# Initialize migrations before starting PocketBase (required for schema).
+./pocketbase migrate up --dir=/app/pb_data --migrationsDir=/app/pb/pb_migrations || true
+
 # Start PocketBase in the background so bootstrap scripts can call its API.
 ./pocketbase serve \
   --http=0.0.0.0:8090 \
   --dir=/app/pb_data \
-  --publicDir=/app/pb_public &
+  --publicDir=/app/pb_public \
+  --migrationsDir=/app/pb/pb_migrations \
+  --hooksDir=/app/pb/pb_hooks &
 PB_PID=$!
 
 # Wait for the API to become ready (up to 30 s).
@@ -39,6 +44,9 @@ done
 # Run setup_collections.sh — credentials come from env vars, no argv leak.
 # Failure stops the container: broken schema → broken app.
 /app/pb/setup_collections.sh
+
+# Seed test users for Playwright e2e tests
+/app/pb/seed_test_users.sh || true
 
 # Google OAuth handling — credentials come from env vars, no argv leak.
 if [ -n "${GOOGLE_OAUTH_DISABLE:-}" ]; then
