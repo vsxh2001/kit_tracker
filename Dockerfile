@@ -18,9 +18,15 @@ RUN npm run build
 # Stage 2: Runtime image
 FROM debian:bookworm-slim AS runtime
 
-# Install curl for healthcheck; clean up afterwards
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+ARG PB_VERSION=0.22.22
+
+# Install curl + unzip to download PocketBase; clean up afterwards
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip \
+    && curl -sSL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip" -o /tmp/pb.zip \
+    && unzip -q /tmp/pb.zip -d /tmp/pb \
+    && mv /tmp/pb/pocketbase /usr/local/bin/pocketbase \
+    && chmod +x /usr/local/bin/pocketbase \
+    && rm -rf /tmp/pb /tmp/pb.zip /var/lib/apt/lists/*
 
 # Run as a non-root user
 RUN groupadd --gid 1001 pbuser \
@@ -28,9 +34,9 @@ RUN groupadd --gid 1001 pbuser \
 
 WORKDIR /app
 
-# Copy the PocketBase binary and entrypoint
-COPY --chown=pbuser:pbuser pb/pocketbase ./pocketbase
-COPY --chown=pbuser:pbuser docker-entrypoint.sh ./docker-entrypoint.sh
+# Symlink pocketbase into workdir for entrypoint compatibility
+RUN ln -s /usr/local/bin/pocketbase /app/pocketbase
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
 # Copy the built frontend into pb_public (served by PocketBase)

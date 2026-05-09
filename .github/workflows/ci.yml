@@ -56,8 +56,11 @@ jobs:
       - name: Install Playwright browsers
         run: cd frontend && npx playwright install chromium --with-deps
 
-      - name: Make binaries executable
-        run: chmod +x pb/pocketbase pb/setup_collections.sh pb/seed_test_users.sh
+      - name: Download PocketBase
+        run: |
+          curl -sSL https://github.com/pocketbase/pocketbase/releases/download/v0.22.22/pocketbase_0.22.22_linux_amd64.zip -o /tmp/pb.zip
+          unzip -q /tmp/pb.zip -d pb/
+          chmod +x pb/pocketbase pb/setup_collections.sh pb/seed_test_users.sh
 
       - name: Start PocketBase
         run: ./pb/pocketbase serve --http=0.0.0.0:8090 --dir=/tmp/pb_data &
@@ -66,7 +69,7 @@ jobs:
         run: timeout 30 bash -c 'until curl -sf http://127.0.0.1:8090/api/health; do sleep 1; done'
 
       - name: Create CI admin
-        run: ./pb/pocketbase superuser create ci@example.com CIpassword123! --dir=/tmp/pb_data
+        run: ./pb/pocketbase admin create ci@example.com CIpassword123! --dir=/tmp/pb_data
 
       - name: Set up collections
         run: ./pb/setup_collections.sh ci@example.com CIpassword123!
