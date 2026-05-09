@@ -7,11 +7,11 @@
 | `debugger` | sonnet | Specific reproducible error. You have: error text, file, reproduce command. |
 | `implementer` | sonnet | Build a feature from a complete spec. Architecture already decided. |
 | `db-engineer` | sonnet | PocketBase schema/migration work. New fields, rule changes, indexes. |
-| `devops` | sonnet | CI failure, Dockerfile break, workflow change. Infrastructure, not app code. |
+| `devops` | haiku | CI failure, Dockerfile break, workflow change. Infrastructure pattern matching. |
 | `reviewer` | opus | Independent second opinion after significant implementation. Read-only. |
-| `test-fixer` | sonnet | Repair a specific broken Playwright test. Does NOT write new tests. |
-| `migrator` | opus | PocketBase version upgrade. Touches binary, CLI syntax, endpoints, Docker, CI atomically. |
-| `data-analyst` | sonnet | Read-only DB queries. "What kits are at entity X?" "How many open requests?" |
+| `test-fixer` | haiku | Repair a specific broken Playwright test. Does NOT write new tests. |
+| `migrator` | opus | PocketBase version upgrade. Touches all 6 affected files atomically. |
+| `data-analyst` | haiku | Read-only DB queries. "What kits are at entity X?" "How many open requests?" |
 | `code-architect` | opus | Design decision. "How should we structure X?" before building. |
 | `qa-playwright-specialist` | sonnet | Write new Playwright e2e tests for a user flow. |
 | `product-manager` | opus | Feature prioritization, roadmap, "should we build X?" |
