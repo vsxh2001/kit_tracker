@@ -94,6 +94,8 @@ test.describe("Google OAuth — login page UI", () => {
   test("clicking Sign in with Google initiates OAuth flow (button is functional)", async ({
     page,
   }) => {
+    test.skip(!process.env.GOOGLE_OAUTH_CLIENT_ID, "Google OAuth not configured in this environment");
+
     await page.goto(loginURL());
 
     const googleBtn = page.getByRole("button", { name: /sign in with google/i });
@@ -106,24 +108,18 @@ test.describe("Google OAuth — login page UI", () => {
     // than doing nothing.
     await googleBtn.click();
 
-    // After click, the button should either show a loading state or the page should
-    // attempt navigation (URL change) or show an error. Any of these confirms the
-    // handler fired. Wait briefly for state change.
-    await page.waitForTimeout(2000);
-    // Note: waitForTimeout is acceptable here — we're waiting for a side-effect from
-    // an external service that cannot be awaited deterministically in headless mode.
+    // Race the three possible post-click outcomes. First to resolve wins; if none
+    // resolves within 5 s the test fails fast (no 2-second unconditional sleep).
+    const TIMEOUT = 5_000;
+    const loadingVisible = page.getByText(/signing in/i).waitFor({ state: "visible", timeout: TIMEOUT });
+    const errorVisible = page.getByText(/google sign-in failed/i).waitFor({ state: "visible", timeout: TIMEOUT });
+    const redirectedToGoogle = page.waitForURL(/accounts\.google\.com/, { timeout: TIMEOUT });
 
-    // The button should now either show "Signing in…" (loading) or the page should
-    // show an error (headless popup blocked). Either outcome confirms the handler ran.
-    const isLoadingOrError =
-      (await page.getByText(/signing in/i).isVisible()) ||
-      (await page.getByText(/google sign-in failed/i).isVisible()) ||
-      (await page.url().includes("accounts.google.com"));
-
-    expect(
-      isLoadingOrError,
-      "After clicking Sign in with Google, either a loading state, error message, or redirect to Google should occur — confirms handler is wired up"
-    ).toBe(true);
+    await Promise.race([loadingVisible, errorVisible, redirectedToGoogle]).catch(() => {
+      throw new Error(
+        "After clicking Sign in with Google, neither a loading state, error message, nor redirect to Google occurred within 5 s — confirms handler is NOT wired up"
+      );
+    });
   });
 
   test("password sign-in still works alongside Google OAuth button", async ({
