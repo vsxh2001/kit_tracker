@@ -9,7 +9,7 @@ ADMIN_EMAIL="${1:-admin@example.com}"
 ADMIN_PASSWORD="${2:-password1234}"
 
 echo "Authenticating with PocketBase at $PB_URL..."
-TOKEN=$(curl -s -X POST "$PB_URL/api/collections/_superusers/auth-with-password" \
+TOKEN=$(curl -s -X POST "$PB_URL/api/admins/auth-with-password" \
   -H "Content-Type: application/json" \
   -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" \
   | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
