@@ -17,6 +17,7 @@ services:
       PB_SUPERUSER_PASSWORD: ${PB_SUPERUSER_PASSWORD:?PB_SUPERUSER_PASSWORD must be set in .env}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_DISABLE: ${GOOGLE_OAUTH_DISABLE:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
       interval: 30s
