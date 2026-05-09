@@ -1,4 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -23,6 +24,7 @@ type ConfirmKind = "deactivate" | "delete";
 interface PendingConfirm { kind: ConfirmKind; entity: Entity; }
 
 export function EntitiesPage() {
+  const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -108,7 +110,7 @@ export function EntitiesPage() {
                   <tr><td colSpan={isAdmin ? 4 : 3} className="p-4 text-center text-muted-foreground">No entities.</td></tr>
                 )}
                 {entities.map((e) => (
-                  <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50">
+                  <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => navigate(`/entities/${e.id}`)}>
                     <td className="p-3 font-medium">{e.name}</td>
                     <td className="p-3 text-muted-foreground">{e.description ?? "—"}</td>
                     <td className="p-3">
@@ -119,13 +121,13 @@ export function EntitiesPage() {
                     {isAdmin && (
                       <td className="p-3">
                         <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(e)}>Edit</Button>
+                          <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}>Edit</Button>
                           {e.is_active && (
-                            <Button variant="ghost" size="sm" onClick={() => setPending({ kind: "deactivate", entity: e })}>
+                            <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "deactivate", entity: e }); }}>
                               Deactivate
                             </Button>
                           )}
-                          <Button variant="destructive" size="sm" onClick={() => setPending({ kind: "delete", entity: e })}>
+                          <Button variant="destructive" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "delete", entity: e }); }}>
                             Delete
                           </Button>
                         </div>

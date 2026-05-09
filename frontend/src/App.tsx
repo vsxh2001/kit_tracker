@@ -9,10 +9,13 @@ import { KitDetailPage } from "./pages/KitDetailPage";
 import { EntitiesPage } from "./pages/EntitiesPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
+import { EntityDetailPage } from "./pages/EntityDetailPage";
 import { Toaster } from "./components/ui/toaster";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <Toaster />
       <BrowserRouter>
@@ -31,6 +34,7 @@ export default function App() {
             <Route path="kits" element={<KitsPage />} />
             <Route path="kits/:id" element={<KitDetailPage />} />
             <Route path="entities" element={<EntitiesPage />} />
+            <Route path="entities/:id" element={<EntityDetailPage />} />
             <Route path="requests" element={<RequestsPage />} />
             <Route path="requests/:id" element={<RequestDetailPage />} />
           </Route>
@@ -38,5 +42,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
