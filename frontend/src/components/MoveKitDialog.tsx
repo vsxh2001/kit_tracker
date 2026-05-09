@@ -4,7 +4,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "./ui/dialog";
+import { toast } from "./ui/use-toast";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -51,6 +53,7 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
         toEntityId,
         notes: notes.trim() || undefined,
       });
+      toast({ title: "Kit moved", description: `${kit.serial} transferred.`, variant: "success" });
       onMoved();
       onClose();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +69,9 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Move Kit — {kit.serial}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Transfer this kit to another entity. Creates a transaction record.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div>

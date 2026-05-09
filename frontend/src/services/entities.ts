@@ -30,7 +30,7 @@ export async function deleteEntity(id: string): Promise<void> {
 
 export async function getEntityTransactions(entityId: string) {
   return pb.collection("transactions").getFullList<Transaction>({
-    filter: `from_entity = "${entityId}" || to_entity = "${entityId}"`,
+    filter: pb.filter("from_entity = {:id} || to_entity = {:id}", { id: entityId }),
     sort: "-timestamp,-created",
     expand: "kit,from_entity,to_entity,created_by",
   });

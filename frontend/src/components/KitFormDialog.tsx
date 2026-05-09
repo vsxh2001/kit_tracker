@@ -4,7 +4,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "./ui/dialog";
+import { toast } from "./ui/use-toast";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -42,8 +44,10 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
     try {
       if (kit) {
         await updateKit(kit.id, { serial: serial.trim(), notes: notes.trim() });
+        toast({ title: "Kit updated", variant: "success" });
       } else {
         await createKit({ serial: serial.trim(), notes: notes.trim() });
+        toast({ title: "Kit created", variant: "success" });
       }
       onSaved();
       onClose();
@@ -60,6 +64,9 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{kit ? "Edit Kit" : "New Kit"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {kit ? "Update kit serial and notes." : "Register a new kit with a serial number and optional notes."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">

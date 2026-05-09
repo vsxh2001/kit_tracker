@@ -140,12 +140,12 @@ frontend/src/
 
 ### E2E tests
 
-Playwright tests live in `e2e_workflows.mjs`. They require both PocketBase and the Vite dev server to be running:
+Playwright tests live in `frontend/e2e/*.spec.ts`. They require both PocketBase and the Vite dev server to be running:
 
 ```bash
-./pb/pocketbase serve &
+./pb/pocketbase serve --dir=pb/pb_data &
 cd frontend && npm run dev &
-npm test                    # runs from repo root
+cd frontend && npm run test   # run from frontend/, not repo root
 ```
 
 ### CI/CD (GitHub Actions)

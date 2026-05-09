@@ -29,6 +29,8 @@ cp .env.example .env                     # set PB_SUPERUSER_EMAIL / PB_SUPERUSER
 docker compose up --build                # build + run (frontend served by PocketBase on :8090)
 ```
 
+> **Note:** Run `npm install` from repo root (not just `frontend/`) to install husky pre-commit hooks.
+
 ## E2E Tests
 
 Playwright tests live in `frontend/e2e/`. Tests require both PocketBase and Vite running **before** `npm run test`. The three test users (`logistics@kit.local`, `requester@kit.local`, `viewer@kit.local`, all `Pass1234!`) must exist — run `seed_test_users.sh` once.
@@ -64,11 +66,15 @@ Two independent processes: PocketBase (port 8090) and Vite dev server (port 5173
 
 ### Collection rules summary
 
-| Collection | updateRule | deleteRule |
-|---|---|---|
-| `requests` | admin OR (owner AND status=open) | admin OR (owner AND status=open) |
-| `entities` | admin only | admin only |
-| `kits` | admin only | null (soft-delete via `is_active=false`) |
+`pb/pb_migrations/` is the source of truth — migrations auto-apply on `pocketbase serve`. `setup_collections.sh` is a secondary convenience script.
+
+| Collection | createRule | updateRule | deleteRule |
+|---|---|---|---|
+| `requests` | admin or user role | admin OR (owner AND status=open) | admin OR (owner AND status=open) |
+| `entities` | admin only | admin only | null (soft-delete via `is_active=false`) |
+| `kits` | admin only | admin only | null (soft-delete via `is_active=false`) |
+| `transactions` | auth + own created_by | null (append-only) | null (append-only) |
+| `users` | (PB default) | (PB default) | (PB default) — viewRule: any authenticated user |
 
 ### Frontend structure
 

@@ -21,8 +21,23 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  // No webServer block — assumes both PocketBase (8090) and Vite (5173) are
-  // already running. Start them with:
-  //   ./pb/pocketbase serve &
-  //   cd frontend && npm run dev &
+  // Health-check both backing servers before tests run. PocketBase (8090) and
+  // Vite (5173) must already be running — these entries fail fast with a clear
+  // message instead of timing out test-by-test if a server is down.
+  webServer: [
+    {
+      command:
+        'echo "PocketBase must be running on 8090 — start with ./pb/pocketbase serve --dir=pb/pb_data" && exit 1',
+      url: "http://127.0.0.1:8090/api/health",
+      reuseExistingServer: true,
+      timeout: 5_000,
+    },
+    {
+      command:
+        'echo "Vite must be running on 5173 — start with cd frontend && npm run dev" && exit 1',
+      url: "http://localhost:5173",
+      reuseExistingServer: true,
+      timeout: 5_000,
+    },
+  ],
 });

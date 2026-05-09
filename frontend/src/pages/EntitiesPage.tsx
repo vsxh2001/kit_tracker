@@ -6,7 +6,21 @@ import { Card, CardContent } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { listEntities, updateEntity, deleteEntity } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
+import { toast } from "../components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
 import type { Entity } from "../types";
+
+type ConfirmKind = "deactivate" | "delete";
+interface PendingConfirm { kind: ConfirmKind; entity: Entity; }
 
 export function EntitiesPage() {
   const { isAdmin } = useAuth();
@@ -14,7 +28,7 @@ export function EntitiesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Entity | undefined>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingConfirm | null>(null);
 
   async function load() {
     setLoading(true);
@@ -40,21 +54,26 @@ export function EntitiesPage() {
     setEditTarget(undefined);
   }
 
-  async function handleDeactivate(e: Entity) {
-    if (!confirm(`Deactivate "${e.name}"?`)) return;
-    await updateEntity(e.id, { is_active: false });
-    load();
-  }
-
-  async function handleDelete(e: Entity) {
-    if (!confirm(`Delete "${e.name}"? This cannot be undone.`)) return;
+  async function confirmAction() {
+    if (!pending) return;
+    const { kind, entity } = pending;
+    setPending(null);
     try {
-      await deleteEntity(e.id);
-      setError(null);
+      if (kind === "deactivate") {
+        await updateEntity(entity.id, { is_active: false });
+        toast({ title: "Entity deactivated", description: entity.name, variant: "success" });
+      } else {
+        await deleteEntity(entity.id);
+        toast({ title: "Entity deleted", description: entity.name, variant: "success" });
+      }
       load();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err?.message ?? "Failed to delete entity.");
+      toast({
+        title: kind === "deactivate" ? "Failed to deactivate" : "Failed to delete",
+        description: err?.message,
+        variant: "destructive",
+      });
     }
   }
 
@@ -69,10 +88,6 @@ export function EntitiesPage() {
           </Button>
         )}
       </div>
-
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
 
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
@@ -106,11 +121,11 @@ export function EntitiesPage() {
                         <div className="flex gap-1 justify-end">
                           <Button variant="ghost" size="sm" onClick={() => openEdit(e)}>Edit</Button>
                           {e.is_active && (
-                            <Button variant="ghost" size="sm" onClick={() => handleDeactivate(e)}>
+                            <Button variant="ghost" size="sm" onClick={() => setPending({ kind: "deactivate", entity: e })}>
                               Deactivate
                             </Button>
                           )}
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(e)}>
+                          <Button variant="destructive" size="sm" onClick={() => setPending({ kind: "delete", entity: e })}>
                             Delete
                           </Button>
                         </div>
@@ -130,6 +145,32 @@ export function EntitiesPage() {
         onClose={closeForm}
         onSaved={load}
       />
+
+      <AlertDialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending?.kind === "deactivate"
+                ? `Deactivate "${pending?.entity.name}"?`
+                : `Delete "${pending?.entity.name}"?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending?.kind === "deactivate"
+                ? "Inactive entities are hidden from new transactions but historical records remain."
+                : "This permanently removes the entity. Cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={pending?.kind === "delete" ? "destructive" : "default"}
+              onClick={confirmAction}
+            >
+              {pending?.kind === "deactivate" ? "Deactivate" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

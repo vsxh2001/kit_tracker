@@ -84,9 +84,16 @@ jobs:
         run: cd frontend && npm run test:ci
 
       - name: Upload Playwright report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
+
+      - name: Stop background services
+        if: always()
+        run: |
+          pkill -f "pocketbase serve" || true
+          pkill -f "vite" || true
+          pkill -f "npm run dev" || true

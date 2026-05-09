@@ -33,7 +33,7 @@ export function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between w-[420px] shrink-0 px-12 py-14 border-r border-white/10">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center shrink-0">
-            <Box className="h-4.5 w-4.5 text-white" style={{ width: "18px", height: "18px" }} />
+            <Box className="text-white" style={{ width: "18px", height: "18px" }} />
           </div>
           <span className="font-semibold text-white tracking-tight text-sm">Kit Tracker</span>
         </div>

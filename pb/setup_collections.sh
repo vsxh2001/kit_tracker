@@ -25,7 +25,15 @@ create_collection() {
   curl -s -X POST "$PB_URL/api/collections" \
     -H "Authorization: $TOKEN" \
     -H "Content-Type: application/json" \
-    -d "$body" | grep -o '"id":"[^"]*"' | head -1 || true
+    -d "$body"
+}
+
+# Fetch a collection's id by name. Returns empty string if not found.
+get_collection_id() {
+  local name="$1"
+  curl -s "$PB_URL/api/collections/$name" \
+    -H "Authorization: $TOKEN" \
+    | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
 echo "Creating 'entities' collection..."
@@ -42,7 +50,7 @@ create_collection '{
   "createRule": "@request.auth.verified = true",
   "updateRule": "@request.auth.verified = true",
   "deleteRule": "@request.auth.role = \"admin\""
-}'
+}' >/dev/null
 
 echo "Creating 'kits' collection..."
 create_collection '{
@@ -58,38 +66,31 @@ create_collection '{
   "createRule": "@request.auth.verified = true",
   "updateRule": "@request.auth.verified = true",
   "deleteRule": null
-}'
+}' >/dev/null
 
-echo "Creating 'transactions' collection..."
-create_collection '{
-  "name": "transactions",
-  "type": "base",
-  "schema": [
-    {"name":"kit","type":"relation","required":true,"options":{"collectionId":"_KITS_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
-    {"name":"from_entity","type":"relation","options":{"collectionId":"_ENTITIES_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
-    {"name":"to_entity","type":"relation","required":true,"options":{"collectionId":"_ENTITIES_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
-    {"name":"timestamp","type":"date","required":true},
-    {"name":"notes","type":"text"},
-    {"name":"created_by","type":"relation","required":true,"options":{"collectionId":"_pb_users_auth_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
-    {"name":"request","type":"relation","options":{"collectionId":"_REQUESTS_","cascadeDelete":false,"maxSelect":1,"minSelect":0}}
-  ],
-  "listRule": "@request.auth.id != \"\"",
-  "viewRule": "@request.auth.id != \"\"",
-  "createRule": "@request.auth.verified = true",
-  "updateRule": null,
-  "deleteRule": null
-}'
+# Resolve real collection IDs before creating collections that reference them.
+KITS_ID=$(get_collection_id "kits")
+ENTITIES_ID=$(get_collection_id "entities")
+USERS_ID=$(get_collection_id "users")
 
+if [ -z "$KITS_ID" ] || [ -z "$ENTITIES_ID" ] || [ -z "$USERS_ID" ]; then
+  echo "ERROR: failed to resolve collection IDs (kits=$KITS_ID entities=$ENTITIES_ID users=$USERS_ID)"
+  exit 1
+fi
+echo "Resolved IDs: kits=$KITS_ID entities=$ENTITIES_ID users=$USERS_ID"
+
+# Create requests first so transactions can reference its real id.
 echo "Creating 'requests' collection..."
-create_collection '{
+create_collection "$(cat <<EOF
+{
   "name": "requests",
   "type": "base",
   "schema": [
-    {"name":"requester","type":"relation","required":true,"options":{"collectionId":"_pb_users_auth_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"requester","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"date","type":"date","required":true},
     {"name":"status","type":"select","required":true,"options":{"values":["open","approved","rejected","fulfilled","cancelled"]}},
-    {"name":"designated_kit","type":"relation","options":{"collectionId":"_KITS_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
-    {"name":"target_entity","type":"relation","options":{"collectionId":"_ENTITIES_","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"designated_kit","type":"relation","options":{"collectionId":"$KITS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"target_entity","type":"relation","options":{"collectionId":"$ENTITIES_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"notes","type":"text"},
     {"name":"decision_notes","type":"text"},
     {"name":"expected_return","type":"date","required":false,"options":{"min":"","max":""}},
@@ -100,12 +101,43 @@ create_collection '{
   "createRule": "@request.auth.id != \"\"",
   "updateRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")",
   "deleteRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")"
-}'
+}
+EOF
+)" >/dev/null
+
+REQUESTS_ID=$(get_collection_id "requests")
+if [ -z "$REQUESTS_ID" ]; then
+  echo "ERROR: failed to resolve requests collection ID"
+  exit 1
+fi
+echo "Resolved IDs: requests=$REQUESTS_ID"
+
+echo "Creating 'transactions' collection..."
+create_collection "$(cat <<EOF
+{
+  "name": "transactions",
+  "type": "base",
+  "schema": [
+    {"name":"kit","type":"relation","required":true,"options":{"collectionId":"$KITS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"from_entity","type":"relation","options":{"collectionId":"$ENTITIES_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"to_entity","type":"relation","required":true,"options":{"collectionId":"$ENTITIES_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"timestamp","type":"date","required":true},
+    {"name":"notes","type":"text"},
+    {"name":"created_by","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"request","type":"relation","options":{"collectionId":"$REQUESTS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}}
+  ],
+  "listRule": "@request.auth.id != \"\"",
+  "viewRule": "@request.auth.id != \"\"",
+  "createRule": "@request.auth.verified = true",
+  "updateRule": null,
+  "deleteRule": null
+}
+EOF
+)" >/dev/null
 
 echo ""
-echo "Done. Collections created."
+echo "Done. Collections created with resolved relation IDs."
 echo ""
 echo "IMPORTANT: Go to $PB_URL/_/ and:"
 echo "  1. Add 'name' (text) and 'role' (select: admin,user,viewer) fields to the 'users' collection."
-echo "  2. Fix relation IDs in transactions/requests if the script used placeholder IDs."
-echo "  3. Set up your first admin account."
+echo "  2. Set up your first admin account."

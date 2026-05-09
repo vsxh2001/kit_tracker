@@ -12,6 +12,7 @@
     "test:ci": "CI=true playwright test"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
@@ -28,7 +29,8 @@
     "tailwind-merge": "^3.5.0"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": "eslint --max-warnings 0"
+    "src/**/*.{ts,tsx}": "eslint --max-warnings 0",
+    "e2e/**/*.{ts,tsx}": "eslint --max-warnings 0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -45,6 +47,7 @@
     "lint-staged": "^17.0.3",
     "postcss": "^8.5.14",
     "tailwindcss": "^3.4.19",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10"

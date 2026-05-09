@@ -8,12 +8,25 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { getRequest, updateRequestStatus, fulfillRequest, deleteRequest } from "../services/requests";
-import { getLatestTransaction, listKits } from "../services/kits";
+import { listKits } from "../services/kits";
 import { listEntities } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import { RequestFormDialog } from "../components/RequestFormDialog";
+import { toast } from "../components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
 import type { KitRequest, Kit, Entity } from "../types";
+
+type ConfirmKind = "delete" | "cancel";
 
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +42,7 @@ export function RequestDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<ConfirmKind | null>(null);
 
   async function load() {
     if (!id) return;
@@ -50,15 +64,23 @@ export function RequestDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { startTransition(() => load()); }, [id]);
 
-  async function doAction(action: () => Promise<unknown>) {
+  const assignmentDirty =
+    request != null &&
+    ((assignKit === "none" ? undefined : assignKit) !== (request.designated_kit || undefined) ||
+      (assignEntity === "none" ? undefined : assignEntity) !== (request.target_entity || undefined));
+
+  async function doAction(action: () => Promise<unknown>, successMsg?: string) {
     setError("");
     setActionLoading(true);
     try {
       await action();
+      if (successMsg) toast({ title: successMsg, variant: "success" });
       await load();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      setError(e?.message ?? "Action failed.");
+      const msg = e?.message ?? "Action failed.";
+      setError(msg);
+      toast({ title: "Action failed", description: msg, variant: "destructive" });
     } finally {
       setActionLoading(false);
     }
@@ -70,8 +92,8 @@ export function RequestDetailPage() {
         decision_notes: decisionNotes.trim() || undefined,
         designated_kit: assignKit === "none" ? undefined : assignKit,
         target_entity: assignEntity === "none" ? undefined : assignEntity,
-        delivery_date: request?.delivery_date,
-      })
+      }),
+      "Request approved"
     );
   }
 
@@ -79,24 +101,34 @@ export function RequestDetailPage() {
     doAction(() =>
       updateRequestStatus(id!, "rejected", {
         decision_notes: decisionNotes.trim() || undefined,
-        delivery_date: request?.delivery_date,
-      })
+      }),
+      "Request rejected"
     );
   }
 
   async function handleFulfill() {
-    if (!request?.designated_kit) {
-      setError("Assign a kit before fulfilling.");
+    const kitId = assignKit === "none" ? undefined : assignKit;
+    if (!kitId) {
+      const msg = "Assign a kit before fulfilling.";
+      setError(msg);
+      toast({ title: msg, variant: "destructive" });
       return;
     }
     doAction(async () => {
-      const latest = await getLatestTransaction(request.designated_kit!);
-      await fulfillRequest(request, latest?.to_entity ?? "");
-    });
+      if (assignmentDirty) {
+        await updateRequestStatus(id!, request!.status, {
+          designated_kit: kitId,
+          target_entity: assignEntity === "none" ? undefined : assignEntity,
+        });
+      }
+      const fresh = await getRequest(id!);
+      await fulfillRequest(fresh);
+    }, "Request fulfilled");
   }
 
   async function handleCancel() {
-    doAction(() => updateRequestStatus(id!, "cancelled", { delivery_date: request?.delivery_date }));
+    setConfirmKind(null);
+    doAction(() => updateRequestStatus(id!, "cancelled"), "Request cancelled");
   }
 
   async function handleSaveAssignment() {
@@ -104,21 +136,24 @@ export function RequestDetailPage() {
       updateRequestStatus(id!, request!.status, {
         designated_kit: assignKit === "none" ? undefined : assignKit,
         target_entity: assignEntity === "none" ? undefined : assignEntity,
-        delivery_date: request?.delivery_date,
-      })
+      }),
+      "Assignment saved"
     );
   }
 
   async function handleDelete() {
-    if (!window.confirm("Delete this request? This cannot be undone.")) return;
+    setConfirmKind(null);
     setError("");
     setActionLoading(true);
     try {
       await deleteRequest(id!);
+      toast({ title: "Request deleted", variant: "success" });
       navigate("/requests");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      setError(e?.message ?? "Delete failed.");
+      const msg = e?.message ?? "Delete failed.";
+      setError(msg);
+      toast({ title: "Delete failed", description: msg, variant: "destructive" });
       setActionLoading(false);
     }
   }
@@ -207,15 +242,27 @@ export function RequestDetailPage() {
                   </>
                 )}
                 {request.status === "approved" && (
-                  <Button size="sm" onClick={handleFulfill} disabled={actionLoading}>Fulfill</Button>
+                  <Button
+                    size="sm"
+                    onClick={handleFulfill}
+                    disabled={actionLoading}
+                    title={assignmentDirty ? "Saves assignment, then fulfills" : undefined}
+                  >
+                    {assignmentDirty ? "Save & Fulfill" : "Fulfill"}
+                  </Button>
                 )}
-                <Button size="sm" variant="outline" onClick={handleSaveAssignment} disabled={actionLoading}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSaveAssignment}
+                  disabled={actionLoading || !assignmentDirty}
+                >
                   Save assignment
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
                   Edit request
                 </Button>
-                <Button size="sm" variant="destructive" onClick={handleDelete} disabled={actionLoading}>
+                <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
                   Delete request
                 </Button>
               </div>
@@ -230,7 +277,7 @@ export function RequestDetailPage() {
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admin actions</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 flex flex-wrap gap-2">
-              <Button size="sm" variant="destructive" onClick={handleDelete} disabled={actionLoading}>
+              <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
                 Delete request
               </Button>
             </CardContent>
@@ -247,10 +294,10 @@ export function RequestDetailPage() {
               <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
                 Edit request
               </Button>
-              <Button size="sm" variant="destructive" onClick={handleCancel} disabled={actionLoading}>
+              <Button size="sm" variant="destructive" onClick={() => setConfirmKind("cancel")} disabled={actionLoading}>
                 Cancel request
               </Button>
-              <Button size="sm" variant="destructive" onClick={handleDelete} disabled={actionLoading}>
+              <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
                 Delete request
               </Button>
             </CardContent>
@@ -267,6 +314,30 @@ export function RequestDetailPage() {
         request={request}
         showKitField={isAdmin}
       />
+
+      <AlertDialog open={confirmKind !== null} onOpenChange={(o) => !o && setConfirmKind(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmKind === "delete" ? "Delete this request?" : "Cancel this request?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmKind === "delete"
+                ? "This permanently removes the request. Cannot be undone."
+                : "Mark this request as cancelled. You can no longer fulfill it."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmKind === "delete" ? handleDelete : handleCancel}
+            >
+              {confirmKind === "delete" ? "Delete" : "Cancel request"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

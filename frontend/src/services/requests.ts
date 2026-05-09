@@ -1,9 +1,12 @@
 import { pb } from "../lib/pocketbase";
 import type { KitRequest, RequestStatus } from "../types";
 import { createTransaction } from "./transactions";
+import { getLatestTransaction } from "./kits";
 
 export async function listRequests(statusFilter?: RequestStatus) {
-  const filter = statusFilter ? `status = "${statusFilter}"` : "";
+  const filter = statusFilter
+    ? pb.filter("status = {:status}", { status: statusFilter })
+    : "";
   return pb.collection("requests").getFullList<KitRequest>({
     sort: "-created",
     filter,
@@ -35,9 +38,14 @@ export async function createRequest(data: {
 export async function updateRequestStatus(
   id: string,
   status: RequestStatus,
-  opts?: { decision_notes?: string; designated_kit?: string; target_entity?: string; delivery_date?: string }
+  opts?: { decision_notes?: string; designated_kit?: string; target_entity?: string }
 ) {
-  return pb.collection("requests").update<KitRequest>(id, { status, ...opts });
+  const current = await pb.collection("requests").getOne<KitRequest>(id);
+  return pb.collection("requests").update<KitRequest>(id, {
+    ...opts,
+    status,
+    delivery_date: current.delivery_date,
+  });
 }
 
 export async function updateRequest(
@@ -52,19 +60,33 @@ export async function deleteRequest(id: string): Promise<void> {
   await pb.collection("requests").delete(id);
 }
 
-export async function fulfillRequest(request: KitRequest, fromEntityId: string) {
+export async function fulfillRequest(request: KitRequest) {
   if (!request.designated_kit || !request.target_entity) {
     throw new Error("Request must have designated kit and target entity to fulfill.");
   }
-  await createTransaction({
+
+  const latest = await getLatestTransaction(request.designated_kit);
+  const fromEntityId = latest?.to_entity || undefined;
+
+  const tx = await createTransaction({
     kitId: request.designated_kit,
     fromEntityId,
     toEntityId: request.target_entity,
     requestId: request.id,
     notes: `Fulfilled request ${request.id}`,
   });
-  return pb.collection("requests").update<KitRequest>(request.id, {
-    status: "fulfilled",
-    delivery_date: request.delivery_date,
-  });
+
+  try {
+    return await pb.collection("requests").update<KitRequest>(request.id, {
+      status: "fulfilled",
+      delivery_date: request.delivery_date,
+    });
+  } catch (err) {
+    try {
+      await pb.collection("transactions").delete(tx.id);
+    } catch {
+      // best-effort compensation; surface original error regardless
+    }
+    throw err;
+  }
 }

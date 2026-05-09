@@ -9,6 +9,17 @@ import { KitFormDialog } from "../components/KitFormDialog";
 import { getKit, getKitHistory, updateKit } from "../services/kits";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
+import { toast } from "../components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
 import type { Kit, Transaction } from "../types";
 
 export function KitDetailPage() {
@@ -20,6 +31,7 @@ export function KitDetailPage() {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [showMove, setShowMove] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showRetire, setShowRetire] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -41,13 +53,14 @@ export function KitDetailPage() {
   useEffect(() => { startTransition(() => load()); }, [id]);
 
   async function handleRetire() {
-    if (!kit || !confirm(`Retire ${kit.serial}?`)) return;
+    if (!kit) return;
     try {
       await updateKit(kit.id, { is_active: false });
+      toast({ title: "Kit retired", description: kit.serial, variant: "success" });
       navigate("/kits");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      console.error(err);
+      toast({ title: "Failed to retire kit", description: err?.message, variant: "destructive" });
     }
   }
 
@@ -97,7 +110,7 @@ export function KitDetailPage() {
                 Edit
               </Button>
               {kit.is_active && (
-                <Button size="sm" variant="destructive" onClick={handleRetire}>
+                <Button size="sm" variant="destructive" onClick={() => setShowRetire(true)}>
                   Retire kit
                 </Button>
               )}
@@ -162,6 +175,21 @@ export function KitDetailPage() {
         onClose={() => setShowEdit(false)}
         onSaved={load}
       />
+
+      <AlertDialog open={showRetire} onOpenChange={setShowRetire}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retire {kit.serial}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This kit will be marked inactive and hidden from active kit lists. You can still view its history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleRetire}>Retire</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -4,7 +4,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "./ui/dialog";
+import { toast } from "./ui/use-toast";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -42,8 +44,10 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
     try {
       if (entity) {
         await updateEntity(entity.id, { name: name.trim(), description: description.trim() });
+        toast({ title: "Entity updated", variant: "success" });
       } else {
         await createEntity({ name: name.trim(), description: description.trim() });
+        toast({ title: "Entity created", variant: "success" });
       }
       onSaved();
       onClose();
@@ -60,6 +64,9 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{entity ? "Edit Entity" : "New Entity"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {entity ? "Update entity name and description." : "Create a new entity (location, team, or holder of kits)."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">

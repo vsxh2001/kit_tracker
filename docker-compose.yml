@@ -8,11 +8,13 @@ services:
     volumes:
       - pb_data:/app/pb_data
     restart: unless-stopped
+    # Copy .env.example to .env and set real credentials before running.
+    # PB_SUPERUSER_EMAIL and PB_SUPERUSER_PASSWORD are required — no defaults.
     env_file:
       - .env
     environment:
-      PB_SUPERUSER_EMAIL: ${PB_SUPERUSER_EMAIL:-admin@example.com}
-      PB_SUPERUSER_PASSWORD: ${PB_SUPERUSER_PASSWORD:-changeme123}
+      PB_SUPERUSER_EMAIL: ${PB_SUPERUSER_EMAIL:?PB_SUPERUSER_EMAIL must be set in .env}
+      PB_SUPERUSER_PASSWORD: ${PB_SUPERUSER_PASSWORD:?PB_SUPERUSER_PASSWORD must be set in .env}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
       interval: 30s

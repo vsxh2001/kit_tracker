@@ -23,7 +23,7 @@ export async function updateKit(
 
 export async function getLatestTransaction(kitId: string) {
   const result = await pb.collection("transactions").getList<Transaction>(1, 1, {
-    filter: `kit = "${kitId}"`,
+    filter: pb.filter("kit = {:kit}", { kit: kitId }),
     sort: "-timestamp,-created",
     expand: "from_entity,to_entity,created_by",
     requestKey: `latest-tx-${kitId}`,
@@ -33,7 +33,7 @@ export async function getLatestTransaction(kitId: string) {
 
 export async function getKitHistory(kitId: string) {
   return pb.collection("transactions").getFullList<Transaction>({
-    filter: `kit = "${kitId}"`,
+    filter: pb.filter("kit = {:kit}", { kit: kitId }),
     sort: "-timestamp,-created",
     expand: "from_entity,to_entity,created_by",
     requestKey: `kit-history-${kitId}`,

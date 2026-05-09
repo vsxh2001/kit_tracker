@@ -145,7 +145,7 @@ function StatCard({
             <p className="text-3xl font-bold mt-1.5 tabular-nums tracking-tight">{value}</p>
           </div>
           <div className={cn("h-9 w-9 rounded-lg ring-1 flex items-center justify-center shrink-0 mt-0.5", colors.chip)}>
-            <Icon className="h-4.5 w-4.5" style={{ width: "18px", height: "18px" }} />
+            <Icon style={{ width: "18px", height: "18px" }} />
           </div>
         </div>
       </CardContent>

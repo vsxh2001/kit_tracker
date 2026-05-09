@@ -9,10 +9,12 @@ import { KitDetailPage } from "./pages/KitDetailPage";
 import { EntitiesPage } from "./pages/EntitiesPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
+import { Toaster } from "./components/ui/toaster";
 
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

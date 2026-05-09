@@ -190,6 +190,7 @@ export async function createTestRequest(data: {
   designatedKitId?: string;
   targetEntityId?: string;
   status?: string;
+  deliveryDate?: string;
 }): Promise<{ id: string; status: string }> {
   const token = await getAdminToken();
   const res = await fetch(`${PB_URL}/api/collections/requests/records`, {
@@ -198,6 +199,11 @@ export async function createTestRequest(data: {
     body: JSON.stringify({
       requester: data.requesterId,
       date: new Date().toISOString().split("T")[0],
+      delivery_date:
+        data.deliveryDate ??
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
       status: data.status ?? "open",
       notes: data.notes ?? null,
       designated_kit: data.designatedKitId ?? null,

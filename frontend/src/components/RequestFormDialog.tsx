@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
@@ -97,6 +98,9 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Request" : "New Request"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEdit ? "Update request fields." : "Submit a new equipment request with delivery date and optional preferences."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           {showKit && (

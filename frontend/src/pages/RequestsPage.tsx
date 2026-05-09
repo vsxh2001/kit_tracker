@@ -8,9 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { RequestFormDialog } from "../components/RequestFormDialog";
 import { listRequests } from "../services/requests";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "../components/ui/use-toast";
 import type { KitRequest } from "../types";
 
 export function RequestsPage() {
+  const { user, isAdmin } = useAuth();
+  const canCreate = isAdmin || user?.role === "user";
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
@@ -42,10 +46,12 @@ export function RequestsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Equipment request queue</p>
         </div>
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="h-4 w-4" />
-          New request
-        </Button>
+        {canCreate && (
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" />
+            New request
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -126,7 +132,10 @@ export function RequestsPage() {
       <RequestFormDialog
         open={showForm}
         onClose={() => setShowForm(false)}
-        onSaved={load}
+        onSaved={() => {
+          toast({ title: "Request created", variant: "success" });
+          load();
+        }}
       />
     </div>
   );
