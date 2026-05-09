@@ -1,0 +1,139 @@
+# Kit Tracker Agent Team — Orchestrator Guide
+
+## Team roster
+
+| Agent | Model | When to use |
+|-------|-------|-------------|
+| `debugger` | sonnet | Specific reproducible error. You have: error text, file, reproduce command. |
+| `implementer` | sonnet | Build a feature from a complete spec. Architecture already decided. |
+| `db-engineer` | sonnet | PocketBase schema/migration work. New fields, rule changes, indexes. |
+| `devops` | sonnet | CI failure, Dockerfile break, workflow change. Infrastructure, not app code. |
+| `reviewer` | opus | Independent second opinion after significant implementation. Read-only. |
+| `code-architect` | opus | Design decision. "How should we structure X?" before building. |
+| `qa-playwright-specialist` | sonnet | Write or fix Playwright e2e tests for a specific user flow. |
+| `product-manager` | opus | Feature prioritization, roadmap, "should we build X?" |
+
+---
+
+## Core principle: give agents a scalpel, not a shovel
+
+**Bad brief** → "Fix the CI." (Too vague — agent will thrash and burn context)
+
+**Good brief** → Exact error, exact file, exact stop condition. Agent handles only that.
+
+Tight constraint = better output. If you're uncertain what to constrain, that's a sign you need `code-architect` first.
+
+---
+
+## Brief templates
+
+### debugger
+
+```
+Error: <paste exact error text>
+File: <path/to/file.ts:line if known>
+Reproduce: <exact shell command>
+Stop when: <command that must return 0>
+Do NOT: touch other files, refactor, add error handling beyond the fix
+```
+
+### implementer
+
+```
+Implement: <function/component name> in <path/to/file.ts>
+Contract: <function signature or props interface>
+Types at: src/types/index.ts:<line>
+Pattern: <path/to/similar-file.ts> — follow its style exactly
+Pass: cd frontend && npm run lint && npm run build
+Do NOT: <list of files/areas to stay out of>
+Notes: <any project-specific gotchas relevant to this task>
+```
+
+### db-engineer
+
+```
+Change: <what schema change — add field / change rule / add index>
+Reason: <why — bug, new feature, compliance>
+Current migrations: read pb/pb_migrations/ — latest is <filename>
+Test with: PB_URL=http://127.0.0.1:8090 + verify collection exists/field present
+Do NOT: touch application code, change rules beyond what's described
+```
+
+### devops
+
+```
+Failure: <paste exact CI log lines — at minimum the error line + 5 lines before>
+File: <.github/workflows/ci.yml OR Dockerfile OR pb/script.sh>
+Pass when: CI job shows ✓ for <job name>
+Do NOT: change application code, restructure working CI steps
+```
+
+### reviewer
+
+```
+Changed files:
+  - path/to/file1.ts
+  - path/to/file2.tsx
+Context: <one sentence — what this change is supposed to do>
+Focus on: <specific concerns — e.g. "atomicity of fulfillRequest", "role gating on new button">
+```
+
+### code-architect
+
+```
+Decision needed: <what architectural question — e.g. "how to add caching for kit holder lookup">
+Context: <relevant constraints — performance, data model, existing patterns>
+Current approach: <what we have now>
+Options I'm considering: <list if any>
+Return: recommendation + tradeoffs, NOT implementation
+```
+
+---
+
+## Workflow patterns
+
+### Bug reported → fix deployed
+
+1. Reproduce locally
+2. If cause is obvious → fix inline
+3. If cause is unclear → spawn `debugger` with exact error + reproduce command
+4. After fix → spawn `reviewer` if change touches critical paths (fulfillRequest, auth, role gates)
+5. Lint + build → commit → push
+
+### New feature request
+
+1. If architectural question → spawn `code-architect` first
+2. Get design decision, agree on contract
+3. If schema changes needed → spawn `db-engineer`
+4. Spawn `implementer` with tight spec
+5. Spawn `reviewer` for independent check
+6. Spawn `qa-playwright-specialist` if flow is user-facing
+7. Commit + push
+
+### CI broken
+
+1. `gh run view <run-id> --log-failed` → copy exact failure
+2. Identify which job/step
+3. Spawn `devops` with failure log + file + pass condition
+4. If it's an app code issue (not infra) → redirect to `debugger`
+
+### Schema change
+
+1. Spawn `db-engineer` with change description + reason
+2. DB engineer writes migration, tests locally
+3. Spawn `reviewer` to check rules/invariants
+4. Commit migration file
+
+---
+
+## Parallelism rules
+
+- Independent audits → parallel spawns OK (e.g. reviewer + qa-playwright running together)
+- Sequential dependency → wait for result before spawning next (e.g. architect before implementer)
+- Max 3 parallel agents — beyond that, context overhead defeats the benefit
+
+## Do not delegate
+
+- Short edits (< 10 lines) you can do inline — spawning costs more than doing it
+- Tight feedback loops (error → tweak → error → tweak) — stay inline
+- Reading and understanding code — that's your job, not an agent's
