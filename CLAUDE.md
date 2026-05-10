@@ -12,93 +12,132 @@ npm run build     # tsc -b && vite build (type-check + bundle)
 npm run lint      # ESLint
 npm run test      # run Playwright e2e suite (needs PocketBase + Vite running)
 npm run test:ci   # same with CI=true (retries enabled, HTML report)
+npm run test:prod # full e2e against dockerized stack via scripts/test-prod.sh
 ```
 
-PocketBase:
+PocketBase (local dev):
 
 ```bash
 ./pb/pocketbase serve --dir=pb/pb_data              # start PocketBase (http://127.0.0.1:8090)
-./pb/setup_collections.sh <email> <password>         # create/update collections via API
-./pb/seed_test_users.sh <email> <password>           # create the 3 Playwright test users
+./pb/setup_collections.sh <email> <password>         # create/update collections via API (idempotent)
+./pb/seed_test_users.sh <email> <password>           # create/update the 3 Playwright test users (PATCHes role on existing)
+./pb/setup_oauth.sh <email> <password>               # enable Google OAuth provider; reads GOOGLE_OAUTH_CLIENT_ID/SECRET from env
+./pb/setup_oauth.sh <email> <password> --disable     # disable Google OAuth provider
 ```
 
-Docker (local deployment):
+Docker (mirrors prod):
 
 ```bash
-cp .env.example .env                     # set PB_SUPERUSER_EMAIL / PB_SUPERUSER_PASSWORD
+cp .env.example .env                     # set PB_SUPERUSER_*, optionally GOOGLE_OAUTH_*
 docker compose up --build                # build + run (frontend served by PocketBase on :8090)
+bash scripts/test-prod.sh                # clean down → up → seed → e2e → tear down (always teardown via EXIT trap)
+bash scripts/test-prod.sh --keep         # leave stack running for debugging
 ```
 
-> **Note:** Run `npm install` from repo root (not just `frontend/`) to install husky pre-commit hooks.
+> Run `npm install` from repo root (not just `frontend/`) to install husky pre-commit hooks.
 
 ## E2E Tests
 
-Playwright tests live in `frontend/e2e/`. Tests require both PocketBase and Vite running **before** `npm run test`. The three test users (`logistics@kit.local`, `requester@kit.local`, `viewer@kit.local`, all `Pass1234!`) must exist — run `seed_test_users.sh` once.
+Playwright tests live in `frontend/e2e/`. Tests need PocketBase + Vite running **before** `npm run test` (or use `test:prod` for fully dockerized run). Three test users (`logistics@kit.local` admin, `requester@kit.local` user, `viewer@kit.local` viewer, all `Pass1234!`) seeded by `seed_test_users.sh` — script is idempotent and PATCHes role if user exists with wrong role.
 
-Tests run serially (`workers: 1`) because PocketBase is shared mutable state. Each describe block seeds and tears down its own data using helpers in `e2e/helpers/api.ts` (direct PocketBase REST calls, no UI).
+Tests run serially (`workers: 1`) — PocketBase is shared mutable state. Each describe block seeds + tears down its own data via `e2e/helpers/api.ts` (direct REST, no UI).
 
-On CI, Playwright uses the bundled Chromium. Locally it uses `/usr/bin/google-chrome` (`executablePath` in `playwright.config.ts`).
+CI uses bundled Chromium. Locally uses `/usr/bin/google-chrome` (`executablePath` in `playwright.config.ts`). `playwright.config.ts` honors `PLAYWRIGHT_TEST_BASE_URL` so docker-mode points at :8090 (frontend served by PB) instead of :5173.
 
-Run a single spec file:
+Single spec:
 ```bash
 npx playwright test e2e/kits.spec.ts --project=chromium
+npx playwright test e2e/users.spec.ts --project=chromium --grep "admin sees Users"
 ```
+
+Tests using OAuth provider auto-skip via `test.skip(!process.env.GOOGLE_OAUTH_CLIENT_ID)` so CI without creds stays green.
 
 ## Architecture
 
-Two independent processes: PocketBase (port 8090) and Vite dev server (port 5173). Frontend talks directly to PocketBase's REST API via the official JS SDK — no custom backend.
+Two independent processes: PocketBase (port 8090) + Vite dev server (port 5173). Frontend talks directly to PocketBase's REST API via the JS SDK — no custom backend.
 
 ### PocketBase collections
 
 | Collection | Key fields |
 |---|---|
-| `users` | `name`, `role` (select: admin/user/viewer) |
+| `users` | `name`, `role` (select: admin/user/viewer or empty) |
 | `kits` | `serial` (unique), `notes`, `is_active` |
-| `entities` | `name`, `is_active` |
+| `entities` | `name`, `type`, `is_active` |
 | `transactions` | `kit`, `from_entity`, `to_entity`, `timestamp`, `notes`, `created_by`, `request` |
 | `requests` | `requester`, `date`, `delivery_date` (required), `status` (open/approved/rejected/fulfilled/cancelled), `designated_kit`, `target_entity`, `notes`, `decision_notes`, `expected_return` (optional) |
 
-**Current kit holder is derived, not stored.** Fetch the latest transaction sorted by `-timestamp,-created` and read `to_entity`. Never cache this on the kit record without also ensuring every `createTransaction` call updates it atomically.
+**Current kit holder is derived, not stored.** Fetch the latest transaction sorted by `-timestamp,-created` and read `to_entity`. Never cache on the kit record without also ensuring every `createTransaction` call updates atomically.
 
 **Transactions are append-only** — no update/delete rules. To correct a mistake, create a new transaction.
 
-**Request fulfillment** (`fulfillRequest` in `services/requests.ts`) atomically creates a transaction and sets status to `fulfilled`. These two steps must stay coupled — if the transaction fails, the status must not change.
+**Request fulfillment** (`fulfillRequest` in `services/requests.ts`) atomically creates a transaction and sets status to `fulfilled`. The two steps must stay coupled — if the transaction fails, status must not change.
+
+**OAuth users land with empty `role`.** Role is set manually by an admin via the `/users` page (or PB admin UI for bootstrap). The `DashboardPage` shows an amber "awaiting approval" banner when `!user?.role`.
 
 ### Collection rules summary
 
-`pb/pb_migrations/` is the source of truth — migrations auto-apply on `pocketbase serve`. `setup_collections.sh` is a secondary convenience script.
+`pb/pb_migrations/` is source of truth — migrations auto-apply on `pocketbase serve`. `setup_collections.sh` is a secondary convenience script that uses `jq` (not python3 — alpine container compat) and is idempotent.
 
-| Collection | createRule | updateRule | deleteRule |
-|---|---|---|---|
-| `requests` | admin or user role | admin OR (owner AND status=open) | admin OR (owner AND status=open) |
-| `entities` | admin only | admin only | null (soft-delete via `is_active=false`) |
-| `kits` | admin only | admin only | null (soft-delete via `is_active=false`) |
-| `transactions` | auth + own created_by | null (append-only) | null (append-only) |
-| `users` | (PB default) | (PB default) | (PB default) — viewRule: any authenticated user |
+| Collection | createRule | updateRule | deleteRule | listRule |
+|---|---|---|---|---|
+| `requests` | admin or user role | admin OR (owner AND status=open) | admin OR (owner AND status=open) | auth |
+| `entities` | admin only | admin only | null (soft-delete via `is_active=false`) | auth |
+| `kits` | admin only | admin only | null (soft-delete via `is_active=false`) | auth |
+| `transactions` | auth + own created_by | null (append-only) | null (append-only) | auth |
+| `users` | (PB default) | admin OR self | (PB default) | admin OR self |
+
+`users.viewRule` is `@request.auth.id != ""` (any authenticated) so `expand: requester` works for non-admins reading requests.
+
+### PocketBase JS hooks (`pb/pb_hooks/`)
+
+PB v0.22 auto-loads `*.pb.js` files from the hooks dir on `serve` startup. Two hooks gate the `users` collection:
+
+- **`role_change_check.pb.js`** — fires on user update; if `oldRole !== newRole` and the requester's role is not `"admin"`, throws `BadRequestError`. **Critical**: PB collection rules can't restrict which fields are written, so without this hook a non-admin could `PATCH users/<self> {"role":"admin"}` and self-promote.
+- **`last_admin_check.pb.js`** — fires on user update; if old role was `"admin"` and new role is not, counts admins where `id != record.id` and rejects when count is 0. Counts via `findRecordsByFilter("users", "role = 'admin' && id != '<id>'", "", 0, 2)` — `limit=2` (not 0; `limit=0` is invalid in PB v0.22 and silently throws, leaving the hook a no-op).
+
+Both hooks ship in the Docker image (Dockerfile COPYs `pb/`). Local dev: PB picks them up if `--hooksDir` points at `pb/pb_hooks/`.
 
 ### Frontend structure
 
 ```
 src/
-  types/index.ts          — all shared TypeScript types (Kit, Entity, Transaction, KitRequest, PBUser)
+  types/index.ts          — shared types (Kit, Entity, Transaction, KitRequest, PBUser, RequestStatus)
   lib/pocketbase.ts       — single PocketBase client instance (reads VITE_PB_URL)
-  lib/utils.ts            — cn() (tailwind-merge + clsx), formatDate(), formatDateOnly()
-  services/               — one file per collection; all PocketBase queries live here
+  lib/utils.ts            — cn(), formatDate(), formatDateOnly()
+  services/               — one file per collection; ALL PB queries live here (page never imports pb directly)
   context/AuthContext.tsx — useAuth() hook; syncs with pb.authStore.onChange
-  components/ui/          — unstyled Radix primitives wrapped with Tailwind (no shadcn CLI used)
-  components/             — feature dialogs (MoveKitDialog, KitFormDialog, EntityFormDialog, RequestFormDialog)
+  components/ui/          — Radix primitives wrapped with Tailwind (no shadcn CLI used)
+  components/             — feature dialogs + Layout (sidebar nav)
   pages/                  — one file per route
 ```
 
-### Role enforcement
+### Routes + role gating
 
-Role checks (`isAdmin`, `user.role` from `useAuth()`) hide/show UI elements. PocketBase collection rules enforce the same constraints server-side. `role` is set manually in PocketBase admin UI — not auto-assigned on signup.
+- `/login` — public; password form + Google OAuth button
+- `/dashboard`, `/kits`, `/entities`, `/requests` (+ detail variants) — `<ProtectedRoute>` (any authenticated)
+- `/users` — `<AdminOnly>` (redirects non-admin to `/`)
+
+`isAdmin` derives from `useAuth().user?.role === "admin"`. PB rules + hooks enforce server-side; the UI gate is for UX.
+
+### Auth flow
+
+- Email/password: `pb.collection("users").authWithPassword(...)` via `services/auth.ts:login()`
+- Google OAuth: `pb.collection("users").authWithOAuth2({ provider: "google" })` via `services/auth.ts:loginWithGoogle()`
+- Both update `pb.authStore`; `AuthContext` subscribes via `onChange` — no special handling per provider
+
+### PocketBase SDK version (CRITICAL)
+
+`pocketbase` JS SDK is pinned to `^0.21.x` in `frontend/package.json`. PB server is **v0.22.22**. SDK v0.22+ rewrote the auth-methods response schema for v0.23+ servers — calls `/auth-methods?fields=mfa,otp,password,oauth2` and reads `response.oauth2.providers`. PB v0.22 returns `{authProviders: [...]}` at top level. Mismatch crashes OAuth with `TypeError: Cannot read properties of undefined (reading 'providers')`. Email/password is stable across versions, so the bug is OAuth-only.
+
+**Don't bump pocketbase casually.** When upgrading PB server (migrator agent territory), bump SDK in lockstep.
+
+**Vite restart gotcha:** swapping a pre-bundled dep version requires `pkill -f "vite.*<port>"` (kill all workers, not just the wrapper PID `npm run dev` printed) + `rm -rf node_modules/.vite` + `npm run dev -- --force`. The `?v=<hash>` query in served `pocketbase.js` URLs comes from the running module map, not disk content — same content = same hash = browser/Vite cache hit even after npm install.
 
 ### PocketBase SDK auto-cancellation (React StrictMode gotcha)
 
-The SDK auto-cancels in-flight requests sharing the same request key. React StrictMode double-mounts cause the first mount's requests to be cancelled, leaving pages stuck at "Loading…".
+SDK auto-cancels in-flight requests sharing the same request key. StrictMode double-mounts cause the first mount's requests to be cancelled, leaving pages stuck at "Loading…".
 
-**Every `load()` function must use this pattern:**
+**Every `load()` must use this pattern:**
 ```ts
 async function load() {
   setLoading(true);
@@ -112,7 +151,7 @@ async function load() {
 }
 ```
 
-**When calling the same endpoint in parallel** (e.g. `getLatestTransaction` for N kits), pass a unique `requestKey` per call or the SDK cancels all but the last:
+**Parallel calls to same endpoint** (e.g. `getLatestTransaction` for N kits) must pass unique `requestKey` per call:
 ```ts
 pb.collection("transactions").getList(1, 1, {
   filter: `kit = "${kitId}"`,
@@ -122,18 +161,48 @@ pb.collection("transactions").getList(1, 1, {
 
 ### CSS variables / theming
 
-`frontend/src/index.css` defines all shadcn CSS variables. Every variable referenced in `components/ui/` must be declared there — missing ones render as transparent (e.g. missing `--popover` makes Select dropdowns invisible). Current palette: indigo primary (`243 75% 58%`), off-white background (`220 16% 96%`), white cards.
+`frontend/src/index.css` defines all shadcn CSS variables. Every variable referenced in `components/ui/` must be declared there — missing ones render as transparent (e.g. missing `--popover` makes Select dropdowns invisible). Palette: indigo primary (`243 75% 58%`), off-white background (`220 16% 96%`), white cards.
 
 ### Adding a new Radix/UI component
 
-Radix packages are installed individually (no shadcn CLI). Follow the pattern in `components/ui/` — import the Radix primitive, wrap with `cn()` and Tailwind, `forwardRef` where needed.
+Radix packages are installed individually (no shadcn CLI). Follow the pattern in `components/ui/` — import the Radix primitive, wrap with `cn()` + Tailwind, `forwardRef` where needed.
 
 ### Environment
 
 `frontend/.env` (copy from `.env.example`):
-
 ```
 VITE_PB_URL=http://127.0.0.1:8090
 ```
 
-For Docker, `.env` at repo root sets `PB_SUPERUSER_EMAIL` and `PB_SUPERUSER_PASSWORD` (see `.env.example`).
+Repo-root `.env` (Docker — copy from `.env.example`):
+```
+PB_SUPERUSER_EMAIL=admin@example.com
+PB_SUPERUSER_PASSWORD=changeme123
+GOOGLE_OAUTH_CLIENT_ID=             # optional — enables OAuth provider when set
+GOOGLE_OAUTH_CLIENT_SECRET=         # optional
+#GOOGLE_OAUTH_DISABLE=              # set to 1 to actively disable provider
+```
+
+Container only runs `setup_oauth.sh` when both CLIENT_ID + SECRET are set. Setting only one logs a warning and skips. `GOOGLE_OAUTH_DISABLE=1` flips `googleAuth.enabled=false` via the `--disable` flag on setup_oauth.sh.
+
+### Docker container notes
+
+- Alpine base — uses `jq` (not python3) for JSON parsing in shell scripts
+- `docker-entrypoint.sh` is idempotent across restarts: admin create filters duplicate-error stderr, setup scripts are PATCH-not-create
+- `pocketbase migrate up` runs before `serve` — migrations apply on every container start
+- Container serves frontend bundle as static files via PB on :8090 (no separate Vite container in prod)
+- Health: `curl -f http://localhost:8090/api/health`
+- Hooks: PB serves with `--hooksDir=/app/pb/pb_hooks` so `*.pb.js` autoload
+
+### CI (`.github/workflows/`)
+
+- `ci.yml` — runs on PRs + push: lint + tsc + vite build + Docker image build + e2e (PB-on-host fast path; OAuth gracefully skipped via env-var guard in `oauth.spec.ts`)
+- `deploy.yml` — runs on push to main: deploys to Fly.io. Requires `FLY_API_TOKEN` GitHub secret (not configured by default).
+
+## Agent system (`.claude/agents/`)
+
+11 specialist agents declared in `.claude/agents/*.md` with frontmatter `tools:` (capability cap) + `allowed_paths:` (lane glob). `.claude/agents/TEAM.md` is the orchestrator playbook (brief templates per agent, workflow patterns, parallelism rules).
+
+`.claude/hooks/agent-scope-audit.sh` fires on `SubagentStop`, diffs the agent's commit against base, flags out-of-lane edits via `systemMessage` to the orchestrator. Doesn't block — agents can find legit bugs outside lane (and have); the warning surfaces to enable cherry-pick decisions.
+
+When dispatching: tight brief beats vague brief. Match agent type to the work. Max 3 parallel agents (context overhead defeats the benefit beyond that).
