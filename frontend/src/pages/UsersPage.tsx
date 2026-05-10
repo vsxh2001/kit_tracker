@@ -100,66 +100,104 @@ export function UsersPage() {
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium text-muted-foreground">Email</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Role</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="p-4 text-center text-muted-foreground">
-                      No users found.
-                    </td>
-                  </tr>
-                )}
-                {filtered.map((u) => {
-                  const isSelf = u.id === currentUser?.id;
-                  const hasRole = !!u.role;
-                  const selectValue = u.role || "none";
-                  return (
-                    <tr
-                      key={u.id}
-                      className={`border-b last:border-0 hover:bg-slate-50 ${isSelf ? "ring-1 ring-inset ring-amber-400" : ""}`}
-                    >
-                      <td className="p-3 font-medium">{u.email ?? "—"}</td>
-                      <td className="p-3 text-muted-foreground">{u.name ?? "—"}</td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          {!hasRole && (
-                            <Badge variant="warning">Pending</Badge>
-                          )}
-                          <Select
-                            value={selectValue}
-                            onValueChange={(v) => handleRoleChange(u, v)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ROLE_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{formatDate(u.created)}</td>
+        <>
+          {filtered.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-8">No users found.</p>
+          )}
+
+          {/* Mobile card list */}
+          {filtered.length > 0 && (
+            <div className="md:hidden space-y-2">
+              {filtered.map((u) => {
+                const isSelf = u.id === currentUser?.id;
+                const hasRole = !!u.role;
+                const selectValue = u.role || "none";
+                return (
+                  <div
+                    key={u.id}
+                    className={`rounded-lg border bg-card px-4 py-3 ${isSelf ? "ring-1 ring-amber-400" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{u.email ?? "—"}</p>
+                        {u.name && <p className="text-xs text-muted-foreground">{u.name}</p>}
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(u.created)}</p>
+                      </div>
+                      {!hasRole && <Badge variant="warning">Pending</Badge>}
+                    </div>
+                    <Select value={selectValue} onValueChange={(v) => handleRoleChange(u, v)}>
+                      <SelectTrigger className="w-36 h-11 md:h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Desktop table */}
+          {filtered.length > 0 && (
+            <Card className="hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium text-muted-foreground">Email</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Role</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Created</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+                  </thead>
+                  <tbody>
+                    {filtered.map((u) => {
+                      const isSelf = u.id === currentUser?.id;
+                      const hasRole = !!u.role;
+                      const selectValue = u.role || "none";
+                      return (
+                        <tr
+                          key={u.id}
+                          className={`border-b last:border-0 hover:bg-slate-50 ${isSelf ? "ring-1 ring-inset ring-amber-400" : ""}`}
+                        >
+                          <td className="p-3 font-medium">{u.email ?? "—"}</td>
+                          <td className="p-3 text-muted-foreground">{u.name ?? "—"}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {!hasRole && (
+                                <Badge variant="warning">Pending</Badge>
+                              )}
+                              <Select
+                                value={selectValue}
+                                onValueChange={(v) => handleRoleChange(u, v)}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ROLE_OPTIONS.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </td>
+                          <td className="p-3 text-muted-foreground">{formatDate(u.created)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

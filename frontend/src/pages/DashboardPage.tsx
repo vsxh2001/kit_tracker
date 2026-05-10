@@ -72,7 +72,29 @@ export function DashboardPage() {
             {recentTx.length === 0 ? (
               <p className="text-sm text-muted-foreground">No transactions yet.</p>
             ) : (
-              <Card className="overflow-hidden">
+              <>
+                <div className="md:hidden space-y-2">
+                  {recentTx.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="rounded-lg border bg-card px-4 py-3 cursor-pointer hover:bg-indigo-50/40 transition-colors"
+                      onClick={() => navigate(`/kits/${tx.expand?.kit?.id ?? tx.kit}`)}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">
+                          {tx.expand?.kit?.serial ?? tx.kit}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
+                      </div>
+                      {tx.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{tx.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                <Card className="overflow-hidden hidden md:block">
                 <CardContent className="p-0">
                   <table className="w-full text-sm">
                     <thead>
@@ -112,6 +134,7 @@ export function DashboardPage() {
                   </table>
                 </CardContent>
               </Card>
+              </>
             )}
           </div>
         </>

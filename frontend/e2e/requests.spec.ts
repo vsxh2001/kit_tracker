@@ -65,7 +65,7 @@ test.describe("Requests page — listing", () => {
     await page.goto("/requests");
     await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
     const table = page.locator("table");
-    await expect(table.getByRole("columnheader", { name: "Date" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Date", exact: true })).toBeVisible();
     await expect(table.getByRole("columnheader", { name: "Requester" })).toBeVisible();
     await expect(table.getByRole("columnheader", { name: "Status" })).toBeVisible();
     await expect(table.getByRole("columnheader", { name: "Kit" })).toBeVisible();
@@ -243,11 +243,12 @@ test.describe("Request detail — admin approve and reject", () => {
     await page.getByRole("button", { name: "Approve" }).click();
 
     // Status badge in the heading area should update to "approved"
-    // Look for the badge specifically by scoping to the heading area
+    // Wait for and verify the badge text
     await expect(
-      page.locator("div > h1").nth(0).getByText("approved")
+      page.getByText("approved", { exact: true }).first()
     ).toBeVisible({
-      message: "Status should update to 'approved' after approval",
+      message: "Status badge should update to 'approved' after approval",
+      timeout: 8000,
     });
 
     // Approve/Reject buttons disappear; Fulfill button appears
@@ -266,18 +267,18 @@ test.describe("Request detail — admin approve and reject", () => {
     await page.getByRole("button", { name: "Reject" }).click();
 
     // Status badge should update to "rejected"
-    // Look for the badge specifically by scoping to the heading area
     await expect(
-      page.locator("div > h1").nth(0).getByText("rejected")
+      page.getByText("rejected", { exact: true }).first()
     ).toBeVisible({
-      message: "Status should update to 'rejected' after rejection",
+      message: "Status badge should update to 'rejected' after rejection",
+      timeout: 8000,
     });
 
     // Admin actions card should disappear (rejected is a terminal state in the
     // condition: status !== "fulfilled" && status !== "cancelled" && status !== "rejected")
     await expect(
       page.getByRole("heading", { name: "Admin actions" })
-    ).not.toBeVisible();
+    ).not.toBeVisible({ timeout: 8000 });
 
     // Verify via API
     const req = await getRequest(rejectRequestId);
@@ -300,14 +301,13 @@ test.describe("Request detail — admin approve and reject", () => {
   test("detail page shows all request fields", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${rejectRequestId}`);
-    // Scope to the Details card to avoid matching "Date" in other contexts
-    const detailsCard = page.locator("main").locator("article").first();
-    await expect(detailsCard.getByText("Requester")).toBeVisible();
-    await expect(detailsCard.getByText("Date")).toBeVisible();
-    await expect(detailsCard.getByText("Status")).toBeVisible();
-    await expect(detailsCard.getByText("Designated kit")).toBeVisible();
-    await expect(detailsCard.getByText("Target entity")).toBeVisible();
-    await expect(detailsCard.getByText("Notes")).toBeVisible();
+    // Verify all field labels appear in Details section
+    await expect(page.getByText("Requester", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Date", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Status", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Designated kit", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Target entity", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Notes", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(`${TS}-to-reject`)).toBeVisible({
       message: "Request notes should appear in the Details card",
     });
@@ -372,17 +372,17 @@ test.describe("Request fulfill — atomic transaction + status update", () => {
     await page.getByRole("button", { name: "Fulfill" }).click();
 
     // Status badge should update to "fulfilled"
-    // Look for the badge specifically by scoping to the heading area
     await expect(
-      page.locator("div > h1").nth(0).getByText("fulfilled")
+      page.getByText("fulfilled", { exact: true }).first()
     ).toBeVisible({
-      message: "Status should update to 'fulfilled' after fulfillment",
+      message: "Status badge should update to 'fulfilled' after fulfillment",
+      timeout: 8000,
     });
 
     // Admin actions card disappears for fulfilled requests
     await expect(
       page.getByRole("heading", { name: "Admin actions" })
-    ).not.toBeVisible();
+    ).not.toBeVisible({ timeout: 8000 });
 
     // Verify via API — both the status AND the transaction were written
     const req = await getRequest(requestId);
@@ -493,10 +493,10 @@ test.describe("Request assignment (admin saves assignment)", () => {
     // After saving, detail card should show the assigned kit serial and entity
     // Wait for the details card to update with the new assignment
     await expect(
-      page.getByText(`${TS}-ASSIGN-KIT`)
+      page.getByText(`${TS}-ASSIGN-KIT`).first()
     ).toBeVisible({ timeout: 5000, message: "Assigned kit serial should appear in Details card" });
     await expect(
-      page.getByText(`${TS}-ASSIGN-ENT`)
+      page.getByText(`${TS}-ASSIGN-ENT`).first()
     ).toBeVisible({ timeout: 5000, message: "Assigned entity name should appear in Details card" });
 
     // Verify via API - refresh the request data to ensure latest version

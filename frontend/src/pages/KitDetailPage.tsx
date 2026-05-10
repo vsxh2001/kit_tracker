@@ -128,7 +128,24 @@ export function KitDetailPage() {
         {history.length === 0 ? (
           <p className="text-sm text-muted-foreground">No transactions.</p>
         ) : (
-          <Card className="overflow-hidden">
+          <>
+          <div className="md:hidden space-y-2">
+            {history.map((tx) => (
+              <div key={tx.id} className="rounded-lg border bg-card px-4 py-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                  <span className="text-xs text-muted-foreground">{tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? ""}</span>
+                </div>
+                <div className="text-sm font-medium">
+                  {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
+                </div>
+                {tx.notes && <p className="text-xs text-muted-foreground mt-0.5">{tx.notes}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <Card className="overflow-hidden hidden md:block">
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
@@ -158,6 +175,7 @@ export function KitDetailPage() {
               </table>
             </CardContent>
           </Card>
+          </>
         )}
       </div>
 

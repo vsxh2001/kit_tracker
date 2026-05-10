@@ -94,51 +94,89 @@ export function EntitiesPage() {
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="border-b">
-                  <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Description</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Active</th>
-                  {isAdmin && <th className="p-3" />}
-                </tr>
-              </thead>
-              <tbody>
-                {entities.length === 0 && (
-                  <tr><td colSpan={isAdmin ? 4 : 3} className="p-4 text-center text-muted-foreground">No entities.</td></tr>
-                )}
-                {entities.map((e) => (
-                  <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => navigate(`/entities/${e.id}`)}>
-                    <td className="p-3 font-medium">{e.name}</td>
-                    <td className="p-3 text-muted-foreground">{e.description ?? "—"}</td>
-                    <td className="p-3">
-                      <Badge variant={e.is_active ? "success" : "gray"}>
-                        {e.is_active ? "Yes" : "No"}
-                      </Badge>
-                    </td>
-                    {isAdmin && (
-                      <td className="p-3">
-                        <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}>Edit</Button>
-                          {e.is_active && (
-                            <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "deactivate", entity: e }); }}>
-                              Deactivate
-                            </Button>
-                          )}
-                          <Button variant="destructive" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "delete", entity: e }); }}>
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <>
+          {entities.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-8">No entities.</p>
+          )}
+
+          {/* Mobile card list */}
+          {entities.length > 0 && (
+            <div className="md:hidden space-y-2">
+              {entities.map((e) => (
+                <div
+                  key={e.id}
+                  className="rounded-lg border bg-card px-4 py-3 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                  onClick={() => navigate(`/entities/${e.id}`)}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-medium text-sm">{e.name}</span>
+                    <Badge variant={e.is_active ? "success" : "gray"}>{e.is_active ? "Active" : "Inactive"}</Badge>
+                  </div>
+                  {e.description && <p className="text-xs text-muted-foreground mb-2">{e.description}</p>}
+                  {isAdmin && (
+                    <div className="flex gap-2 mt-2" onClick={(ev) => ev.stopPropagation()}>
+                      <Button variant="ghost" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => openEdit(e)}>Edit</Button>
+                      {e.is_active && (
+                        <Button variant="ghost" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => setPending({ kind: "deactivate", entity: e })}>
+                          Deactivate
+                        </Button>
+                      )}
+                      <Button variant="destructive" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => setPending({ kind: "delete", entity: e })}>
+                        Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Desktop table */}
+          {entities.length > 0 && (
+            <Card className="hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b">
+                      <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Description</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Active</th>
+                      {isAdmin && <th className="p-3" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entities.map((e) => (
+                      <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => navigate(`/entities/${e.id}`)}>
+                        <td className="p-3 font-medium">{e.name}</td>
+                        <td className="p-3 text-muted-foreground">{e.description ?? "—"}</td>
+                        <td className="p-3">
+                          <Badge variant={e.is_active ? "success" : "gray"}>
+                            {e.is_active ? "Yes" : "No"}
+                          </Badge>
+                        </td>
+                        {isAdmin && (
+                          <td className="p-3">
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}>Edit</Button>
+                              {e.is_active && (
+                                <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "deactivate", entity: e }); }}>
+                                  Deactivate
+                                </Button>
+                              )}
+                              <Button variant="destructive" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "delete", entity: e }); }}>
+                                Delete
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       <EntityFormDialog

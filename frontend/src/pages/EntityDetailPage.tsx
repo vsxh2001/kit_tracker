@@ -84,36 +84,58 @@ export function EntityDetailPage() {
         {currentKits.length === 0 ? (
           <p className="text-sm text-muted-foreground">No kits currently at this entity.</p>
         ) : (
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-slate-50/80">
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentKits.map((kit) => (
-                    <tr
-                      key={kit.id}
-                      className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/kits/${kit.id}`)}
-                    >
-                      <td className="px-4 py-3 font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{kit.notes ?? <span className="opacity-30">—</span>}</td>
-                      <td className="px-4 py-3">
-                        {kit.is_active
-                          ? <Badge variant="outline" className="text-[10px]">Active</Badge>
-                          : <Badge variant="destructive" className="text-[10px]">Retired</Badge>}
-                      </td>
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-2">
+              {currentKits.map((kit) => (
+                <div
+                  key={kit.id}
+                  className="rounded-lg border bg-card px-4 py-3 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                  onClick={() => navigate(`/kits/${kit.id}`)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</span>
+                    {kit.is_active
+                      ? <Badge variant="outline" className="text-[10px]">Active</Badge>
+                      : <Badge variant="destructive" className="text-[10px]">Retired</Badge>}
+                  </div>
+                  {kit.notes && <p className="text-xs text-muted-foreground mt-1">{kit.notes}</p>}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <Card className="overflow-hidden hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50/80">
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {currentKits.map((kit) => (
+                      <tr
+                        key={kit.id}
+                        className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/kits/${kit.id}`)}
+                      >
+                        <td className="px-4 py-3 font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{kit.notes ?? <span className="opacity-30">—</span>}</td>
+                        <td className="px-4 py-3">
+                          {kit.is_active
+                            ? <Badge variant="outline" className="text-[10px]">Active</Badge>
+                            : <Badge variant="destructive" className="text-[10px]">Retired</Badge>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
 
@@ -126,41 +148,67 @@ export function EntityDetailPage() {
         {history.length === 0 ? (
           <p className="text-sm text-muted-foreground">No transactions.</p>
         ) : (
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-slate-50/80">
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Time</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">From</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">To</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((tx) => (
-                    <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
-                        {formatDate(tx.timestamp)}
-                      </td>
-                      <td
-                        className="px-4 py-3 font-mono text-xs text-indigo-700 cursor-pointer hover:underline"
-                        onClick={() => navigate(`/kits/${tx.kit}`)}
-                      >
-                        {tx.expand?.kit?.serial ?? tx.kit}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}</td>
-                      <td className="px-4 py-3 font-medium">{tx.expand?.to_entity?.name ?? tx.to_entity}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">
-                        {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? <span className="opacity-30">—</span>}
-                      </td>
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-2">
+              {history.map((tx) => (
+                <div key={tx.id} className="rounded-lg border bg-card px-4 py-3">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span
+                      className="font-mono text-xs text-indigo-700 cursor-pointer hover:underline"
+                      onClick={() => navigate(`/kits/${tx.kit}`)}
+                    >
+                      {tx.expand?.kit?.serial ?? tx.kit}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <Card className="overflow-hidden hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50/80">
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Time</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">From</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">To</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">By</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {history.map((tx) => (
+                      <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
+                          {formatDate(tx.timestamp)}
+                        </td>
+                        <td
+                          className="px-4 py-3 font-mono text-xs text-indigo-700 cursor-pointer hover:underline"
+                          onClick={() => navigate(`/kits/${tx.kit}`)}
+                        >
+                          {tx.expand?.kit?.serial ?? tx.kit}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}</td>
+                        <td className="px-4 py-3 font-medium">{tx.expand?.to_entity?.name ?? tx.to_entity}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                          {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? <span className="opacity-30">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
 

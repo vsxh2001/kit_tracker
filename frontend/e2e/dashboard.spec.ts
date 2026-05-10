@@ -53,7 +53,7 @@ test.describe("Dashboard page", () => {
   });
 
   test("sidebar shows logged-in user email", async ({ page }) => {
-    await expect(page.getByText("logistics@kit.local")).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("logistics@kit.local")).toBeVisible();
   });
 
   test("sidebar navigation links are all present", async ({ page }) => {
@@ -104,7 +104,7 @@ test.describe("Dashboard — viewer access", () => {
     await loginAs(page, "viewer");
     await page.goto("/dashboard");
     await expect(page.getByText("Total kits")).toBeVisible();
-    await expect(page.getByText("viewer@kit.local")).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("viewer@kit.local")).toBeVisible();
   });
 });
 

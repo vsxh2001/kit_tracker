@@ -63,7 +63,7 @@ test.describe("Kits page — listing and search", () => {
     await loginAs(page, "admin");
     await page.goto("/kits");
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-SEARCH`);
-    await expect(page.getByText(`${TS}-SEARCH`)).toBeVisible();
+    await expect(page.getByRole("cell", { name: `${TS}-SEARCH` })).toBeVisible();
   });
 
   test("search with no match shows 'No kits found.'", async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe("Kit creation (admin)", () => {
 
     // Dialog closes and new serial appears in the table
     await expect(page.getByRole("heading", { name: "New Kit" })).not.toBeVisible();
-    await expect(page.getByText(SERIAL)).toBeVisible({
+    await expect(page.getByRole("cell", { name: SERIAL })).toBeVisible({
       message: "Newly created kit serial should appear in the table",
     });
   });
@@ -172,10 +172,9 @@ test.describe("Kit detail page", () => {
     });
     // Current location section
     await expect(page.getByText("Current location")).toBeVisible();
-    // Scope to the Details card to avoid matching entity names in transaction history
-    const detailsCard = page.locator("main").locator("article").first();
-    await expect(detailsCard.getByText(`${TS}-Entity`)).toBeVisible({
-      message: "Current entity name should appear",
+    // The current entity name appears in the Details card (first occurrence)
+    await expect(page.getByText(`${TS}-Entity`).first()).toBeVisible({
+      message: "Current entity name should appear in the Details card",
     });
     // Transaction history section
     await expect(
@@ -250,9 +249,8 @@ test.describe("Kit move (transfer)", () => {
     await page.goto(`/kits/${kitId}`);
 
     // Starting location shown in detail card
-    // Scope to the Details card to avoid matching entity names in transaction history
-    const detailsCard = page.locator("main").locator("article").first();
-    await expect(detailsCard.getByText(`${TS}-FromEnt`)).toBeVisible();
+    // The starting location entity name appears in the Details card (first occurrence)
+    await expect(page.getByText(`${TS}-FromEnt`).first()).toBeVisible();
 
     // Open move dialog
     await page.getByRole("button", { name: /move kit/i }).click();
@@ -276,7 +274,7 @@ test.describe("Kit move (transfer)", () => {
     await expect(page.getByRole("dialog", { name: /move kit/i })).not.toBeVisible();
 
     // New entity shown as current location on the detail page
-    await expect(page.getByText(`${TS}-ToEnt`)).toBeVisible({
+    await expect(page.getByText(`${TS}-ToEnt`).first()).toBeVisible({
       message: "New entity should be displayed as current location after move",
     });
   });

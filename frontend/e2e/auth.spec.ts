@@ -46,19 +46,19 @@ test.describe("Login page", () => {
   test("admin can log in and reaches dashboard", async ({ page }) => {
     await loginAs(page, "admin");
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByText("logistics@kit.local")).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("logistics@kit.local")).toBeVisible();
   });
 
   test("user (non-admin) can log in and reaches dashboard", async ({ page }) => {
     await loginAs(page, "user");
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByText("requester@kit.local")).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("requester@kit.local")).toBeVisible();
   });
 
   test("viewer can log in and reaches dashboard", async ({ page }) => {
     await loginAs(page, "viewer");
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByText("viewer@kit.local")).toBeVisible();
+    await expect(page.getByRole("complementary").getByText("viewer@kit.local")).toBeVisible();
   });
 });
 
