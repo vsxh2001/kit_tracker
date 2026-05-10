@@ -120,22 +120,14 @@ jobs:
           GOOGLE_OAUTH_CLIENT_SECRET=${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           EOF
 
-      - name: Skip container-e2e if OAuth enabled but secrets missing
-        if: matrix.oauth == 'enabled' && secrets.GOOGLE_OAUTH_CLIENT_ID == ''
-        run: |
-          echo "Skipping OAuth-enabled matrix entry — secrets not configured in this context"
-          exit 0
-
       - name: Disable OAuth for this matrix entry
         if: matrix.oauth == 'disabled'
         run: |
           echo "GOOGLE_OAUTH_DISABLE=1" >> .env
 
-      - name: Build docker image
-        run: docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t kit-tracker:ci .
-
       - name: Run e2e suite via docker compose
-        run: bash scripts/test-prod.sh --no-build
+        if: matrix.oauth == 'disabled' || secrets.GOOGLE_OAUTH_CLIENT_ID != ''
+        run: bash scripts/test-prod.sh
         timeout-minutes: 15
 
       - name: Upload Playwright report

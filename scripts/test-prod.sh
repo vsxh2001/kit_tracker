@@ -52,10 +52,16 @@ docker compose down -v 2>/dev/null || true
 if [ $NO_BUILD -eq 0 ]; then
   echo "========== Building docker compose stack =========="
   docker compose build
+else
+  echo "========== Skipping docker compose build (--no-build flag) =========="
 fi
 
 echo "========== Starting docker compose stack =========="
-docker compose up -d
+if [ $NO_BUILD -eq 1 ]; then
+  docker compose up --no-build -d
+else
+  docker compose up -d
+fi
 
 echo "========== Waiting for PocketBase health check (max 60s) =========="
 i=0
