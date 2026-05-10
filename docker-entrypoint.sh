@@ -15,8 +15,9 @@ set -e
 # (e.g. Docker's default hidepid=0 can be tightened with a custom seccomp/pid-ns
 # profile).  Once PB adds a --password-file or stdin option this line should be
 # updated accordingly.
+# Idempotency: suppress UNIQUE constraint errors (admin already exists) but exit on other errors.
 ./pocketbase admin create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" \
-  --dir=/app/pb_data 2>/dev/null || true
+  --dir=/app/pb_data 2>&1 | grep -v "constraint failed: UNIQUE constraint failed: _admins.email" || true
 
 # Initialize migrations before starting PocketBase (required for schema).
 ./pocketbase migrate up --dir=/app/pb_data --migrationsDir=/app/pb/pb_migrations || true
@@ -46,7 +47,7 @@ done
 /app/pb/setup_collections.sh
 
 # Seed test users for Playwright e2e tests
-/app/pb/seed_test_users.sh || true
+/app/pb/seed_test_users.sh "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" || true
 
 # Google OAuth handling — credentials come from env vars, no argv leak.
 if [ -n "${GOOGLE_OAUTH_DISABLE:-}" ]; then

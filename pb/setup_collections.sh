@@ -52,18 +52,11 @@ USERS_COL=$(curl -s "$PB_URL/api/collections/_pb_users_auth_" -H "Authorization:
 curl -s -X PATCH "$PB_URL/api/collections/_pb_users_auth_" \
   -H "Authorization: $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "$(echo "$USERS_COL" | python3 -c "
-import sys, json
-col = json.load(sys.stdin)
-existing = {f['name'] for f in col.get('schema', [])}
-new_fields = []
-if 'name' not in existing:
-    new_fields.append({'name':'name','type':'text','required':False})
-if 'role' not in existing:
-    new_fields.append({'name':'role','type':'select','required':False,'options':{'values':['admin','user','viewer'],'maxSelect':1}})
-col['schema'] = col.get('schema', []) + new_fields
-print(json.dumps(col))
-")" >/dev/null
+  -d "$(echo "$USERS_COL" | jq '
+    (.schema // []) as $schema |
+    if ($schema | map(.name) | index("name")) then . else .schema += [{"name":"name","type":"text","required":false}] end |
+    if ($schema | map(.name) | index("role")) then . else .schema += [{"name":"role","type":"select","required":false,"options":{"values":["admin","user","viewer"],"maxSelect":1}}] end
+  ')" >/dev/null
 echo "Users collection updated."
 
 echo "Creating 'entities' collection..."

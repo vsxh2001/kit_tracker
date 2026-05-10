@@ -59,7 +59,7 @@ AUTH_RESPONSE=$(curl -s -X POST "$PB_URL/api/admins/auth-with-password" \
   -H "Content-Type: application/json" \
   -d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")
 
-TOKEN=$(echo "$AUTH_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('token',''))" 2>/dev/null || true)
+TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty' 2>/dev/null || true)
 
 if [ -z "$TOKEN" ]; then
   echo "ERROR: Authentication failed. Check credentials and that PocketBase is running." >&2
@@ -109,21 +109,12 @@ fi
 
 # ---- verify ----
 echo "Verifying..."
-VERIFY=$(curl -s -H "Authorization: $TOKEN" "$PB_URL/api/settings" \
-  | python3 -c "
-import sys, json
-s = json.load(sys.stdin)
-g = s.get('googleAuth', {})
-enabled = g.get('enabled', False)
-client_id = g.get('clientId', '')
-print('enabled=' + str(enabled).lower())
-print('clientId=' + client_id)
-" 2>/dev/null)
+VERIFY=$(curl -s -H "Authorization: $TOKEN" "$PB_URL/api/settings")
 
-ENABLED=$(echo "$VERIFY" | grep '^enabled=' | cut -d= -f2)
-CLIENT_ID=$(echo "$VERIFY" | grep '^clientId=' | cut -d= -f2)
+ENABLED=$(echo "$VERIFY" | jq -r '.googleAuth.enabled' 2>/dev/null || echo "false")
+CLIENT_ID=$(echo "$VERIFY" | jq -r '.googleAuth.clientId // ""' 2>/dev/null || echo "")
 
-if [ "$ENABLED" != "true" ]; then
+if [ "$ENABLED" != "true" ] && [ "$ENABLED" != "True" ]; then
   echo "ERROR: googleAuth.enabled is not true after PATCH." >&2
   exit 1
 fi

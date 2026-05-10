@@ -20,8 +20,8 @@ FROM debian:bookworm-slim AS runtime
 
 ARG PB_VERSION=0.22.22
 
-# Install curl + unzip to download PocketBase; clean up afterwards
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip \
+# Install curl + unzip to download PocketBase, plus jq for JSON parsing in shell scripts; clean up afterwards
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip jq \
     && curl -sSL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip" -o /tmp/pb.zip \
     && unzip -q /tmp/pb.zip -d /tmp/pb \
     && mv /tmp/pb/pocketbase /usr/local/bin/pocketbase \
