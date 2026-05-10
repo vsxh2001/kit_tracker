@@ -111,7 +111,8 @@ test.describe("CSV import — happy path", () => {
     await expect(page.getByText(/skipped:\s*0/i)).toBeVisible();
     await expect(page.getByText(/errors:\s*0/i)).toBeVisible();
 
-    await page.getByRole("button", { name: /^close$/i }).click();
+    // Scope to dialog to avoid matching the Radix X-button (also labelled "Close")
+    await page.getByRole("dialog").getByRole("button", { name: /^close$/i }).first().click();
 
     // Both kits should appear in the table after reload
     await page.getByPlaceholder(/search by serial/i).fill(SERIAL_A);
@@ -162,10 +163,11 @@ test.describe("CSV import — duplicate skip", () => {
     await expect(page.getByText(/imported:\s*1/i)).toBeVisible();
     await expect(page.getByText(/skipped:\s*1/i)).toBeVisible();
 
-    // Skipped list shows the existing serial
-    await expect(page.getByText(EXISTING_SERIAL)).toBeVisible();
+    // Skipped list shows the existing serial — scope to dialog to avoid matching table rows
+    await expect(page.getByRole("dialog").getByText(EXISTING_SERIAL)).toBeVisible();
 
-    await page.getByRole("button", { name: /^close$/i }).click();
+    // Scope to dialog to avoid matching the Radix X-button (also labelled "Close")
+    await page.getByRole("dialog").getByRole("button", { name: /^close$/i }).first().click();
     fs.unlinkSync(tmpPath);
   });
 });
@@ -202,7 +204,8 @@ test.describe("CSV import — error on empty serial", () => {
     // Should mention row 2
     await expect(page.getByText(/row 2/i)).toBeVisible();
 
-    await page.getByRole("button", { name: /^close$/i }).click();
+    // Scope to dialog to avoid matching the Radix X-button (also labelled "Close")
+    await page.getByRole("dialog").getByRole("button", { name: /^close$/i }).first().click();
     fs.unlinkSync(tmpPath);
   });
 });
