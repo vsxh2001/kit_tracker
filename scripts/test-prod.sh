@@ -52,10 +52,16 @@ docker compose down -v 2>/dev/null || true
 if [ $NO_BUILD -eq 0 ]; then
   echo "========== Building docker compose stack =========="
   docker compose build
+else
+  echo "========== Skipping docker compose build (--no-build flag) =========="
 fi
 
 echo "========== Starting docker compose stack =========="
-docker compose up -d
+if [ $NO_BUILD -eq 1 ]; then
+  docker compose up --no-build -d
+else
+  docker compose up -d
+fi
 
 echo "========== Waiting for PocketBase health check (max 60s) =========="
 i=0
@@ -71,7 +77,10 @@ until curl -sf http://localhost:${PB_HOST_PORT}/api/health > /dev/null 2>&1; do
   echo "  Waiting... ($i/60)"
   sleep 1
 done
-echo "PocketBase is ready. Collections and test users initialized via docker-entrypoint.sh."
+echo "PocketBase is ready."
+
+echo "========== Seeding test users (idempotent) =========="
+PB_URL="http://localhost:8090" bash "${REPO_ROOT}/pb/seed_test_users.sh" "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD"
 
 echo "========== Running Playwright e2e suite (docker stack) =========="
 # Point Playwright to the dockerized frontend (served by PB on the assigned port)

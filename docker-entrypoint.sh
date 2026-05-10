@@ -4,6 +4,10 @@ set -e
 : "${PB_SUPERUSER_EMAIL:?PB_SUPERUSER_EMAIL must be set}"
 : "${PB_SUPERUSER_PASSWORD:?PB_SUPERUSER_PASSWORD must be set}"
 
+# Initialize migrations before creating admin — PB v0.22 requires a migrated DB
+# before `admin create` can succeed on a fresh volume.
+./pocketbase migrate up --dir=/app/pb_data --migrationsDir=/app/pb/pb_migrations || true
+
 # NOTE: PocketBase v0.22's `admin create` command unconditionally requires the
 # password as a positional CLI argument (argv[2]).  It provides no --password-file
 # flag, no stdin mode, and no environment-variable alternative.  As a result the
@@ -18,9 +22,6 @@ set -e
 # Idempotency: suppress UNIQUE constraint errors (admin already exists) but exit on other errors.
 ./pocketbase admin create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" \
   --dir=/app/pb_data 2>&1 | grep -v "constraint failed: UNIQUE constraint failed: _admins.email" || true
-
-# Initialize migrations before starting PocketBase (required for schema).
-./pocketbase migrate up --dir=/app/pb_data --migrationsDir=/app/pb/pb_migrations || true
 
 # Start PocketBase in the background so bootstrap scripts can call its API.
 ./pocketbase serve \

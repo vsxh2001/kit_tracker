@@ -9,8 +9,12 @@ RUN npm ci
 
 COPY frontend/ ./
 
-# Build with same-origin PocketBase URL so the SPA hits the same host
-ENV VITE_PB_URL=""
+# Build with root-relative PocketBase URL so the SPA hits the same host.
+# Must start with "/" so the PB JS SDK resolves API calls against
+# window.location.origin (not window.location.pathname) regardless of the
+# current route — empty string causes SDK to prepend the pathname, breaking
+# auth calls on any page other than "/".
+ENV VITE_PB_URL="/"
 
 RUN npm run build
 
