@@ -19,7 +19,7 @@ test.describe("a11y verify — commit a122490", () => {
     // Press Escape
     await page.keyboard.press("Escape");
     // Drawer should be -translate-x-full
-    await expect(drawer).toHaveClass(/-translate-x-full/);
+    await expect(page.locator("aside.fixed")).toHaveClass(/-translate-x-full/);
   });
 
   test("Check 2: Focus trap — Tab wraps within drawer", async ({ page }) => {
