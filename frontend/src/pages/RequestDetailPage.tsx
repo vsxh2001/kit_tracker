@@ -274,7 +274,7 @@ export function RequestDetailPage() {
         {isAdmin && (request.status === "fulfilled" || request.status === "cancelled" || request.status === "rejected") && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admin actions</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Danger zone</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 flex flex-wrap gap-2">
               <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
