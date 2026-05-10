@@ -76,7 +76,10 @@ until curl -sf http://localhost:8090/api/health > /dev/null 2>&1; do
   echo "  Waiting... ($i/60)"
   sleep 1
 done
-echo "PocketBase is ready. Collections and test users initialized via docker-entrypoint.sh."
+echo "PocketBase is ready."
+
+echo "========== Seeding test users (idempotent) =========="
+PB_URL="http://localhost:8090" bash "${REPO_ROOT}/pb/seed_test_users.sh" "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD"
 
 echo "========== Running Playwright e2e suite (docker stack) =========="
 # Point Playwright to the dockerized frontend (served by PB on :8090)
