@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const isDockerMode = process.env.PLAYWRIGHT_TEST_BASE_URL === "http://localhost:8090";
+const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:5173";
+const _parsedBase = new URL(baseURL);
+const isDockerMode = _parsedBase.hostname === "localhost" && _parsedBase.port !== "5173";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -10,7 +12,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:5173",
+    baseURL,
     trace: "on-first-retry",
     launchOptions: {
       ...(process.env.CI ? {} : { executablePath: "/usr/bin/google-chrome" }),
