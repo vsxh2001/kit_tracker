@@ -50,7 +50,7 @@ COPY --from=builder --chown=pbuser:pbuser /build/dist ./pb_public
 # via .dockerignore / volume mount — only schema files travel in the image.
 COPY --chown=pbuser:pbuser pb/pb_migrations/ ./pb/pb_migrations/
 COPY --chown=pbuser:pbuser pb/pb_hooks/ ./pb/pb_hooks/
-COPY --chown=pbuser:pbuser pb/setup_collections.sh pb/seed_test_users.sh pb/setup_oauth.sh ./pb/
+COPY --chown=pbuser:pbuser pb/setup_collections.sh pb/seed_test_users.sh pb/setup_oauth.sh pb/setup_smtp.sh ./pb/
 
 # Create pb_data as pbuser so the named volume inherits the correct ownership
 RUN mkdir -p /app/pb_data && chown pbuser:pbuser /app/pb_data
