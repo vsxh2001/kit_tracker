@@ -111,7 +111,7 @@ export async function importKitsCsv(file: File): Promise<ImportResult> {
     const existing: Kit | null = await pb
       .collection("kits")
       .getFirstListItem<Kit>(
-        `serial = "${serial.replace(/"/g, '""')}"`,
+        pb.filter("serial = {:serial}", { serial }),
         { requestKey: `import-check-${i}-${serial}` }
       )
       .catch(() => null);
