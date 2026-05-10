@@ -274,11 +274,12 @@ test.describe("Request detail — admin approve and reject", () => {
       timeout: 8000,
     });
 
-    // Admin actions card should disappear (rejected is a terminal state in the
-    // condition: status !== "fulfilled" && status !== "cancelled" && status !== "rejected")
-    await expect(
-      page.getByRole("heading", { name: "Admin actions" })
-    ).not.toBeVisible({ timeout: 8000 });
+    // Primary action card disappears (rejected is a terminal state, so Approve/Reject/Fulfill buttons gone),
+    // but danger-zone card still shows with Delete button and "Admin actions" heading.
+    // Assert the specific action buttons are gone, not the heading.
+    await expect(page.getByRole("button", { name: "Approve" })).not.toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole("button", { name: "Reject" })).not.toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole("button", { name: "Fulfill" })).not.toBeVisible({ timeout: 8000 });
 
     // Verify via API
     const req = await getRequest(rejectRequestId);
@@ -379,10 +380,12 @@ test.describe("Request fulfill — atomic transaction + status update", () => {
       timeout: 8000,
     });
 
-    // Admin actions card disappears for fulfilled requests
-    await expect(
-      page.getByRole("heading", { name: "Admin actions" })
-    ).not.toBeVisible({ timeout: 8000 });
+    // Primary action card disappears for fulfilled requests (Fulfill button gone),
+    // but danger-zone card still shows with Delete button and "Admin actions" heading.
+    // Assert the specific action buttons are gone, not the heading.
+    await expect(page.getByRole("button", { name: "Approve" })).not.toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole("button", { name: "Reject" })).not.toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole("button", { name: "Fulfill" })).not.toBeVisible({ timeout: 8000 });
 
     // Verify via API — both the status AND the transaction were written
     const req = await getRequest(requestId);
