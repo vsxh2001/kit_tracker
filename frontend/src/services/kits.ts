@@ -1,3 +1,4 @@
+import Papa from "papaparse";
 import { pb } from "../lib/pocketbase";
 import type { Kit, Transaction } from "../types";
 
@@ -38,4 +39,104 @@ export async function getKitHistory(kitId: string) {
     expand: "from_entity,to_entity,created_by",
     requestKey: `kit-history-${kitId}`,
   });
+}
+
+export async function exportKitsCsv(): Promise<string> {
+  const kits = await pb.collection("kits").getFullList<Kit>({
+    sort: "serial",
+    requestKey: "export-kits-all",
+  });
+
+  const rows = await Promise.all(
+    kits.map(async (kit) => {
+      const result = await pb
+        .collection("transactions")
+        .getList<Transaction>(1, 1, {
+          filter: pb.filter("kit = {:kit}", { kit: kit.id }),
+          sort: "-timestamp,-created",
+          expand: "to_entity",
+          requestKey: `export-kits-tx-${kit.id}`,
+        });
+      const latest = result.items[0] ?? null;
+      return {
+        serial: kit.serial,
+        notes: kit.notes ?? "",
+        is_active: kit.is_active,
+        created: kit.created,
+        current_holder: latest?.expand?.to_entity?.name ?? "",
+      };
+    })
+  );
+
+  return Papa.unparse(rows, { header: true });
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: { row: number; serial: string; reason: "duplicate" }[];
+  errors: { row: number; reason: string }[];
+}
+
+function parseBool(s: string | undefined | null): boolean {
+  if (!s || s.trim() === "") return true;
+  const v = s.trim().toLowerCase();
+  if (v === "true" || v === "1" || v === "yes") return true;
+  if (v === "false" || v === "0" || v === "no") return false;
+  return true;
+}
+
+export async function importKitsCsv(file: File): Promise<ImportResult> {
+  const result: ImportResult = { imported: 0, skipped: [], errors: [] };
+
+  const parsed = await new Promise<Papa.ParseResult<Record<string, string>>>(
+    (resolve) => {
+      Papa.parse<Record<string, string>>(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: resolve,
+      });
+    }
+  );
+
+  for (let i = 0; i < parsed.data.length; i++) {
+    const rowNum = i + 2; // 1-based + header row
+    const row = parsed.data[i];
+    const serial = row.serial?.trim() ?? "";
+
+    if (!serial) {
+      result.errors.push({ row: rowNum, reason: "serial is required" });
+      continue;
+    }
+
+    const existing: Kit | null = await pb
+      .collection("kits")
+      .getFirstListItem<Kit>(
+        `serial = "${serial.replace(/"/g, '""')}"`,
+        { requestKey: `import-check-${i}-${serial}` }
+      )
+      .catch(() => null);
+
+    if (existing) {
+      result.skipped.push({ row: rowNum, serial, reason: "duplicate" });
+      continue;
+    }
+
+    try {
+      await pb.collection("kits").create<Kit>(
+        {
+          serial,
+          notes: row.notes ?? "",
+          is_active: parseBool(row.is_active),
+        },
+        { requestKey: `import-create-${i}-${serial}` }
+      );
+      result.imported++;
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : "unknown error";
+      result.errors.push({ row: rowNum, reason: msg });
+    }
+  }
+
+  return result;
 }

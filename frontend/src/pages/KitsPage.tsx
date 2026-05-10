@@ -1,12 +1,13 @@
 import { useEffect, useState, startTransition } from "react";
 import { Link } from "react-router-dom";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { KitFormDialog } from "../components/KitFormDialog";
-import { listKits, getLatestTransaction } from "../services/kits";
+import { ImportKitsDialog } from "../components/ImportKitsDialog";
+import { listKits, getLatestTransaction, exportKitsCsv } from "../services/kits";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
 import type { Kit, Transaction } from "../types";
@@ -22,6 +23,7 @@ export function KitsPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -44,6 +46,25 @@ export function KitsPage() {
 
   useEffect(() => { startTransition(() => load()); }, []);
 
+  async function handleExport() {
+    try {
+      const csv = await exportKitsCsv();
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `kits-${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
+    }
+  }
+
   const filtered = rows.filter((r) =>
     r.kit.serial.toLowerCase().includes(search.toLowerCase())
   );
@@ -56,10 +77,20 @@ export function KitsPage() {
           <p className="text-sm text-muted-foreground mt-0.5">{rows.length} kit{rows.length !== 1 ? "s" : ""} registered</p>
         </div>
         {isAdmin && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            New kit
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Button size="sm" variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4" />
+              New kit
+            </Button>
+          </div>
         )}
       </div>
 
@@ -154,6 +185,12 @@ export function KitsPage() {
         open={showForm}
         onClose={() => setShowForm(false)}
         onSaved={load}
+      />
+
+      <ImportKitsDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={load}
       />
     </div>
   );
