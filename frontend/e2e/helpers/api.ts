@@ -4,7 +4,9 @@
  * No UI involved — these are strictly for test data management.
  */
 
-const PB_URL = "http://127.0.0.1:8090";
+// Honors PB_URL env var so agents in port-assigned worktrees can target their
+// own PB instance. Defaults to :8090 when unset (matches main worktree + CI).
+const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 
 let _adminToken: string | null = null;
 let _adminUserId: string | null = null;
