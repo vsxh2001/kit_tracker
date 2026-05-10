@@ -100,3 +100,48 @@ jobs:
           pkill -f "pocketbase serve" || true
           pkill -f "vite" || true
           pkill -f "npm run dev" || true
+
+  container-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        oauth: [disabled, enabled]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Set up .env for docker compose
+        run: |
+          cat > .env <<'EOF'
+          PB_SUPERUSER_EMAIL=ci@example.com
+          PB_SUPERUSER_PASSWORD=CIpassword123!
+          GOOGLE_OAUTH_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET=${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          EOF
+
+      - name: Skip container-e2e if OAuth enabled but secrets missing
+        if: matrix.oauth == 'enabled' && secrets.GOOGLE_OAUTH_CLIENT_ID == ''
+        run: |
+          echo "Skipping OAuth-enabled matrix entry — secrets not configured in this context"
+          exit 0
+
+      - name: Disable OAuth for this matrix entry
+        if: matrix.oauth == 'disabled'
+        run: |
+          echo "GOOGLE_OAUTH_DISABLE=1" >> .env
+
+      - name: Build docker image
+        run: docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t kit-tracker:ci .
+
+      - name: Run e2e suite via docker compose
+        run: bash scripts/test-prod.sh --no-build
+        timeout-minutes: 15
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-container-${{ matrix.oauth }}
+          path: frontend/playwright-report/
+          retention-days: 7
