@@ -59,7 +59,8 @@ docker compose up -d
 
 echo "========== Waiting for PocketBase health check (max 60s) =========="
 i=0
-until curl -sf http://localhost:8090/api/health > /dev/null 2>&1; do
+PB_HOST_PORT=${PB_HOST_PORT:-8090}
+until curl -sf http://localhost:${PB_HOST_PORT}/api/health > /dev/null 2>&1; do
   i=$((i + 1))
   if [ $i -ge 60 ]; then
     echo "ERROR: PocketBase did not become ready within 60s."
@@ -73,11 +74,12 @@ done
 echo "PocketBase is ready. Collections and test users initialized via docker-entrypoint.sh."
 
 echo "========== Running Playwright e2e suite (docker stack) =========="
-# Point Playwright to the dockerized frontend (served by PB on :8090)
+# Point Playwright to the dockerized frontend (served by PB on the assigned port)
 # Set PLAYWRIGHT_TEST_BASE_URL to signal docker mode (skips webServer health checks)
 cd "${REPO_ROOT}/frontend"
-VITE_PB_URL="http://localhost:8090" \
-PLAYWRIGHT_TEST_BASE_URL="http://localhost:8090" \
+PB_HOST_PORT=${PB_HOST_PORT:-8090}
+VITE_PB_URL="http://localhost:${PB_HOST_PORT}" \
+PLAYWRIGHT_TEST_BASE_URL="http://localhost:${PB_HOST_PORT}" \
 npx playwright test --config=playwright.config.ts || {
   local_exit=$?
   echo "ERROR: Playwright tests failed (exit code: $local_exit)."

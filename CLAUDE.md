@@ -56,6 +56,40 @@ Tests using OAuth provider auto-skip via `test.skip(!process.env.GOOGLE_OAUTH_CL
 
 Two independent processes: PocketBase (port 8090) + Vite dev server (port 5173). Frontend talks directly to PocketBase's REST API via the JS SDK — no custom backend.
 
+### Worktree port assignment
+
+Multiple worktrees on the same host conflict on ports (PocketBase :8090, Vite :5173, MailHog :1025/:8025). To support parallel agent dispatch:
+
+1. **Automatic detection:** Run `bash .claude/scripts/worktree-ports.sh` from any worktree. Outputs port assignments + writes to `.claude/ports.env`.
+2. **Port registry:** `.claude/ports.json` maps worktree name → offset (0, 1, 2, …); auto-allocates next free offset on first call.
+3. **Port formula:** offset N gets:
+   - `PB_HOST_PORT = 8090 + (N * 2)`
+   - `VITE_PORT = 5173 + N`
+   - `MAILHOG_SMTP_PORT = 1025 + (N * 2)`
+   - `MAILHOG_UI_PORT = 8025 + (N * 2)`
+
+Example:
+```bash
+# main repo: offset 0
+eval $(bash .claude/scripts/worktree-ports.sh)  # PB_HOST_PORT=8090, VITE_PORT=5173, ...
+
+# worktree feat-mobile-responsive: offset 1
+cd .claude/worktrees/feat-mobile-responsive
+eval $(bash ../../scripts/worktree-ports.sh)  # PB_HOST_PORT=8092, VITE_PORT=5174, ...
+
+# worktree feat-container-ci: offset 2
+cd ../feat-container-ci
+eval $(bash ../../scripts/worktree-ports.sh)  # PB_HOST_PORT=8094, VITE_PORT=5175, ...
+```
+
+**Using assigned ports:**
+- `docker-compose.yml` interpolates `${PB_HOST_PORT}` etc — `docker compose up` picks the right ports automatically when env is sourced
+- Local PB: `./pb/pocketbase serve --http=127.0.0.1:${PB_HOST_PORT:-8090} --dir=pb/pb_data`
+- Vite: `cd frontend && npm run dev -- --port ${VITE_PORT:-5173}`
+- Frontend env: If using non-default port, create `frontend/.env.local` with `VITE_PB_URL=http://127.0.0.1:${PB_HOST_PORT}`
+
+When dispatching agents, the orchestrator reads assigned ports from `.claude/ports.json` and includes them in the brief.
+
 ### PocketBase collections
 
 | Collection | Key fields |
