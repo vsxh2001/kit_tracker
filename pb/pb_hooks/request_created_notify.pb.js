@@ -59,7 +59,7 @@ onRecordAfterCreateRequest((e) => {
   const baseUrl = $os.getenv("APP_BASE_URL") || "http://localhost:5173";
   const requestUrl = baseUrl + "/requests/" + requestId;
 
-  const subject = "New kit request from " + (requesterName || requesterEmail || "a user");
+  const subject = "New kit request from " + (requesterName || requesterEmail || "a user").replace(/[\r\n]/g, " ");
 
   const htmlBody =
     "<h2>New Kit Request</h2>" +
@@ -81,8 +81,8 @@ onRecordAfterCreateRequest((e) => {
     return;
   }
 
-  const senderAddress = $app.settings().meta.senderAddress || ($os.getenv("SMTP_FROM") || "notifications@kit.local");
-  const senderName = $app.settings().meta.senderName || "Kit Tracker";
+  const senderAddress = $app.settings().meta?.senderAddress || ($os.getenv("SMTP_FROM") || "notifications@kit.local");
+  const senderName = $app.settings().meta?.senderName || "Kit Tracker";
   const requesterId = record.getString("requester");
 
   for (let i = 0; i < admins.length; i++) {

@@ -63,6 +63,8 @@ if [ -n "${SMTP_DISABLE:-}" ]; then
   /app/pb/setup_smtp.sh "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --disable || echo "WARN: setup_smtp.sh --disable failed, continuing"
 elif [ -n "${SMTP_USERNAME:-}" ] && [ -n "${SMTP_PASSWORD:-}" ]; then
   /app/pb/setup_smtp.sh "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" || echo "WARN: setup_smtp.sh failed, continuing"
+elif [ -n "${SMTP_USERNAME:-}" ] || [ -n "${SMTP_PASSWORD:-}" ]; then
+  echo "WARNING: only one of SMTP_USERNAME / SMTP_PASSWORD is set — authenticated SMTP not configured (need both SMTP_USERNAME and SMTP_PASSWORD)" >&2
 elif [ -n "${SMTP_HOST:-}" ]; then
   # SMTP_HOST set but no credentials — MailHog-style (no-auth SMTP). Configure it.
   /app/pb/setup_smtp.sh "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" || echo "WARN: setup_smtp.sh failed, continuing"

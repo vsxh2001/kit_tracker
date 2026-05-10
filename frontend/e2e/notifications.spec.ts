@@ -1,8 +1,11 @@
 /**
  * Admin email notification tests — exercised against the dockerized stack.
  *
- * Requirements:
- *   - Docker stack running via: PB_HOST_PORT=8092 docker compose -p notif-qa up -d
+ * Requirements (set NOTIF_E2E=1 to run):
+ *   - NOTIF_E2E=1 env var must be set (auto-skipped in CI without it)
+ *   - Docker stack running via:
+ *       PB_HOST_PORT=8092 MAILHOG_SMTP_PORT=1027 MAILHOG_UI_PORT=8027 \
+ *       docker compose --profile dev -p notif-qa up -d
  *   - PocketBase on http://localhost:8092 (PLAYWRIGHT_TEST_BASE_URL not required; tests
  *     are API-only — no browser navigation needed).
  *   - MailHog on http://localhost:8025
@@ -18,6 +21,13 @@
  */
 
 import { test, expect } from "@playwright/test";
+
+// Skip entire spec in CI / environments without the dedicated notification stack.
+// Set NOTIF_E2E=1 and start the stack (see header comment) to run these tests.
+test.skip(
+  !process.env.NOTIF_E2E,
+  "Skipped: notifications spec requires NOTIF_E2E=1 + dedicated MailHog stack on :8092/:8025"
+);
 
 // ---------------------------------------------------------------------------
 // Constants — point at the dedicated notification test stack, not :8090
@@ -262,10 +272,22 @@ test.describe("Admin email notifications", () => {
       notes: "happy-path notification test",
     });
 
+    // Determine expected admin count from PocketBase at test time (avoids hardcoding seed count).
+    const adminAuth = await authAsUser(ADMIN_EMAIL);
+    const adminsRes = await fetch(
+      `${PB_URL}/api/collections/users/records?filter=${encodeURIComponent(`role="admin"`)}`,
+      { headers: { Authorization: adminAuth.token } }
+    );
+    const adminsData = await adminsRes.json();
+    const expectedAdminCount = adminsData.totalItems as number;
+
     // Poll until at least 1 mail arrives (hook fires async after create)
     const mails = await pollMailHog(1);
 
-    expect(mails.total, "Expected 1 notification email (1 admin, requester is not admin)").toBe(1);
+    expect(
+      mails.total,
+      `Expected ${expectedAdminCount} notification email(s) — one per admin excluding requester`
+    ).toBe(expectedAdminCount);
 
     const mail = mails.items[0];
 
