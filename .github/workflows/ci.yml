@@ -107,6 +107,8 @@ jobs:
     strategy:
       matrix:
         oauth: [disabled, enabled]
+    env:
+      HAVE_OAUTH_SECRETS: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -127,7 +129,7 @@ jobs:
           echo "GOOGLE_OAUTH_DISABLE=1" >> .env
 
       - name: Run e2e suite via docker compose
-        if: matrix.oauth == 'disabled' || secrets.GOOGLE_OAUTH_CLIENT_ID != ''
+        if: matrix.oauth == 'disabled' || env.HAVE_OAUTH_SECRETS == 'true'
         run: bash scripts/test-prod.sh
 
       - name: Upload Playwright report
