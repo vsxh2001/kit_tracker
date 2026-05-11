@@ -263,3 +263,207 @@ export async function getLatestTransactionForKit(
   const data = await res.json();
   return data.items?.[0] ?? null;
 }
+
+// --- Components ---
+
+export interface ComponentRecord {
+  id: string;
+  serial: string;
+  type: string;
+  is_bulk: boolean;
+  quantity: number;
+  is_active: boolean;
+}
+
+export interface ComponentTxRecord {
+  id: string;
+  component: string;
+  from_kit: string;
+  from_entity: string;
+  to_kit: string;
+  to_entity: string;
+  quantity: number;
+}
+
+/**
+ * Creates a component record via admin REST.
+ * Also creates an initial component_transaction placing it at `initialEntity`
+ * (required by hook: every transaction needs exactly one from_ and one to_).
+ * For the initial placement, we use a "virtual origin" — the same entity as
+ * the destination with a zero-second-earlier timestamp — matching the seeding
+ * approach where a component "comes from" an origin entity to its initial home.
+ *
+ * If only `initialKit` is provided (no initialEntity), the initial transaction
+ * places it from the same entity the kit currently lives in into the kit.
+ * Caller must have already moved the kit to an entity before calling this.
+ */
+export async function createTestComponent(opts: {
+  serial?: string;
+  type?: string;
+  isBulk?: boolean;
+  quantity?: number;
+  /** Place at this entity (standalone). Creates entity→entity initial tx. */
+  initialEntity?: string;
+  /** Place into this kit. If provided, creates entity→kit initial tx (needs fromEntity). */
+  initialKit?: string;
+  /** Required when initialKit is provided — the from_entity for the initial tx. */
+  fromEntity?: string;
+}): Promise<ComponentRecord> {
+  const token = await getAdminToken();
+  const userId = await getAdminUserId();
+
+  const isBulk = opts.isBulk ?? false;
+  const qty = opts.quantity ?? 1;
+  const type = opts.type ?? "TestComponent";
+  const serial = opts.serial ?? (isBulk ? "" : `SN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+
+  const compRes = await fetch(`${PB_URL}/api/collections/components/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      serial,
+      type,
+      notes: "",
+      is_active: true,
+      is_bulk: isBulk,
+      quantity: qty,
+    }),
+  });
+  if (!compRes.ok) {
+    const body = await compRes.json();
+    throw new Error(`createTestComponent failed: ${JSON.stringify(body)}`);
+  }
+  const comp: ComponentRecord = await compRes.json();
+
+  // Create initial placement transaction
+  if (opts.initialEntity || opts.initialKit) {
+    const txBody: Record<string, unknown> = {
+      component: comp.id,
+      quantity: qty,
+      timestamp: new Date().toISOString(),
+      notes: "initial placement",
+      created_by: userId,
+    };
+
+    if (opts.initialKit) {
+      if (!opts.fromEntity) {
+        throw new Error("createTestComponent: fromEntity required when initialKit is provided");
+      }
+      txBody.from_entity = opts.fromEntity;
+      txBody.to_kit = opts.initialKit;
+    } else if (opts.initialEntity) {
+      // Create a throwaway origin entity to satisfy the from_ XOR constraint
+      const originRes = await fetch(`${PB_URL}/api/collections/entities/records`, {
+        method: "POST",
+        headers: { Authorization: token, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `__origin_${Date.now()}`, type: "storage", is_active: false }),
+      });
+      const origin = await originRes.json();
+      txBody.from_entity = origin.id;
+      txBody.to_entity = opts.initialEntity;
+    }
+
+    const txRes = await fetch(`${PB_URL}/api/collections/component_transactions/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify(txBody),
+    });
+    if (!txRes.ok) {
+      const body = await txRes.json();
+      throw new Error(`createTestComponent initial tx failed: ${JSON.stringify(body)}`);
+    }
+  }
+
+  return comp;
+}
+
+export async function getLatestComponentTransaction(
+  componentId: string
+): Promise<ComponentTxRecord | null> {
+  const token = await getAdminToken();
+  const encoded = encodeURIComponent(`component="${componentId}"`);
+  const res = await fetch(
+    `${PB_URL}/api/collections/component_transactions/records?filter=${encoded}&sort=-timestamp,-created&perPage=1`,
+    { headers: { Authorization: token } }
+  );
+  const data = await res.json();
+  return data.items?.[0] ?? null;
+}
+
+export async function createTestComponentTransaction(data: {
+  componentId: string;
+  fromKit?: string;
+  fromEntity?: string;
+  toKit?: string;
+  toEntity?: string;
+  quantity?: number;
+  notes?: string;
+}): Promise<ComponentTxRecord> {
+  const token = await getAdminToken();
+  const userId = await getAdminUserId();
+  const res = await fetch(`${PB_URL}/api/collections/component_transactions/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      component: data.componentId,
+      from_kit: data.fromKit ?? "",
+      from_entity: data.fromEntity ?? "",
+      to_kit: data.toKit ?? "",
+      to_entity: data.toEntity ?? "",
+      quantity: data.quantity ?? 1,
+      timestamp: new Date().toISOString(),
+      notes: data.notes ?? "",
+      created_by: userId,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`createTestComponentTransaction failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
+export async function getComponentById(
+  componentId: string
+): Promise<ComponentRecord | null> {
+  const token = await getAdminToken();
+  const res = await fetch(
+    `${PB_URL}/api/collections/components/records/${componentId}`,
+    { headers: { Authorization: token } }
+  );
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function listComponentTransactionsForComponent(
+  componentId: string
+): Promise<ComponentTxRecord[]> {
+  const token = await getAdminToken();
+  const encoded = encodeURIComponent(`component="${componentId}"`);
+  const res = await fetch(
+    `${PB_URL}/api/collections/component_transactions/records?filter=${encoded}&sort=-timestamp,-created&perPage=50`,
+    { headers: { Authorization: token } }
+  );
+  const data = await res.json();
+  return data.items ?? [];
+}
+
+export async function deactivateComponent(id: string): Promise<void> {
+  const token = await getAdminToken();
+  await fetch(`${PB_URL}/api/collections/components/records/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active: false }),
+  });
+}
+
+export async function getUserTokenByEmail(email: string, password: string): Promise<{ token: string; userId: string }> {
+  const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identity: email, password }),
+  });
+  if (!res.ok) throw new Error(`Auth failed for ${email}: ${res.status}`);
+  const data = await res.json();
+  return { token: data.token, userId: data.record.id };
+}

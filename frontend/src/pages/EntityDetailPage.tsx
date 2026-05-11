@@ -6,26 +6,33 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { getEntity, getEntityTransactions } from "../services/entities";
+import { listComponentsAtEntity } from "../services/componentTransactions";
+import { MoveComponentDialog } from "../components/MoveComponentDialog";
+import { AddComponentDialog } from "../components/AddComponentDialog";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
-import type { Entity, Transaction, Kit } from "../types";
+import type { Entity, Transaction, Kit, Component } from "../types";
 
 export function EntityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canTransferKits } = useAuth();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [currentKits, setCurrentKits] = useState<Kit[]>([]);
   const [showEdit, setShowEdit] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [standaloneComponents, setStandaloneComponents] = useState<Component[]>([]);
+  const [showAddComp, setShowAddComp] = useState(false);
+  const [movingComponent, setMovingComponent] = useState<Component | null>(null);
 
   async function load() {
     if (!id) return;
     try {
-      const [e, txs] = await Promise.all([
+      const [e, txs, comps] = await Promise.all([
         getEntity(id),
         getEntityTransactions(id),
+        listComponentsAtEntity(id),
       ]);
       setEntity(e);
       setHistory(txs);
@@ -43,6 +50,7 @@ export function EntityDetailPage() {
         }
       }
       setCurrentKits(here);
+      setStandaloneComponents(comps);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -212,12 +220,109 @@ export function EntityDetailPage() {
         )}
       </div>
 
+      {/* Standalone components */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-base font-semibold tracking-tight">Standalone components</h2>
+          <span className="text-xs text-muted-foreground">{standaloneComponents.length} component{standaloneComponents.length !== 1 ? "s" : ""}</span>
+        </div>
+        {canTransferKits && (
+          <div className="mb-3">
+            <button
+              onClick={() => setShowAddComp(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-border hover:bg-slate-50 transition-colors"
+            >
+              Move component here
+            </button>
+          </div>
+        )}
+        {standaloneComponents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No standalone components at this entity.</p>
+        ) : (
+          <>
+            {/* Mobile */}
+            <div className="md:hidden space-y-2">
+              {standaloneComponents.map((comp) => (
+                <div key={comp.id} className="rounded-lg border bg-card px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-medium">{comp.type}</span>
+                      {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
+                      {canTransferKits && (
+                        <button
+                          onClick={() => setMovingComponent(comp)}
+                          className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                        >
+                          Move
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <Card className="overflow-hidden hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50/80">
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standaloneComponents.map((comp) => (
+                      <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="text-xs font-medium">{comp.type}</div>
+                          {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
+                        <td className="px-4 py-3 text-right">
+                          {canTransferKits && (
+                            <button
+                              onClick={() => setMovingComponent(comp)}
+                              className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                            >
+                              Move
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
       <EntityFormDialog
         entity={entity}
         open={showEdit}
         onClose={() => setShowEdit(false)}
         onSaved={() => { setShowEdit(false); load(); }}
       />
+      <AddComponentDialog
+        open={showAddComp}
+        onClose={() => setShowAddComp(false)}
+        targetEntity={id}
+        onSuccess={load}
+      />
+      {movingComponent && (
+        <MoveComponentDialog
+          component={movingComponent}
+          open={!!movingComponent}
+          onClose={() => setMovingComponent(null)}
+          onSuccess={() => { setMovingComponent(null); load(); }}
+        />
+      )}
     </div>
   );
 }

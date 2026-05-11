@@ -74,3 +74,36 @@ export interface PBUser {
   created: string;
   updated: string;
 }
+
+export interface Component {
+  id: string;
+  serial: string;
+  type: string;
+  notes: string;
+  is_active: boolean;
+  is_bulk: boolean;
+  quantity: number;
+  created: string;
+  updated: string;
+}
+
+export interface ComponentTransaction {
+  id: string;
+  component: string;
+  from_kit: string;
+  from_entity: string;
+  to_kit: string;
+  to_entity: string;
+  quantity: number;
+  timestamp: string;
+  notes: string;
+  created_by: string;
+  expand?: {
+    component?: Component;
+    from_kit?: Kit;
+    from_entity?: Entity;
+    to_kit?: Kit;
+    to_entity?: Entity;
+    created_by?: PBUser;
+  };
+}

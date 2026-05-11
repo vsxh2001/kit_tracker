@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn } from "../lib/utils";
@@ -10,6 +10,7 @@ const nav = [
   { to: "/kits", label: "Kits", icon: Package },
   { to: "/entities", label: "Entities", icon: Users },
   { to: "/requests", label: "Requests", icon: FileText },
+  { to: "/components", label: "Components", icon: Cpu },
 ];
 
 export function Layout() {
