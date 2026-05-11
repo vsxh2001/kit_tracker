@@ -87,6 +87,7 @@ export function ComponentsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
           <h1 className="text-2xl font-semibold tracking-tight">Components</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{rows.length} component{rows.length !== 1 ? "s" : ""} registered</p>
         </div>
@@ -146,9 +147,13 @@ export function ComponentsPage() {
                   <Link key={component.id} to={`/components/${component.id}`}>
                     <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">
-                          {component.serial || <span className="italic opacity-50">no serial</span>}
-                        </span>
+                        {component.serial ? (
+                          <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">{component.serial}</span>
+                        ) : component.is_bulk ? (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bulk × {component.quantity}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground opacity-40">—</span>
+                        )}
                         <Badge variant="outline" className="text-[10px]">{component.type}</Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -189,9 +194,13 @@ export function ComponentsPage() {
                         <tr key={component.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
                           <td className="px-4 py-3">
                             <div className="font-medium text-xs">{component.type}</div>
-                            <div className="font-mono text-[11px] text-indigo-700 mt-0.5">
-                              {component.serial || <span className="italic opacity-40">no serial</span>}
-                            </div>
+                            {component.serial ? (
+                              <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{component.serial}</div>
+                            ) : component.is_bulk ? (
+                              <div className="mt-0.5">
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Bulk × {component.quantity}</Badge>
+                              </div>
+                            ) : null}
                           </td>
                           <td className="px-4 py-3">
                             {link ? (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Package, FileText, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
@@ -47,6 +47,7 @@ export function DashboardPage() {
       )}
 
       <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Overview</p>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Equipment overview and recent activity</p>
       </div>
@@ -55,11 +56,11 @@ export function DashboardPage() {
         <p className="text-muted-foreground text-sm">Loading…</p>
       ) : (
         <>
-          {/* Stats */}
+          {/* Stats — "Awaiting fulfillment" is primary (solid indigo) as most actionable */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" onClick={() => navigate("/kits")} />
             <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" onClick={() => navigate("/requests?status=open")} />
-            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" onClick={() => navigate("/requests?status=approved")} />
+            <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" primary onClick={() => navigate("/requests?status=approved")} />
             <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" onClick={() => navigate("/requests")} />
           </div>
 
@@ -67,7 +68,10 @@ export function DashboardPage() {
           <div>
             <div className="flex items-baseline justify-between mb-3">
               <h2 className="text-base font-semibold tracking-tight">Recent transactions</h2>
-              <span className="text-xs text-muted-foreground">{recentTx.length} shown</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">{recentTx.length} shown</span>
+                <Link to="/kits" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium hover:underline">View all →</Link>
+              </div>
             </div>
             {recentTx.length === 0 ? (
               <p className="text-sm text-muted-foreground">No transactions yet.</p>
@@ -155,15 +159,39 @@ function StatCard({
   label,
   value,
   color,
+  primary,
   onClick,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
   color: keyof typeof STAT_COLORS;
+  primary?: boolean;
   onClick?: () => void;
 }) {
   const colors = STAT_COLORS[color];
+
+  if (primary) {
+    return (
+      <Card
+        className={cn("overflow-hidden relative bg-indigo-600 border-indigo-500", onClick && "cursor-pointer hover:shadow-lg hover:shadow-indigo-900/30 transition-shadow")}
+        onClick={onClick}
+      >
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-indigo-200 font-medium uppercase tracking-wider truncate">{label}</p>
+              <p className="text-3xl font-bold mt-1.5 tabular-nums tracking-tight text-white">{value}</p>
+            </div>
+            <div className="h-9 w-9 rounded-lg bg-indigo-500/60 ring-1 ring-indigo-400/40 flex items-center justify-center shrink-0 mt-0.5 text-white">
+              <Icon style={{ width: "18px", height: "18px" }} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card
       className={cn("overflow-hidden relative", onClick && "cursor-pointer hover:shadow-md transition-shadow")}
