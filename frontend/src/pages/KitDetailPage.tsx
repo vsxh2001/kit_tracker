@@ -9,6 +9,7 @@ import { KitFormDialog } from "../components/KitFormDialog";
 import { KitTimeline } from "../components/KitTimeline";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { MoveComponentDialog } from "../components/MoveComponentDialog";
+import { KitQR } from "../components/KitQR";
 import { getKit, getKitHistory, updateKit } from "../services/kits";
 import { listComponentsInKit } from "../services/componentTransactions";
 import { useAuth } from "../context/AuthContext";
@@ -94,7 +95,12 @@ export function KitDetailPage() {
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Details</CardTitle>
+            <div className="flex items-start justify-between">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Details</CardTitle>
+              <div title="Scan to open this kit">
+                <KitQR kitId={kit.id} size={96} />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-0 text-sm pt-0">
             <Row label="Serial" value={kit.serial} mono />

@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { Link } from "react-router-dom";
-import { Plus, ArrowRight, Download, Upload, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, ArrowRight, Download, Upload, ChevronUp, ChevronDown, Printer } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -131,6 +131,12 @@ export function KitsPage() {
             <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
               <Upload className="h-4 w-4" />
               Import CSV
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/kits/print">
+                <Printer className="h-4 w-4" />
+                Print labels
+              </Link>
             </Button>
             <Button size="sm" onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4" />
