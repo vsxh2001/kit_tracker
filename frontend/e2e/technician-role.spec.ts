@@ -33,7 +33,7 @@ import {
 // Credentials
 // ---------------------------------------------------------------------------
 
-const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8110";
+const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 
 type RoleName = "viewer" | "user" | "technician" | "admin";
 

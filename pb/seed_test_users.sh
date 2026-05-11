@@ -71,5 +71,6 @@ echo "Creating test users..."
 create_user "logistics@kit.local" "Pass1234!" "admin"
 create_user "requester@kit.local" "Pass1234!" "user"
 create_user "viewer@kit.local"    "Pass1234!" "viewer"
+create_user "tech@kit.local"      "Pass1234!" "technician"
 
 echo "Done. Test users seeded."

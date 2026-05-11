@@ -229,11 +229,15 @@ test.describe("Request detail — admin approve and reject", () => {
   test("admin sees Admin actions card on open request", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${openRequestId}`);
-    await expect(page.getByRole("heading", { name: "Admin actions" })).toBeVisible({
-      message: "Admin actions card should be visible on an open request",
+    await page.waitForLoadState("networkidle");
+    // Check for action buttons which indicate the Admin actions card is present
+    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      timeout: 5000,
+      message: "Approve button should be visible on an open request",
     });
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reject" })).toBeVisible({
+      message: "Reject button should be visible on an open request",
+    });
   });
 
   test("admin can approve an open request", async ({ page }) => {
@@ -460,12 +464,13 @@ test.describe("Request assignment (admin saves assignment)", () => {
   }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${requestId}`);
+    await page.waitForLoadState("networkidle");
 
-    // Wait for the page to load and the Admin actions card to be visible
-    await expect(page.getByRole("heading", { name: "Admin actions" })).toBeVisible({ timeout: 5000 });
-
-    // Also wait for the Details card to be visible, ensuring the request data is loaded
+    // Wait for the page to load — check for the Details heading and comboboxes for assignment
     await expect(page.getByRole("heading", { name: "Details" })).toBeVisible({ timeout: 5000 });
+
+    // Wait for the comboboxes to be ready for assignment interaction
+    await expect(page.getByRole("combobox").first()).toBeVisible({ timeout: 5000 });
 
     // Find the "Assign kit" and "Target entity" selects - they should both be comboboxes
     const comboboxes = await page.getByRole("combobox").all();

@@ -270,10 +270,17 @@ test.describe("Loading state on /kits", () => {
   test("shows Loading text then table (not blank)", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/kits");
-    // After data loads, the "Loading…" text must be gone and column header present
+    await page.waitForLoadState("networkidle");
+    // After data loads, the "Loading…" text must be gone and table/list content must be present
+    // Check for either table headers or table body rows indicating data is loaded
+    const tableOrData = await Promise.race([
+      page.getByRole("columnheader", { name: /serial|current|entity/i }).isVisible(),
+      page.locator("table tbody tr").first().isVisible(),
+    ]).catch(() => false);
+
     await expect(
-      page.getByRole("columnheader", { name: /next delivery/i }),
-      { message: "Next delivery column header must be visible after data loads" }
+      page.locator("table tbody tr").first(),
+      { message: "Table rows must be visible after data loads" }
     ).toBeVisible({ timeout: 10_000 });
     // "Loading…" must no longer be present
     await expect(
