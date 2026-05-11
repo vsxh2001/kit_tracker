@@ -7,7 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { MoveKitDialog } from "../components/MoveKitDialog";
 import { KitFormDialog } from "../components/KitFormDialog";
 import { KitTimeline } from "../components/KitTimeline";
+import { AddComponentDialog } from "../components/AddComponentDialog";
+import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { getKit, getKitHistory, updateKit } from "../services/kits";
+import { listComponentsInKit } from "../services/componentTransactions";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
@@ -21,7 +24,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "../components/ui/alert-dialog";
-import type { Kit, Transaction } from "../types";
+import type { Kit, Transaction, Component } from "../types";
 
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,14 +37,19 @@ export function KitDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [showRetire, setShowRetire] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [components, setComponents] = useState<Component[]>([]);
+  const [showAddComp, setShowAddComp] = useState(false);
+  const [movingComponent, setMovingComponent] = useState<Component | null>(null);
 
   async function load() {
     if (!id) return;
+    setLoading(true);
     try {
-      const [k, h] = await Promise.all([getKit(id), getKitHistory(id)]);
+      const [k, h, comps] = await Promise.all([getKit(id), getKitHistory(id), listComponentsInKit(id)]);
       setKit(k);
       setHistory(h);
       setLatest(h[0] ?? null);
+      setComponents(comps);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -187,6 +195,97 @@ export function KitDetailPage() {
         )}
       </div>
 
+      {/* Components in kit */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-base font-semibold tracking-tight">Components in kit</h2>
+          <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="flex gap-2 mb-3">
+          {isAdmin && (
+            <button
+              onClick={() => setShowAddComp(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+            >
+              Add component
+            </button>
+          )}
+          {!isAdmin && canTransferKits && (
+            <button
+              onClick={() => setShowAddComp(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-border hover:bg-slate-50 transition-colors"
+            >
+              Move existing here
+            </button>
+          )}
+        </div>
+        {components.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No components in this kit.</p>
+        ) : (
+          <>
+            {/* Mobile */}
+            <div className="md:hidden space-y-2">
+              {components.map((comp) => (
+                <div key={comp.id} className="rounded-lg border bg-card px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-medium">{comp.type}</span>
+                      {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
+                      {canTransferKits && (
+                        <button
+                          onClick={() => setMovingComponent(comp)}
+                          className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                        >
+                          Move
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <Card className="overflow-hidden hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50/80">
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {components.map((comp) => (
+                      <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="text-xs font-medium">{comp.type}</div>
+                          {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
+                        <td className="px-4 py-3 text-right">
+                          {canTransferKits && (
+                            <button
+                              onClick={() => setMovingComponent(comp)}
+                              className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                            >
+                              Move
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
       <MoveKitDialog
         kit={kit}
         currentEntityId={currentEntity?.id}
@@ -201,6 +300,21 @@ export function KitDetailPage() {
         onClose={() => setShowEdit(false)}
         onSaved={load}
       />
+
+      <AddComponentDialog
+        open={showAddComp}
+        onClose={() => setShowAddComp(false)}
+        targetKit={kit.id}
+        onSuccess={load}
+      />
+      {movingComponent && (
+        <MoveComponentDialog
+          component={movingComponent}
+          open={!!movingComponent}
+          onClose={() => setMovingComponent(null)}
+          onSuccess={() => { setMovingComponent(null); load(); }}
+        />
+      )}
 
       <AlertDialog open={showRetire} onOpenChange={setShowRetire}>
         <AlertDialogContent>
