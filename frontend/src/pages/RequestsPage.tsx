@@ -55,6 +55,7 @@ export function RequestsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Queue</p>
           <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Equipment request queue</p>
         </div>

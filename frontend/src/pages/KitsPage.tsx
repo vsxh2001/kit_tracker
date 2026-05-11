@@ -117,6 +117,7 @@ export function KitsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
           <h1 className="text-2xl font-semibold tracking-tight">Kits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{rows.length} kit{rows.length !== 1 ? "s" : ""} registered</p>
         </div>

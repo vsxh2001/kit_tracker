@@ -82,7 +82,10 @@ export function EntitiesPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Entities</h1>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Directory</p>
+          <h1 className="text-2xl font-semibold">Entities</h1>
+        </div>
         {isAdmin && (
           <Button size="sm" onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4" />

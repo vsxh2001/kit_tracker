@@ -141,8 +141,10 @@ export function Layout() {
     <div className="flex h-screen bg-background">
       {/* Desktop sidebar — hidden on mobile */}
       <aside className="hidden md:flex w-56 flex-col bg-slate-900 shrink-0 border-r border-slate-800">
-        <div className="px-4 py-5 border-b border-slate-800">
-          <div className="flex items-center gap-2.5">
+        {/* Indigo radial glow behind logo — echoes login page gradient aesthetic */}
+        <div className="px-4 py-5 border-b border-slate-800 relative overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 120% 140% at 10% 50%, hsl(243 75% 40% / 0.22) 0%, transparent 70%)" }} />
+          <div className="relative flex items-center gap-2.5">
             <div className="h-7 w-7 rounded-lg bg-indigo-500 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-900/40">
               <Box className="h-4 w-4 text-white" />
             </div>
@@ -174,14 +176,15 @@ export function Layout() {
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="px-4 py-5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="px-4 py-5 border-b border-slate-800 flex items-center justify-between relative overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 120% 140% at 10% 50%, hsl(243 75% 40% / 0.22) 0%, transparent 70%)" }} />
+          <div className="relative flex items-center gap-2.5">
             <div className="h-7 w-7 rounded-lg bg-indigo-500 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-900/40">
               <Box className="h-4 w-4 text-white" />
             </div>
             <p className="font-semibold text-sm text-white tracking-tight">Kit Tracker</p>
           </div>
-          <button onClick={closeDrawer} aria-label="Close menu" className="text-slate-400 hover:text-slate-100 p-1">
+          <button onClick={closeDrawer} aria-label="Close menu" className="relative text-slate-400 hover:text-slate-100 p-1">
             <X className="h-5 w-5" />
           </button>
         </div>

@@ -1,25 +1,8 @@
 import { useEffect, useState, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { listTransactionsForKit } from "../services/transactions";
-import { formatDateOnly } from "../lib/utils";
+import { formatDateOnly, entityTimelineColor } from "../lib/utils";
 import type { Transaction } from "../types";
-
-const PALETTE = [
-  "bg-indigo-300",
-  "bg-emerald-300",
-  "bg-amber-300",
-  "bg-rose-300",
-  "bg-sky-300",
-  "bg-violet-300",
-];
-
-function colorForEntity(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  }
-  return PALETTE[hash % PALETTE.length];
-}
 
 interface Segment {
   entityName: string;
@@ -66,7 +49,7 @@ export function KitTimeline({ kitId }: Props) {
       entityName,
       start: segStart,
       end: segEnd,
-      color: colorForEntity(entityName),
+      color: entityTimelineColor(entityName),
     };
   });
 

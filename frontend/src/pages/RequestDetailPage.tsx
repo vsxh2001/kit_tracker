@@ -242,12 +242,13 @@ export function RequestDetailPage() {
                   rows={2}
                 />
               </div>
+              {/* Primary actions */}
               <div className="flex flex-wrap gap-2">
                 {request.status === "open" && (
-                  <>
-                    <Button size="sm" onClick={handleApprove} disabled={actionLoading}>Approve</Button>
-                    <Button size="sm" variant="destructive" onClick={handleReject} disabled={actionLoading}>Reject</Button>
-                  </>
+                  <Button size="sm" onClick={handleApprove} disabled={actionLoading}>Approve</Button>
+                )}
+                {request.status === "open" && (
+                  <Button size="sm" variant="outline" onClick={handleReject} disabled={actionLoading}>Reject</Button>
                 )}
                 {request.status === "approved" && (
                   <Button
@@ -267,6 +268,9 @@ export function RequestDetailPage() {
                 >
                   Save assignment
                 </Button>
+              </div>
+              {/* Secondary + danger */}
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
                 <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
                   Edit request
                 </Button>
