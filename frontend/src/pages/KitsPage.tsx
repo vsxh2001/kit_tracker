@@ -9,6 +9,7 @@ import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
 import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly } from "../lib/utils";
 import type { Kit, Transaction } from "../types";
@@ -147,7 +148,11 @@ export function KitsPage() {
       />
 
       {loading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
       ) : (
         <>
           {sorted.length === 0 && (
@@ -172,7 +177,7 @@ export function KitsPage() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className="truncate">{kit.notes ?? ""}</span>
-                        <span className="tabular-nums shrink-0 ml-2">{latest ? formatDate(latest.timestamp) : "—"}</span>
+                        <span className="font-mono tabular-nums shrink-0 ml-2">{latest ? formatDate(latest.timestamp) : "—"}</span>
                       </div>
                       {upcoming && (
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -224,7 +229,7 @@ export function KitsPage() {
                               <span className="text-muted-foreground opacity-40">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs tabular-nums">
                             {latest ? formatDate(latest.timestamp) : <span className="opacity-40">—</span>}
                           </td>
                           <td className="px-4 py-3 text-xs tabular-nums">
@@ -234,8 +239,8 @@ export function KitsPage() {
                               <span className="text-muted-foreground">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">
-                            {kit.notes ?? <span className="opacity-40">—</span>}
+                          <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
+                            <span className="line-clamp-2">{kit.notes ?? <span className="opacity-40">—</span>}</span>
                           </td>
                           <td className="px-4 py-3">
                             <Link to={`/kits/${kit.id}`}>

@@ -149,7 +149,7 @@ export function KitDetailPage() {
             {history.map((tx) => (
               <div key={tx.id} className="rounded-lg border bg-card px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
                   <span className="text-xs text-muted-foreground">{tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? ""}</span>
                 </div>
                 <div className="text-sm font-medium">
@@ -176,12 +176,12 @@ export function KitDetailPage() {
                 <tbody>
                   {history.map((tx) => (
                     <tr key={tx.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs tabular-nums">
                         {formatDate(tx.timestamp)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}</td>
                       <td className="px-4 py-3 font-medium">{tx.expand?.to_entity?.name ?? tx.to_entity}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{tx.notes ?? <span className="opacity-30">—</span>}</td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[200px]"><span className="line-clamp-2">{tx.notes ?? <span className="opacity-30">—</span>}</span></td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
                         {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? <span className="opacity-30">—</span>}
                       </td>

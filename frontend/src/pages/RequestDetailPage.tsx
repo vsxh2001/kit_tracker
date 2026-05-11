@@ -165,7 +165,7 @@ export function RequestDetailPage() {
       icon={FileX}
       heading="Request not found"
       body="It may have been deleted or you don't have access."
-      cta={{ label: "Back to requests", href: "/requests" }}
+      cta={{ label: "Back to requests →", href: "/requests" }}
     />
   );
 
@@ -179,6 +179,7 @@ export function RequestDetailPage() {
         </Button>
         <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-semibold tracking-tight">Request</h1>
+          <span className="font-mono text-sm text-muted-foreground tracking-wide">{id}</span>
           <Badge variant={REQUEST_STATUS_VARIANTS[request.status]}>{request.status}</Badge>
         </div>
       </div>
@@ -245,7 +246,7 @@ export function RequestDetailPage() {
               {/* Primary actions */}
               <div className="flex flex-wrap gap-2">
                 {request.status === "open" && (
-                  <Button size="sm" onClick={handleApprove} disabled={actionLoading}>Approve</Button>
+                  <Button size="sm" onClick={handleApprove} disabled={actionLoading}>Approve →</Button>
                 )}
                 {request.status === "open" && (
                   <Button size="sm" variant="outline" onClick={handleReject} disabled={actionLoading}>Reject</Button>
@@ -257,7 +258,7 @@ export function RequestDetailPage() {
                     disabled={actionLoading}
                     title={assignmentDirty ? "Saves assignment, then fulfills" : undefined}
                   >
-                    {assignmentDirty ? "Save & Fulfill" : "Fulfill"}
+                    {assignmentDirty ? "Save & Fulfill →" : "Fulfill →"}
                   </Button>
                 )}
                 <Button

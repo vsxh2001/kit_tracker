@@ -20,13 +20,10 @@ export function entityTimelineColor(name: string): string {
 }
 
 export function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const d = new Date(dateStr);
+  const date = d.toLocaleDateString("en-CA"); // YYYY-MM-DD
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${date} ${time}`;
 }
 
 export const REQUEST_STATUS_VARIANTS = {
@@ -38,9 +35,5 @@ export const REQUEST_STATUS_VARIANTS = {
 } as const;
 
 export function formatDateOnly(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return new Date(dateStr).toLocaleDateString("en-CA"); // YYYY-MM-DD
 }
