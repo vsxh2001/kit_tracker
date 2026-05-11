@@ -22,7 +22,6 @@ import {
   createTestKit,
   createTestEntity,
   createTestRequest,
-  createTestTransaction,
   deleteKit,
   deactivateEntity,
   getAdminUserId,
