@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Package, FileText, CheckCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
 import { listRecentTransactions } from "../services/transactions";
+import { requestsCreatedLast7Days } from "../services/stats";
+import type { DailyCount } from "../services/stats";
+import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction } from "../types";
 import { cn, formatDate } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
@@ -15,28 +18,49 @@ export function DashboardPage() {
   const [kits, setKits] = useState<Kit[]>([]);
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
+  const [reqSparkline, setReqSparkline] = useState<DailyCount[]>([]);
   const [loading, setLoading] = useState(true);
 
   const pendingApproval = !user?.role;
 
   useEffect(() => {
-    Promise.all([
-      listKits(),
-      listRequests(),
-      listRecentTransactions(8),
-    ]).then(([k, r, t]) => {
-      setKits(k);
-      setRequests(r);
-      setRecentTx(t.items.filter((tx) => !tx.expand?.kit?.serial?.startsWith("_deleted_")));
-    }).catch((err) => {
-      if (!err?.isAbort) console.error(err);
-    }).finally(() => {
-      setLoading(false);
+    startTransition(() => {
+      async function load() {
+        setLoading(true);
+        try {
+          const [k, r, t, reqDaily] = await Promise.all([
+            listKits(),
+            listRequests(),
+            listRecentTransactions(8),
+            requestsCreatedLast7Days(),
+          ]);
+          setKits(k);
+          setRequests(r);
+          setRecentTx(t.items.filter((tx) => !tx.expand?.kit?.serial?.startsWith("_deleted_")));
+          setReqSparkline(reqDaily);
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      }
+      load();
     });
   }, []);
 
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
+
+  function deltaLabel(daily: DailyCount[]): string {
+    if (daily.length < 2) return "—";
+    const today = daily[daily.length - 1].count;
+    const yesterday = daily[daily.length - 2].count;
+    const diff = today - yesterday;
+    if (diff === 0) return "same as prev day";
+    return `${diff > 0 ? "+" : ""}${diff} vs prev day`;
+  }
+
+  const reqCounts = reqSparkline.map((d) => d.count);
 
   return (
     <div className="space-y-7">
@@ -59,9 +83,9 @@ export function DashboardPage() {
           {/* Stats — "Awaiting fulfillment" is primary (solid indigo) as most actionable */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" onClick={() => navigate("/kits")} />
-            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" onClick={() => navigate("/requests?status=open")} />
+            <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" sparklineData={reqCounts} delta={deltaLabel(reqSparkline)} onClick={() => navigate("/requests?status=open")} />
             <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" primary onClick={() => navigate("/requests?status=approved")} />
-            <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" onClick={() => navigate("/requests")} />
+            <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" sparklineData={reqCounts} delta={deltaLabel(reqSparkline)} onClick={() => navigate("/requests")} />
           </div>
 
           {/* Recent transactions */}
@@ -160,6 +184,8 @@ function StatCard({
   value,
   color,
   primary,
+  sparklineData,
+  delta,
   onClick,
 }: {
   icon: React.ElementType;
@@ -167,6 +193,8 @@ function StatCard({
   value: number;
   color: keyof typeof STAT_COLORS;
   primary?: boolean;
+  sparklineData?: number[];
+  delta?: string;
   onClick?: () => void;
 }) {
   const colors = STAT_COLORS[color];
@@ -204,6 +232,14 @@ function StatCard({
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider truncate">{label}</p>
             <p className="text-3xl font-bold mt-1.5 tabular-nums tracking-tight">{value}</p>
+            {sparklineData && sparklineData.length > 0 && (
+              <div className="mt-2 flex items-center gap-2">
+                <Sparkline data={sparklineData} color="var(--muted-foreground, #94a3b8)" />
+                {delta && (
+                  <span className="text-[10px] text-muted-foreground font-mono">{delta}</span>
+                )}
+              </div>
+            )}
           </div>
           <div className={cn("h-9 w-9 rounded-lg ring-1 flex items-center justify-center shrink-0 mt-0.5", colors.chip)}>
             <Icon style={{ width: "18px", height: "18px" }} />
