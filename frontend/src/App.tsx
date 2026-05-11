@@ -15,6 +15,7 @@ import { UsersPage } from "./pages/UsersPage";
 import { ComponentsPage } from "./pages/ComponentsPage";
 import { ComponentDetailPage } from "./pages/ComponentDetailPage";
 import { PrintLabelsPage } from "./pages/PrintLabelsPage";
+import { StatsPage } from "./pages/StatsPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="components" element={<ComponentsPage />} />
             <Route path="components/:id" element={<ComponentDetailPage />} />
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
+            <Route path="stats" element={<StatsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
