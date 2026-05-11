@@ -328,7 +328,6 @@ for (const role of ROLES) {
     test(`${role} — Delete danger zone on fulfilled request: ${m.canSeeDeleteDangerZone ? "visible" : "hidden"}`, async ({ page }) => {
       // Create a fulfilled request to trigger the danger-zone card
       const adminId = await getAdminUserId();
-      const adminToken = await getAdminToken();
       const req = await createTestRequest({
         requesterId: adminId,
         status: "fulfilled",
@@ -399,7 +398,6 @@ for (const role of ROLES) {
 // ---------------------------------------------------------------------------
 
 test.describe("Technician UI happy paths", () => {
-  let reqId = "";
   let techKitId = "";
   let techKitSerial = "";
 
@@ -448,7 +446,6 @@ test.describe("Technician UI happy paths", () => {
   test("technician can approve an open request (status persists in DB)", async ({ page }) => {
     const adminId = await getAdminUserId();
     const req = await createTestRequest({ requesterId: adminId });
-    reqId = req.id;
 
     await loginAs(page, "technician");
     await page.goto(`/requests/${req.id}`);
