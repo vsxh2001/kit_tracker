@@ -10,13 +10,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 KEEP_RUNNING=0
 NO_BUILD=0
+GREP_PATTERN=""
 
 # Parse optional flags
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --keep) KEEP_RUNNING=1; shift ;;
     --no-build) NO_BUILD=1; shift ;;
-    *) echo "Usage: $0 [--keep] [--no-build]"; exit 1 ;;
+    --grep) GREP_PATTERN="$2"; shift 2 ;;
+    *) echo "Usage: $0 [--keep] [--no-build] [--grep PATTERN]"; exit 1 ;;
   esac
 done
 
@@ -89,7 +91,11 @@ cd "${REPO_ROOT}/frontend"
 PB_HOST_PORT=${PB_HOST_PORT:-8090}
 VITE_PB_URL="http://localhost:${PB_HOST_PORT}" \
 PLAYWRIGHT_TEST_BASE_URL="http://localhost:${PB_HOST_PORT}" \
-npx playwright test --config=playwright.config.ts || {
+PW_ARGS=("--config=playwright.config.ts")
+if [ -n "$GREP_PATTERN" ]; then
+  PW_ARGS+=("--grep" "$GREP_PATTERN")
+fi
+npx playwright test "${PW_ARGS[@]}" || {
   local_exit=$?
   echo "ERROR: Playwright tests failed (exit code: $local_exit)."
   echo "======== Last 50 lines of docker compose logs ========"
