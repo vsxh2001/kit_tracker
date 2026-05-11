@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn } from "../lib/utils";
@@ -132,6 +132,23 @@ export function Layout() {
         >
           <UserCog className="h-5 w-5 shrink-0" />
           Users
+        </NavLink>
+      )}
+      {isAdmin && (
+        <NavLink
+          to="/audit"
+          onClick={closeDrawer}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all",
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            )
+          }
+        >
+          <ScrollText className="h-5 w-5 shrink-0" />
+          Audit
         </NavLink>
       )}
     </>
