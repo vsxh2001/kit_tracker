@@ -27,7 +27,7 @@ export function DashboardPage() {
     ]).then(([k, r, t]) => {
       setKits(k);
       setRequests(r);
-      setRecentTx(t.items);
+      setRecentTx(t.items.filter((tx) => !tx.expand?.kit?.serial?.startsWith("_deleted_")));
     }).catch((err) => {
       if (!err?.isAbort) console.error(err);
     }).finally(() => {
@@ -56,7 +56,7 @@ export function DashboardPage() {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={Package} label="Total kits" value={kits.length} color="blue" onClick={() => navigate("/kits")} />
             <StatCard icon={FileText} label="Open requests" value={openRequests} color="amber" onClick={() => navigate("/requests?status=open")} />
             <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" onClick={() => navigate("/requests?status=approved")} />

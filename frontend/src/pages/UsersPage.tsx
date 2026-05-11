@@ -1,7 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { UserCog } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -16,11 +15,11 @@ import type { PBUser, UserRole } from "../types";
 import { formatDate } from "../lib/utils";
 
 const ROLE_OPTIONS: { value: UserRole | "none"; label: string }[] = [
+  { value: "none", label: "Not assigned" },
   { value: "admin", label: "Admin" },
   { value: "technician", label: "Technician" },
   { value: "user", label: "User" },
   { value: "viewer", label: "Viewer" },
-  { value: "none", label: "None" },
 ];
 
 export function UsersPage() {
@@ -111,7 +110,6 @@ export function UsersPage() {
             <div className="md:hidden space-y-2">
               {filtered.map((u) => {
                 const isSelf = u.id === currentUser?.id;
-                const hasRole = !!u.role;
                 const selectValue = u.role || "none";
                 return (
                   <div
@@ -120,11 +118,13 @@ export function UsersPage() {
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{u.email ?? "—"}</p>
+                        <p className="font-medium text-sm truncate">
+                          {u.email ?? "—"}
+                          {isSelf && <span className="ml-1.5 text-xs text-amber-600 font-normal">(you)</span>}
+                        </p>
                         {u.name && <p className="text-xs text-muted-foreground">{u.name}</p>}
                         <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(u.created)}</p>
                       </div>
-                      {!hasRole && <Badge variant="warning">Pending</Badge>}
                     </div>
                     <Select value={selectValue} onValueChange={(v) => handleRoleChange(u, v)}>
                       <SelectTrigger className="w-36 h-11 md:h-9">
@@ -158,20 +158,19 @@ export function UsersPage() {
                   <tbody>
                     {filtered.map((u) => {
                       const isSelf = u.id === currentUser?.id;
-                      const hasRole = !!u.role;
                       const selectValue = u.role || "none";
                       return (
                         <tr
                           key={u.id}
                           className={`border-b last:border-0 hover:bg-slate-50 ${isSelf ? "ring-1 ring-inset ring-amber-400" : ""}`}
                         >
-                          <td className="p-3 font-medium">{u.email ?? "—"}</td>
+                          <td className="p-3 font-medium">
+                            {u.email ?? "—"}
+                            {isSelf && <span className="ml-1.5 text-xs text-amber-600 font-normal">(you)</span>}
+                          </td>
                           <td className="p-3 text-muted-foreground">{u.name ?? "—"}</td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
-                              {!hasRole && (
-                                <Badge variant="warning">Pending</Badge>
-                              )}
                               <Select
                                 value={selectValue}
                                 onValueChange={(v) => handleRoleChange(u, v)}
