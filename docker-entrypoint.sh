@@ -32,11 +32,11 @@ PB_MIGRATIONS_DIR=/app/pb/pb_migrations \
 bash /app/pb/start-pb.sh &
 PB_PID=$!
 
-# Wait for the API to become ready (up to 30 s).
+# Wait for the API to become ready (up to 120 s).
 i=0
 until curl -sf http://127.0.0.1:8090/api/health > /dev/null 2>&1; do
   i=$((i + 1))
-  if [ $i -ge 30 ]; then
+  if [ $i -ge 120 ]; then
     echo "ERROR: PocketBase did not become ready in time." >&2
     exit 1
   fi

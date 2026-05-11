@@ -40,10 +40,10 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
-      interval: 30s
+      interval: 5s
       timeout: 10s
-      retries: 3
-      start_period: 10s
+      retries: 36
+      start_period: 30s
 
 volumes:
   pb_data:
