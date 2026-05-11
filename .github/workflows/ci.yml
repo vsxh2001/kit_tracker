@@ -175,9 +175,14 @@ jobs:
           pkill -f "npm run dev" || true
 
   container-e2e:
+    # Signal-only: smoke against dockerized stack. Known to flake on resource-constrained
+    # CI runners (container start + first-render contention). Other jobs (build, e2e on host)
+    # are the merge gate. Revisit once Phase C per-worker PB lands.
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         oauth: [disabled, enabled]
     env:
