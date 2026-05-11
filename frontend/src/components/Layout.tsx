@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn } from "../lib/utils";
@@ -14,7 +14,7 @@ const nav = [
 ];
 
 export function Layout() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, canDecideRequests } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -100,6 +100,23 @@ export function Layout() {
           {label}
         </NavLink>
       ))}
+      {canDecideRequests && (
+        <NavLink
+          to="/stats"
+          onClick={closeDrawer}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all",
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            )
+          }
+        >
+          <BarChart3 className="h-5 w-5 shrink-0" />
+          Stats
+        </NavLink>
+      )}
       {isAdmin && (
         <NavLink
           to="/users"
