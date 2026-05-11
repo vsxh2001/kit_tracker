@@ -12,6 +12,7 @@ export interface Kit {
   serial: string;
   notes?: string;
   tags?: string;
+  attachments?: string[];
   is_active: boolean;
   created: string;
   updated: string;

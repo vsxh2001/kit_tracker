@@ -125,6 +125,24 @@ function parseBool(s: string | undefined | null): boolean {
   return true;
 }
 
+export async function uploadKitAttachment(kitId: string, file: File): Promise<Kit> {
+  const formData = new FormData();
+  formData.append("attachments", file);
+  return pb.collection("kits").update<Kit>(kitId, formData, {
+    requestKey: `upload-${kitId}-${file.name}-${Date.now()}`,
+  });
+}
+
+export async function deleteKitAttachment(kitId: string, filename: string): Promise<Kit> {
+  return pb.collection("kits").update<Kit>(kitId, {
+    "attachments-": [filename],
+  }, { requestKey: `delete-attach-${kitId}-${filename}` });
+}
+
+export function attachmentUrl(kit: Kit, filename: string): string {
+  return `${pb.baseUrl}/api/files/kits/${kit.id}/${filename}`;
+}
+
 export async function importKitsCsv(file: File): Promise<ImportResult> {
   const result: ImportResult = { imported: 0, skipped: [], errors: [] };
 
