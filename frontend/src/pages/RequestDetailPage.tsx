@@ -31,7 +31,7 @@ type ConfirmKind = "delete" | "cancel";
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, canDecideRequests, user } = useAuth();
   const [request, setRequest] = useState<KitRequest | null>(null);
   const [kits, setKits] = useState<Kit[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -194,11 +194,11 @@ export function RequestDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Admin actions */}
-        {isAdmin && request.status !== "fulfilled" && request.status !== "cancelled" && request.status !== "rejected" && (
+        {/* Decision actions (admin + technician) */}
+        {canDecideRequests && request.status !== "fulfilled" && request.status !== "cancelled" && request.status !== "rejected" && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Admin actions</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-0">
               <div className="space-y-1.5">
@@ -262,9 +262,11 @@ export function RequestDetailPage() {
                 <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
                   Edit request
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
-                  Delete request
-                </Button>
+                {isAdmin && (
+                  <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
+                    Delete request
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -284,8 +286,8 @@ export function RequestDetailPage() {
           </Card>
         )}
 
-        {/* User actions (cancel + edit) — shown only to requester when not admin */}
-        {isOwner && !isAdmin && request.status === "open" && (
+        {/* User actions (cancel + edit) — shown only to requester when not a decision-maker */}
+        {isOwner && !canDecideRequests && request.status === "open" && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
@@ -312,7 +314,7 @@ export function RequestDetailPage() {
         onClose={() => setEditOpen(false)}
         onSaved={() => { setEditOpen(false); load(); }}
         request={request}
-        showKitField={isAdmin}
+        showKitField={canDecideRequests}
       />
 
       <AlertDialog open={confirmKind !== null} onOpenChange={(o) => !o && setConfirmKind(null)}>

@@ -5,7 +5,7 @@ export type RequestStatus =
   | "fulfilled"
   | "cancelled";
 
-export type UserRole = "admin" | "user" | "viewer";
+export type UserRole = "admin" | "technician" | "user" | "viewer";
 
 export interface Kit {
   id: string;

@@ -25,7 +25,7 @@ function getStatusFromParams(params: URLSearchParams): RequestStatus | "all" {
 
 export function RequestsPage() {
   const { user, isAdmin } = useAuth();
-  const canCreate = isAdmin || user?.role === "user";
+  const canCreate = isAdmin || user?.role === "user" || user?.role === "technician";
   const [searchParams, setSearchParams] = useSearchParams();
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const statusFilter = useMemo(() => getStatusFromParams(searchParams), [searchParams]);

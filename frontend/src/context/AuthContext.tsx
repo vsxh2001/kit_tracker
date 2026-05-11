@@ -5,6 +5,9 @@ import type { PBUser } from "../types";
 interface AuthContextValue {
   user: PBUser | null;
   isAdmin: boolean;
+  isTechnician: boolean;
+  canTransferKits: boolean;
+  canDecideRequests: boolean;
   loading: boolean;
   refresh: () => void;
 }
@@ -12,6 +15,9 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   isAdmin: false,
+  isTechnician: false,
+  canTransferKits: false,
+  canDecideRequests: false,
   loading: true,
   refresh: () => {},
 });
@@ -35,9 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, []);
 
+  const role = user?.role;
+  const isAdmin = role === "admin";
+  const isTechnician = role === "technician";
+  const canTransferKits = isAdmin || isTechnician;
+  const canDecideRequests = isAdmin || isTechnician;
+
   return (
     <AuthContext.Provider
-      value={{ user, isAdmin: user?.role === "admin", loading, refresh: sync }}
+      value={{ user, isAdmin, isTechnician, canTransferKits, canDecideRequests, loading, refresh: sync }}
     >
       {children}
     </AuthContext.Provider>
