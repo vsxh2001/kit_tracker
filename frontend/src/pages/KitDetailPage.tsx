@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { MoveKitDialog } from "../components/MoveKitDialog";
 import { KitFormDialog } from "../components/KitFormDialog";
+import { KitTimeline } from "../components/KitTimeline";
 import { getKit, getKitHistory, updateKit } from "../services/kits";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
@@ -118,6 +119,9 @@ export function KitDetailPage() {
           </Card>
         )}
       </div>
+
+      {/* Location history timeline */}
+      <KitTimeline kitId={kit.id} />
 
       {/* Transaction history */}
       <div>

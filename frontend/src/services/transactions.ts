@@ -26,3 +26,12 @@ export async function listRecentTransactions(limit = 10) {
     expand: "kit,from_entity,to_entity,created_by",
   });
 }
+
+export async function listTransactionsForKit(kitId: string): Promise<Transaction[]> {
+  return pb.collection("transactions").getFullList<Transaction>({
+    filter: pb.filter("kit = {:kit}", { kit: kitId }),
+    sort: "timestamp,created",
+    expand: "from_entity,to_entity,created_by",
+    requestKey: `tx-for-kit-${kitId}`,
+  });
+}
