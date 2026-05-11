@@ -58,7 +58,7 @@ test.describe("Requests page — listing", () => {
     await updateRequestStatus(requestId, "cancelled");
   });
 
-  test("shows table with Date, Requester, Status, Kit, Target columns", async ({
+  test("shows table with Date, Requester, Status, Kit, Target columns @smoke", async ({
     page,
   }) => {
     await loginAs(page, "admin");
@@ -130,7 +130,7 @@ test.describe("Request creation", () => {
     await deactivateEntity(entityId);
   });
 
-  test("any user can create a new request via dialog", async ({ page }) => {
+  test("any user can create a new request via dialog @smoke", async ({ page }) => {
     await loginAs(page, "user");
     await page.goto("/requests");
 

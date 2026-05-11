@@ -40,7 +40,7 @@ test.describe("Entities page — listing", () => {
     await deactivateEntity(entityId);
   });
 
-  test("shows table with Name, Description, Active columns", async ({ page }) => {
+  test("shows table with Name, Description, Active columns @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
@@ -76,7 +76,7 @@ test.describe("Entities page — listing", () => {
     });
   });
 
-  test("viewer sees no Edit or Deactivate buttons", async ({ page }) => {
+  test("viewer sees no Edit or Deactivate buttons @smoke", async ({ page }) => {
     await loginAs(page, "viewer");
     await page.goto("/entities");
     await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();

@@ -48,7 +48,7 @@ test.describe("Kits page — listing and search", () => {
     await deleteKit(kitId);
   });
 
-  test("shows table with Serial, Current entity, Last moved columns", async ({
+  test("shows table with Serial, Current entity, Last moved columns @smoke", async ({
     page,
   }) => {
     await loginAs(page, "admin");
@@ -73,7 +73,7 @@ test.describe("Kits page — listing and search", () => {
     await expect(page.getByText(/no kits found/i)).toBeVisible();
   });
 
-  test("viewer can view kits list", async ({ page }) => {
+  test("viewer can view kits list @smoke", async ({ page }) => {
     await loginAs(page, "viewer");
     await page.goto("/kits");
     await expect(page.getByRole("heading", { name: "Kits" })).toBeVisible();
@@ -93,7 +93,7 @@ test.describe("Kit creation (admin)", () => {
     if (kit) await deleteKit(kit.id);
   });
 
-  test("admin can create a new kit via dialog", async ({ page }) => {
+  test("admin can create a new kit via dialog @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/kits");
     await page.getByRole("button", { name: /new kit/i }).click();

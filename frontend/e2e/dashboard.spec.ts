@@ -26,14 +26,14 @@ test.describe("Dashboard page", () => {
     await page.goto("/dashboard");
   });
 
-  test("renders all four stat cards", async ({ page }) => {
+  test("renders all four stat cards @smoke", async ({ page }) => {
     await expect(page.getByText("Total kits")).toBeVisible();
     await expect(page.getByText("Open requests")).toBeVisible();
     await expect(page.getByText("Awaiting fulfillment")).toBeVisible();
     await expect(page.getByText("Total requests")).toBeVisible();
   });
 
-  test("stat card values are numeric", async ({ page }) => {
+  test("stat card values are numeric @smoke", async ({ page }) => {
     // All stat card values should be non-negative integers
     const statValues = page.locator("main").getByText(/^\d+$/);
     await expect(statValues.first()).toBeVisible();
@@ -52,7 +52,7 @@ test.describe("Dashboard page", () => {
     await expect(page.getByRole("columnheader", { name: "Notes" })).toBeVisible();
   });
 
-  test("sidebar shows logged-in user email", async ({ page }) => {
+  test("sidebar shows logged-in user email @smoke", async ({ page }) => {
     await expect(page.getByRole("complementary").getByText("logistics@kit.local")).toBeVisible();
   });
 
