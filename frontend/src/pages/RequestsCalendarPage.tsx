@@ -27,9 +27,17 @@ const STATUS_TEXT: Record<RequestStatus, string> = {
   cancelled: "text-gray-600 line-through",
 };
 
+function parseLocalDate(iso: string): Date {
+  // PB returns "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS.SSSZ" — take date part only, create at local midnight
+  const datePart = iso.slice(0, 10);
+  const [y, m, d] = datePart.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function dayOffset(iso: string, today: Date): number {
-  const target = new Date(iso);
-  return Math.floor((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  const target = parseLocalDate(iso);
+  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((target.getTime() - todayLocal.getTime()) / (24 * 60 * 60 * 1000));
 }
 
 function addDays(date: Date, days: number): Date {
