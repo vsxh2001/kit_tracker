@@ -89,12 +89,12 @@ echo "========== Running Playwright e2e suite (docker stack) =========="
 # Set PLAYWRIGHT_TEST_BASE_URL to signal docker mode (skips webServer health checks)
 cd "${REPO_ROOT}/frontend"
 PB_HOST_PORT=${PB_HOST_PORT:-8090}
-VITE_PB_URL="http://localhost:${PB_HOST_PORT}" \
-PLAYWRIGHT_TEST_BASE_URL="http://localhost:${PB_HOST_PORT}" \
 PW_ARGS=("--config=playwright.config.ts")
 if [ -n "$GREP_PATTERN" ]; then
   PW_ARGS+=("--grep" "$GREP_PATTERN")
 fi
+VITE_PB_URL="http://localhost:${PB_HOST_PORT}" \
+PLAYWRIGHT_TEST_BASE_URL="http://localhost:${PB_HOST_PORT}" \
 npx playwright test "${PW_ARGS[@]}" || {
   local_exit=$?
   echo "ERROR: Playwright tests failed (exit code: $local_exit)."
