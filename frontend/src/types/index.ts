@@ -89,6 +89,17 @@ export interface Component {
   updated: string;
 }
 
+export interface AuditLog {
+  id: string;
+  collection_name: "kits" | "entities" | "users";
+  record_id: string;
+  actor: string;
+  action: "create" | "update" | "delete";
+  changes: string; // JSON
+  created: string;
+  expand?: { actor?: PBUser };
+}
+
 export interface ComponentTransaction {
   id: string;
   component: string;
