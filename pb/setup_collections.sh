@@ -55,7 +55,7 @@ curl -s -X PATCH "$PB_URL/api/collections/_pb_users_auth_" \
   -d "$(echo "$USERS_COL" | jq '
     (.schema // []) as $schema |
     if ($schema | map(.name) | index("name")) then . else .schema += [{"name":"name","type":"text","required":false}] end |
-    if ($schema | map(.name) | index("role")) then . else .schema += [{"name":"role","type":"select","required":false,"options":{"values":["admin","user","viewer"],"maxSelect":1}}] end
+    if ($schema | map(.name) | index("role")) then . else .schema += [{"name":"role","type":"select","required":false,"options":{"values":["","admin","technician","user","viewer"],"maxSelect":1}}] end
   ')" >/dev/null
 echo "Users collection updated."
 
@@ -122,7 +122,7 @@ create_collection "$(cat <<EOF
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
   "createRule": "@request.auth.id != \"\"",
-  "updateRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")",
+  "updateRule": "@request.auth.role = \"admin\" || @request.auth.role = \"technician\" || (requester = @request.auth.id && status = \"open\")",
   "deleteRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")"
 }
 EOF
@@ -151,7 +151,7 @@ create_collection "$(cat <<EOF
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
-  "createRule": "@request.auth.id != \"\" && @request.data.created_by = @request.auth.id",
+  "createRule": "(@request.auth.role = \"admin\" || @request.auth.role = \"technician\") && @request.data.created_by = @request.auth.id",
   "updateRule": null,
   "deleteRule": null
 }
@@ -162,5 +162,5 @@ echo ""
 echo "Done. Collections created with resolved relation IDs."
 echo ""
 echo "IMPORTANT: Go to $PB_URL/_/ and:"
-echo "  1. Add 'name' (text) and 'role' (select: admin,user,viewer) fields to the 'users' collection."
+echo "  1. Add 'name' (text) and 'role' (select: admin,technician,user,viewer) fields to the 'users' collection."
 echo "  2. Set up your first admin account."
