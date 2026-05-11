@@ -24,12 +24,12 @@ set -e
   --dir=/app/pb_data 2>&1 | grep -v "constraint failed: UNIQUE constraint failed: _admins.email" || true
 
 # Start PocketBase in the background so bootstrap scripts can call its API.
-./pocketbase serve \
-  --http=0.0.0.0:8090 \
-  --dir=/app/pb_data \
-  --publicDir=/app/pb_public \
-  --migrationsDir=/app/pb/pb_migrations \
-  --hooksDir=/app/pb/pb_hooks &
+# Use the unified startup script with container-specific paths.
+PB_HTTP=0.0.0.0:8090 \
+PB_DATA_DIR=/app/pb_data \
+PB_HOOKS_DIR=/app/pb/pb_hooks \
+PB_MIGRATIONS_DIR=/app/pb/pb_migrations \
+bash /app/pb/start-pb.sh &
 PB_PID=$!
 
 # Wait for the API to become ready (up to 30 s).

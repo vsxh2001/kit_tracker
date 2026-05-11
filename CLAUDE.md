@@ -18,12 +18,14 @@ npm run test:prod # full e2e against dockerized stack via scripts/test-prod.sh
 PocketBase (local dev):
 
 ```bash
-./pb/pocketbase serve --dir=pb/pb_data              # start PocketBase (http://127.0.0.1:8090)
+bash pb/start-pb.sh                                  # start PocketBase (http://127.0.0.1:8090)
 ./pb/setup_collections.sh <email> <password>         # create/update collections via API (idempotent)
 ./pb/seed_test_users.sh <email> <password>           # create/update the 3 Playwright test users (PATCHes role on existing)
 ./pb/setup_oauth.sh <email> <password>               # enable Google OAuth provider; reads GOOGLE_OAUTH_CLIENT_ID/SECRET from env
 ./pb/setup_oauth.sh <email> <password> --disable     # disable Google OAuth provider
 ```
+
+Override `start-pb.sh` defaults via env vars: `PB_HTTP`, `PB_DATA_DIR`, `PB_HOOKS_DIR`, `PB_MIGRATIONS_DIR`.
 
 Docker (mirrors prod):
 
