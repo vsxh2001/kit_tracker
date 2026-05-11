@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
-import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries } from "../services/kits";
+import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -36,6 +36,7 @@ export function KitsPage() {
   const [rows, setRows] = useState<KitRow[]>([]);
   const [deliveries, setDeliveries] = useState<Map<string, UpcomingDelivery>>(new Map());
   const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -95,9 +96,15 @@ export function KitsPage() {
     }
   }
 
-  const filtered = rows.filter((r) =>
-    r.kit.serial.toLowerCase().includes(search.toLowerCase())
-  );
+  const allTags = Array.from(
+    new Set(rows.flatMap(({ kit }) => parseTags(kit.tags)))
+  ).sort();
+
+  const filtered = rows.filter((r) => {
+    const matchesSearch = r.kit.serial.toLowerCase().includes(search.toLowerCase());
+    const matchesTag = activeTag === null || parseTags(r.kit.tags).includes(activeTag);
+    return matchesSearch && matchesTag;
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortField === "serial") {
@@ -153,6 +160,25 @@ export function KitsPage() {
         className="w-full max-w-xs"
       />
 
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                activeTag === tag
+                  ? "bg-indigo-600 text-white"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
+              }`}
+              aria-pressed={activeTag === tag}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -190,6 +216,15 @@ export function KitsPage() {
                           Next: {formatDateOnly(upcoming.deliveryDate)} → {upcoming.targetEntityName}
                         </p>
                       )}
+                      {parseTags(kit.tags).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {[...parseTags(kit.tags)].sort().map((tag) => (
+                            <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </Link>
                 );
@@ -218,6 +253,7 @@ export function KitsPage() {
                       >
                         Next delivery<SortIcon active={sortField === "delivery"} dir={sortDir} />
                       </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
                       <th className="px-4 py-2.5" />
                     </tr>
@@ -243,6 +279,19 @@ export function KitsPage() {
                               <span>{formatDateOnly(upcoming.deliveryDate)} → {upcoming.targetEntityName}</span>
                             ) : (
                               <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {parseTags(kit.tags).length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {[...parseTags(kit.tags)].sort().map((tag) => (
+                                  <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground opacity-40">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
