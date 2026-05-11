@@ -1,6 +1,35 @@
 import Papa from "papaparse";
 import { pb } from "../lib/pocketbase";
-import type { Kit, Transaction } from "../types";
+import type { Kit, KitRequest, Transaction } from "../types";
+
+export interface UpcomingDelivery {
+  kitId: string;
+  deliveryDate: string;
+  targetEntityName: string;
+  requestId: string;
+}
+
+export async function listUpcomingDeliveries(): Promise<Map<string, UpcomingDelivery>> {
+  const requests = await pb.collection("requests").getFullList<KitRequest>({
+    filter: pb.filter('status = "approved" && delivery_date >= {:now}', { now: new Date().toISOString().split("T")[0] }),
+    sort: "delivery_date",
+    expand: "target_entity",
+    requestKey: "upcoming-deliveries",
+  });
+  const map = new Map<string, UpcomingDelivery>();
+  for (const req of requests) {
+    if (!req.designated_kit) continue;
+    if (!map.has(req.designated_kit)) {
+      map.set(req.designated_kit, {
+        kitId: req.designated_kit,
+        deliveryDate: req.delivery_date,
+        targetEntityName: req.expand?.target_entity?.name ?? "",
+        requestId: req.id,
+      });
+    }
+  }
+  return map;
+}
 
 export async function listKits(includeInactive = false) {
   const filter = includeInactive ? "" : "is_active = true";
