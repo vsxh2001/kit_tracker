@@ -5,9 +5,14 @@
     "feat-container-ci": 2,
     "feat-admin-notifications": 3,
     "feat-fix-requests-spec": 4,
-    "feat-delivery-date-migration": 5
+    "feat-delivery-date-migration": 5,
+    "feat-rename-admin-heading": 6,
+    "feat-playwright-port-aware": 7,
+    "feat-kits-csv": 8,
+    "feat-kit-gantt": 9,
+    "feat-technician-role": 10
   },
-  "next_offset": 6,
+  "next_offset": 11,
   "port_base": {
     "PB_HOST_PORT": 8090,
     "VITE_PORT": 5173,
