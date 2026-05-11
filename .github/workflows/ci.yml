@@ -179,7 +179,7 @@ jobs:
     # CI runners (container start + first-render contention). Other jobs (build, e2e on host)
     # are the merge gate. Revisit once Phase C per-worker PB lands.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     continue-on-error: true
     strategy:
       fail-fast: false
