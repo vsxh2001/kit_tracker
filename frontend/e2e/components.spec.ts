@@ -51,9 +51,6 @@ import { loginAs } from "./helpers/auth";
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 const TS = `comp-${Date.now()}`;
 
-// Scoped dialog selector — avoids the sidebar nav which is also role="dialog".
-// The Add Component dialog always has aria-label "Add Component".
-const ADD_COMP_DIALOG = '[role="dialog"][aria-labelledby]:not([aria-label="Navigation menu"])';
 
 // Wait for the components page list/table to finish loading.
 async function waitForComponentsPage(page: Page) {
@@ -467,7 +464,7 @@ test.describe("T11-T15: Permission enforcement (REST-level)", () => {
     expect(res.status, "P0: technician must NOT create components (createRule = admin only → 400)").toBe(400);
   });
 
-  test("T15: technician PATCH to component record → 404 blocked (P0 security — updateRule = admin only)", async () => {
+  test("T15: technician PATCH notes on component → 400 blocked by hook (only quantity allowed)", async () => {
     const { token } = await getUserTokenByEmail("tech@kit.local", "Pass1234!");
 
     const res = await fetch(`${PB_URL}/api/collections/components/records/${sharedCompId}`, {
@@ -475,8 +472,8 @@ test.describe("T11-T15: Permission enforcement (REST-level)", () => {
       headers: { Authorization: token, "Content-Type": "application/json" },
       body: JSON.stringify({ notes: "should not be allowed" }),
     });
-    // PB v0.22: updateRule violation → 404 (resource not visible to role)
-    expect(res.status, "P0: technician must NOT update components (updateRule = admin only → 404)").toBe(404);
+    // updateRule now allows admin OR technician; hook blocks non-quantity field changes → 400
+    expect(res.status, "P0: technician must NOT change notes (hook field-guard → 400)").toBe(400);
   });
 });
 

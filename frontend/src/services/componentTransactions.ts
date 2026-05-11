@@ -67,11 +67,25 @@ export async function listComponentsAtEntity(entityId: string): Promise<Componen
 export async function createComponentTransaction(
   data: Partial<ComponentTransaction>
 ): Promise<ComponentTransaction> {
+  const componentId = data.component;
+  if (!componentId) throw new Error("component required");
+
+  // Auto-derive from_kit/from_entity from component's latest transaction (if caller didn't supply)
+  const derivedData = { ...data };
+  if (!derivedData.from_kit && !derivedData.from_entity) {
+    const latest = await getLatestForComponent(componentId);
+    if (latest) {
+      derivedData.from_kit = latest.to_kit || "";
+      derivedData.from_entity = latest.to_entity || "";
+    }
+    // No latest tx → initial placement; leave from_* empty (hook allows first tx)
+  }
+
   return pb.collection("component_transactions").create<ComponentTransaction>({
-    ...data,
-    timestamp: data.timestamp ?? new Date().toISOString(),
+    ...derivedData,
+    timestamp: derivedData.timestamp ?? new Date().toISOString(),
     created_by: pb.authStore.model?.id,
-  });
+  }, { requestKey: `create-tx-${componentId}-${Date.now()}` });
 }
 
 export interface SplitResult {
