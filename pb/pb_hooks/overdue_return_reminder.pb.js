@@ -20,18 +20,18 @@ function escHtml(s) {
 // Returns { sent: number, skipped: string|null } summary.
 // ---------------------------------------------------------------------------
 function fireOverdueReminder() {
-  const nowISO = new Date().toISOString();
+  const nowDate = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
   // Find fulfilled requests with a non-empty expected_return that is in the past.
   let overdueRequests = [];
   try {
     overdueRequests = $app.dao().findRecordsByFilter(
       "requests",
-      "status = 'fulfilled' && expected_return != '' && expected_return < {:now}",
+      "status = 'fulfilled' && expected_return != '' && expected_return < {:today}",
       "-expected_return",
       100,
       0,
-      { now: nowISO }
+      { today: nowDate }
     );
   } catch (queryErr) {
     console.log("[overdue-reminder] Failed to query overdue requests:", queryErr);
@@ -104,7 +104,7 @@ function fireOverdueReminder() {
 
   const htmlBody =
     "<h2>Overdue kit returns</h2>" +
-    "<p>" + overdueRequests.length + " request(s) past their expected return date as of " + escHtml(nowISO) + ":</p>" +
+    "<p>" + overdueRequests.length + " request(s) past their expected return date as of " + escHtml(nowDate) + ":</p>" +
     "<table style='border-collapse:collapse'>" +
     "<thead><tr>" +
     "<th style='padding:4px 12px 4px 0;text-align:left'>Kit</th>" +

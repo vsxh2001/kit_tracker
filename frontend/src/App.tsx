@@ -51,6 +51,7 @@ export default function App() {
             <Route path="entities" element={<EntitiesPage />} />
             <Route path="entities/:id" element={<EntityDetailPage />} />
             <Route path="requests" element={<RequestsPage />} />
+            {/* Calendar is read-only — viewers + user role + above can see. Status filter narrows further. */}
             <Route path="requests/calendar" element={<RequestsCalendarPage />} />
             <Route path="requests/:id" element={<RequestDetailPage />} />
             <Route path="users" element={<AdminOnly><UsersPage /></AdminOnly>} />
