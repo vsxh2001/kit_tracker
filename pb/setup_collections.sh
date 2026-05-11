@@ -82,7 +82,8 @@ create_collection '{
   "schema": [
     {"name":"serial","type":"text","required":true},
     {"name":"notes","type":"text"},
-    {"name":"is_active","type":"bool","required":true}
+    {"name":"is_active","type":"bool","required":true},
+    {"name":"tags","type":"text","required":false}
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",

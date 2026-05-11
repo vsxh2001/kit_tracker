@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { createKit, updateKit } from "../services/kits";
+import { createKit, updateKit, parseTags, serializeTags } from "../services/kits";
 import type { Kit } from "../types";
 
 interface Props {
@@ -24,6 +24,7 @@ interface Props {
 export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
   const [serial, setSerial] = useState("");
   const [notes, setNotes] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +33,7 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
       startTransition(() => {
         setSerial(kit?.serial ?? "");
         setNotes(kit?.notes ?? "");
+        setTagsInput(parseTags(kit?.tags).join(", "));
         setError("");
       });
     }
@@ -39,14 +41,17 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
 
   async function handleSave() {
     if (!serial.trim()) { setError("Serial is required."); return; }
+    const rawTags = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
+    if (rawTags.length > 10) { setError("Maximum 10 tags allowed."); return; }
+    const tags = serializeTags(rawTags);
     setError("");
     setLoading(true);
     try {
       if (kit) {
-        await updateKit(kit.id, { serial: serial.trim(), notes: notes.trim() });
+        await updateKit(kit.id, { serial: serial.trim(), notes: notes.trim(), tags });
         toast({ title: "Kit updated", variant: "success" });
       } else {
-        await createKit({ serial: serial.trim(), notes: notes.trim() });
+        await createKit({ serial: serial.trim(), notes: notes.trim(), tags });
         toast({ title: "Kit created", variant: "success" });
       }
       onSaved();
@@ -86,6 +91,15 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional notes…"
               rows={3}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="kit-tags">Tags (comma-separated)</Label>
+            <Input
+              id="kit-tags"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="laptop, ssd, dell"
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

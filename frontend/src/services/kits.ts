@@ -2,6 +2,17 @@ import Papa from "papaparse";
 import { pb } from "../lib/pocketbase";
 import type { Kit, KitRequest, Transaction } from "../types";
 
+export function parseTags(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return Array.from(new Set(
+    raw.split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
+  ));
+}
+
+export function serializeTags(tags: string[]): string {
+  return Array.from(new Set(tags.map(t => t.trim().toLowerCase()).filter(Boolean))).join(",");
+}
+
 export interface UpcomingDelivery {
   kitId: string;
   deliveryDate: string;
@@ -40,13 +51,13 @@ export async function getKit(id: string) {
   return pb.collection("kits").getOne<Kit>(id);
 }
 
-export async function createKit(data: { serial: string; notes?: string }) {
+export async function createKit(data: { serial: string; notes?: string; tags?: string }) {
   return pb.collection("kits").create<Kit>({ ...data, is_active: true });
 }
 
 export async function updateKit(
   id: string,
-  data: Partial<{ serial: string; notes: string; is_active: boolean }>
+  data: Partial<{ serial: string; notes: string; tags: string; is_active: boolean }>
 ) {
   return pb.collection("kits").update<Kit>(id, data);
 }

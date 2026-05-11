@@ -11,6 +11,7 @@ export interface Kit {
   id: string;
   serial: string;
   notes?: string;
+  tags?: string;
   is_active: boolean;
   created: string;
   updated: string;
