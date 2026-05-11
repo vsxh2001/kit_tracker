@@ -1,6 +1,7 @@
 import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileX } from "lucide-react";
+import { EmptyState } from "../components/EmptyState";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -159,7 +160,14 @@ export function RequestDetailPage() {
   }
 
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
-  if (!request) return <p>Request not found.</p>;
+  if (!request) return (
+    <EmptyState
+      icon={FileX}
+      heading="Request not found"
+      body="It may have been deleted or you don't have access."
+      cta={{ label: "Back to requests", href: "/requests" }}
+    />
+  );
 
   const isOwner = request.requester === user?.id;
 
