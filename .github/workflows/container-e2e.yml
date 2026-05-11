@@ -1,0 +1,70 @@
+name: Container E2E
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"  # daily 6am UTC
+  workflow_dispatch:
+
+jobs:
+  container-e2e:
+    # Only run when PR has 'container-e2e' label, on schedule, or manual trigger.
+    # Smoke against dockerized stack. Known to flake on resource-constrained
+    # CI runners (container start + first-render contention). Other jobs (build, e2e on host)
+    # are the merge gate. Revisit once Phase C per-worker PB lands.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      contains(github.event.pull_request.labels.*.name, 'container-e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        oauth: [disabled, enabled]
+    env:
+      HAVE_OAUTH_SECRETS: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Install Playwright browsers
+        run: cd frontend && npx playwright install chromium --with-deps
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Set up .env for docker compose
+        run: |
+          cat > .env <<'INNEREOF'
+          PB_SUPERUSER_EMAIL=ci@example.com
+          PB_SUPERUSER_PASSWORD=CIpassword123!
+          GOOGLE_OAUTH_CLIENT_ID=${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET=${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          INNEREOF
+
+      - name: Disable OAuth for this matrix entry
+        if: matrix.oauth == 'disabled'
+        run: |
+          echo "GOOGLE_OAUTH_DISABLE=1" >> .env
+
+      - name: Run e2e suite via docker compose
+        if: matrix.oauth == 'disabled' || env.HAVE_OAUTH_SECRETS == 'true'
+        run: bash scripts/test-prod.sh --grep "@smoke"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-container-${{ matrix.oauth }}
+          path: frontend/playwright-report/
+          retention-days: 7
