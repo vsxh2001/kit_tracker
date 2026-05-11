@@ -93,10 +93,7 @@ const MATRIX: Record<RoleName, MatrixRow> = {
     canSeeNewKitButton: false,
     canSeeMoveKitButton: true,
     canSeeEditRetireKit: false,
-    // VERIFICATION NOTE: RequestsPage.tsx uses canCreate = isAdmin || user?.role === "user"
-    // Technician is NOT included in canCreate. This is a discrepancy vs the spec.
-    // Test reflects actual implementation. See Verification Notes.
-    canSeeNewRequestButton: false,
+    canSeeNewRequestButton: true,
     canSeeApproveRejectButtons: true,
     canSeeDeleteDangerZone: false,
     canSeeUsersNavLink: false,

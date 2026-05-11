@@ -1,6 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Adds "technician" role:
 //   1. Extends users.role select enum to include "technician"
+//      NOTE: the values array is set in full — this silently re-adds "" (pending/empty)
+//      which was already present; it is intentional and required for the enum to remain valid.
 //   2. Tightens transactions.createRule — only admin/technician can create
 //   3. Extends requests.updateRule — technician can approve/reject/fulfill
 

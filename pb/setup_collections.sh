@@ -121,7 +121,7 @@ create_collection "$(cat <<EOF
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
-  "createRule": "@request.auth.id != \"\"",
+  "createRule": "@request.auth.role = \"admin\" || @request.auth.role = \"technician\" || @request.auth.role = \"user\"",
   "updateRule": "@request.auth.role = \"admin\" || @request.auth.role = \"technician\" || (requester = @request.auth.id && status = \"open\")",
   "deleteRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")"
 }

@@ -96,7 +96,7 @@ export function KitDetailPage() {
           </CardContent>
         </Card>
 
-        {(canTransferKits || isAdmin) && (
+        {canTransferKits && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
