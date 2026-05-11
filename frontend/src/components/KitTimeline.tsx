@@ -69,7 +69,9 @@ export function KitTimeline({ kitId }: Props) {
               {segments.map((seg, i) => {
                 const leftPct = ((seg.start - totalStart) / totalDuration) * 100;
                 const widthPct = ((seg.end - seg.start) / totalDuration) * 100;
-                const tooltipText = `${seg.entityName} · ${formatDateOnly(new Date(seg.start).toISOString())} → ${formatDateOnly(new Date(seg.end).toISOString())}`;
+                const durationDays = Math.round((seg.end - seg.start) / (1000 * 60 * 60 * 24));
+                const durationLabel = durationDays === 1 ? "1 day" : `${durationDays} days`;
+                const tooltipText = `${seg.entityName} · ${durationLabel} (${formatDateOnly(new Date(seg.start).toISOString())} → ${formatDateOnly(new Date(seg.end).toISOString())})`;
                 return (
                   <div
                     key={i}
@@ -84,7 +86,7 @@ export function KitTimeline({ kitId }: Props) {
                 );
               })}
             </div>
-            <div className="flex justify-between mt-1 text-[10px] text-muted-foreground tabular-nums">
+            <div className="flex justify-between mt-1 font-mono text-[10px] text-muted-foreground tabular-nums">
               <span>{formatDateOnly(new Date(totalStart).toISOString())}</span>
               <span>{formatDateOnly(new Date(totalEnd).toISOString())}</span>
             </div>

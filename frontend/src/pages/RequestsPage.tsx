@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { RequestFormDialog } from "../components/RequestFormDialog";
 import { listRequests } from "../services/requests";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
 import type { KitRequest, RequestStatus } from "../types";
@@ -93,7 +94,11 @@ export function RequestsPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
       ) : (
         <>
           {filtered.length === 0 && (

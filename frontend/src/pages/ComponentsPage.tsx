@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { listComponents } from "../services/components";
 import { pb } from "../lib/pocketbase";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
 import type { Component, ComponentTransaction } from "../types";
@@ -131,7 +132,11 @@ export function ComponentsPage() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
       ) : (
         <>
           {filtered.length === 0 && (
@@ -222,7 +227,7 @@ export function ComponentsPage() {
                               ? <Badge variant="outline" className="text-[10px]">Active</Badge>
                               : <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
+                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs tabular-nums">
                             {formatDate(component.created)}
                           </td>
                           <td className="px-4 py-3">
