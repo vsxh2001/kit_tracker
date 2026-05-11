@@ -10,7 +10,8 @@ import { KitTimeline } from "../components/KitTimeline";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { KitQR } from "../components/KitQR";
-import { getKit, getKitHistory, updateKit } from "../services/kits";
+import { getKit, getKitHistory, updateKit, uploadKitAttachment, deleteKitAttachment } from "../services/kits";
+import { AttachmentList } from "../components/AttachmentList";
 import { listComponentsInKit } from "../services/componentTransactions";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
@@ -291,6 +292,39 @@ export function KitDetailPage() {
           </>
         )}
       </div>
+
+      {/* Attachments */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Attachments</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <AttachmentList
+            kit={kit}
+            canEdit={isAdmin}
+            onUpload={isAdmin ? async (file) => {
+              try {
+                const updated = await uploadKitAttachment(kit.id, file);
+                setKit(updated);
+                toast({ title: "File uploaded", description: file.name, variant: "success" });
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } catch (err: any) {
+                toast({ title: "Upload failed", description: err?.message, variant: "destructive" });
+              }
+            } : undefined}
+            onDelete={isAdmin ? async (filename) => {
+              try {
+                const updated = await deleteKitAttachment(kit.id, filename);
+                setKit(updated);
+                toast({ title: "Attachment deleted", description: filename, variant: "success" });
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } catch (err: any) {
+                toast({ title: "Delete failed", description: err?.message, variant: "destructive" });
+              }
+            } : undefined}
+          />
+        </CardContent>
+      </Card>
 
       <MoveKitDialog
         kit={kit}

@@ -83,7 +83,8 @@ create_collection '{
     {"name":"serial","type":"text","required":true},
     {"name":"notes","type":"text"},
     {"name":"is_active","type":"bool","required":true},
-    {"name":"tags","type":"text","required":false}
+    {"name":"tags","type":"text","required":false},
+    {"name":"attachments","type":"file","required":false,"options":{"maxSelect":10,"maxSize":5242880,"mimeTypes":[],"thumbs":[],"protected":false}}
   ],
   "listRule": "@request.auth.id != \"\"",
   "viewRule": "@request.auth.id != \"\"",
