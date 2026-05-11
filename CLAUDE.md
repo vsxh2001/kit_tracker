@@ -247,6 +247,102 @@ Container only runs `setup_oauth.sh` when both CLIENT_ID + SECRET are set. Setti
 - `ci.yml` — runs on PRs + push: lint + tsc + vite build + Docker image build + e2e (PB-on-host fast path; OAuth gracefully skipped via env-var guard in `oauth.spec.ts`)
 - `deploy.yml` — runs on push to main: deploys to Fly.io. Requires `FLY_API_TOKEN` GitHub secret (not configured by default).
 
+## Deployment
+
+Target: Fly.io. App name: `kit-tracker` (in `fly.toml`). Region: fra (Frankfurt, closest to Israel). PocketBase + SQLite on persistent `pb_data` volume.
+
+### Prerequisites (one-time setup)
+
+```bash
+# 1. Fly account + CLI
+brew install flyctl          # macOS; see https://fly.io/docs/hands-on/install-flyctl/ for other OS
+flyctl auth login
+
+# 2. Create app + volume
+flyctl apps create kit-tracker
+flyctl volumes create pb_data --size 1 --region fra
+
+# 3. Set production secrets
+flyctl secrets set PB_SUPERUSER_EMAIL=<your-admin-email>
+flyctl secrets set PB_SUPERUSER_PASSWORD=<strong-password>
+
+# 4. Optional: Google OAuth (if configured)
+# Get credentials from https://console.cloud.google.com/apis/credentials
+# Add to Google Console first (step 5 below):
+# - Authorized JS origins: https://kit-tracker.fly.dev
+# - Redirect URIs: https://kit-tracker.fly.dev/api/oauth2-redirect
+#
+# Then set in Fly:
+flyctl secrets set GOOGLE_OAUTH_CLIENT_ID=<from client_secret.json>
+flyctl secrets set GOOGLE_OAUTH_CLIENT_SECRET=<from client_secret.json>
+
+# 5. GitHub Action deploy token
+flyctl auth token            # copy the token
+# Then: GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+# Name: FLY_API_TOKEN
+# Value: <paste token>
+
+# 6. Update Google OAuth Console (when OAuth is enabled)
+# https://console.cloud.google.com/apis/credentials → OAuth 2.0 Client IDs
+# Add Authorized JS origins: https://kit-tracker.fly.dev
+# Add Redirect URIs: https://kit-tracker.fly.dev/api/oauth2-redirect
+```
+
+### Deploy
+
+Auto: every push to main triggers `.github/workflows/deploy.yml` (requires `FLY_API_TOKEN` secret).
+
+Manual:
+```bash
+flyctl deploy --remote-only
+```
+
+### Monitor + Logs
+
+```bash
+flyctl status                # check app status
+flyctl logs -f               # tail logs (Ctrl+C to exit)
+flyctl scale count 1         # ensure at least 1 machine running
+```
+
+### Rollback
+
+```bash
+flyctl releases              # list past releases with timestamps
+flyctl releases rollback     # rollback to previous release
+# OR revert via Git + re-deploy
+```
+
+### Backup pb_data
+
+PocketBase data lives on the `pb_data` volume (SQLite + logs). **Always snapshot before risky migrations.**
+
+```bash
+# One-liner backup (uses scripts/backup-pb-data.sh):
+bash scripts/backup-pb-data.sh
+
+# Output: backups/pb-snapshot-YYYYMMDD-HHMMSS.tar.gz
+```
+
+To restore from a snapshot:
+```bash
+# List current backups
+ls -lh backups/pb-snapshot-*.tar.gz
+
+# SSH into the app machine
+flyctl ssh console
+
+# Clear old data (carefully!)
+rm -rf /app/pb_data/*
+
+# Extract backup
+cd /app/pb_data
+tar xzf /tmp/pb-snapshot-YYYYMMDD-HHMMSS.tar.gz
+
+# Restart PocketBase (exit SSH, then)
+flyctl restart
+```
+
 ## Agent system (`.claude/agents/`)
 
 11 specialist agents declared in `.claude/agents/*.md` with frontmatter `tools:` (capability cap) + `allowed_paths:` (lane glob). `.claude/agents/TEAM.md` is the orchestrator playbook (brief templates per agent, workflow patterns, parallelism rules).
