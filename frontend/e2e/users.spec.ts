@@ -248,10 +248,9 @@ test.describe("Users management — multi-user table", () => {
   test("admin can promote pending user to user role", async ({ page }) => {
     const ts = Date.now();
     const email = `pending-${ts}@test.local`;
-    let userId = "";
 
     const created = await createTestUser(email, "");
-    userId = created.id;
+    const userId = created.id;
 
     try {
       await loginAs(page, "admin");
@@ -301,10 +300,9 @@ test.describe("Users management — multi-user table", () => {
   }) => {
     const ts = Date.now();
     const email = `extra-admin-${ts}@test.local`;
-    let userId = "";
 
     const created = await createTestUser(email, "admin");
-    userId = created.id;
+    const userId = created.id;
 
     try {
       await loginAs(page, "admin");
@@ -344,10 +342,9 @@ test.describe("Users management — multi-user table", () => {
   test("Pending badge shown for user with empty role", async ({ page }) => {
     const ts = Date.now();
     const email = `pending-badge-${ts}@test.local`;
-    let userId = "";
 
     const created = await createTestUser(email, "");
-    userId = created.id;
+    const userId = created.id;
 
     try {
       await loginAs(page, "admin");
