@@ -14,6 +14,7 @@ import { EntityDetailPage } from "./pages/EntityDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ComponentsPage } from "./pages/ComponentsPage";
 import { ComponentDetailPage } from "./pages/ComponentDetailPage";
+import { PrintLabelsPage } from "./pages/PrintLabelsPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="users" element={<AdminOnly><UsersPage /></AdminOnly>} />
             <Route path="components" element={<ComponentsPage />} />
             <Route path="components/:id" element={<ComponentDetailPage />} />
+            <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

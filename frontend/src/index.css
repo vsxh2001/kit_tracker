@@ -73,3 +73,13 @@ a, button {
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+@media print {
+  body { background: white; }
+  .print\:hidden { display: none !important; }
+  .print\:p-0 { padding: 0 !important; }
+  /* Hide app shell when on /kits/print */
+  aside, nav { display: none !important; }
+  .grid { page-break-inside: auto; }
+  .break-inside-avoid { break-inside: avoid; }
+}
