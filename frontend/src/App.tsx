@@ -10,6 +10,7 @@ import { KitDetailPage } from "./pages/KitDetailPage";
 import { EntitiesPage } from "./pages/EntitiesPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { RequestDetailPage } from "./pages/RequestDetailPage";
+import { RequestsCalendarPage } from "./pages/RequestsCalendarPage";
 import { EntityDetailPage } from "./pages/EntityDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ComponentsPage } from "./pages/ComponentsPage";
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="entities" element={<EntitiesPage />} />
             <Route path="entities/:id" element={<EntityDetailPage />} />
             <Route path="requests" element={<RequestsPage />} />
+            <Route path="requests/calendar" element={<RequestsCalendarPage />} />
             <Route path="requests/:id" element={<RequestDetailPage />} />
             <Route path="users" element={<AdminOnly><UsersPage /></AdminOnly>} />
             <Route path="audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />
