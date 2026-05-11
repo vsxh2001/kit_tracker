@@ -271,13 +271,7 @@ test.describe("Loading state on /kits", () => {
     await loginAs(page, "admin");
     await page.goto("/kits");
     await page.waitForLoadState("networkidle");
-    // After data loads, the "Loading…" text must be gone and table/list content must be present
-    // Check for either table headers or table body rows indicating data is loaded
-    const tableOrData = await Promise.race([
-      page.getByRole("columnheader", { name: /serial|current|entity/i }).isVisible(),
-      page.locator("table tbody tr").first().isVisible(),
-    ]).catch(() => false);
-
+    // After data loads, the "Loading…" text must be gone and table content must be present
     await expect(
       page.locator("table tbody tr").first(),
       { message: "Table rows must be visible after data loads" }
