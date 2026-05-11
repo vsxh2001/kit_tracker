@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, startTransition } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, CalendarDays } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
@@ -60,12 +60,20 @@ export function RequestsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Equipment request queue</p>
         </div>
-        {canCreate && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            New request
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Link to="/requests/calendar">
+            <Button variant="ghost" size="sm">
+              <CalendarDays className="h-4 w-4" />
+              Calendar view
+            </Button>
+          </Link>
+          {canCreate && (
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4" />
+              New request
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
