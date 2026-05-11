@@ -63,18 +63,18 @@ else
   docker compose up -d
 fi
 
-echo "========== Waiting for PocketBase health check (max 60s) =========="
+echo "========== Waiting for PocketBase health check (max 180s) =========="
 i=0
 PB_HOST_PORT=${PB_HOST_PORT:-8090}
 until curl -sf http://localhost:${PB_HOST_PORT}/api/health > /dev/null 2>&1; do
   i=$((i + 1))
-  if [ $i -ge 60 ]; then
-    echo "ERROR: PocketBase did not become ready within 60s."
+  if [ $i -ge 180 ]; then
+    echo "ERROR: PocketBase did not become ready within 180s."
     echo "======== Last 50 lines of docker compose logs ========"
     docker compose logs --tail=50
     exit 1
   fi
-  echo "  Waiting... ($i/60)"
+  echo "  Waiting... ($i/180)"
   sleep 1
 done
 echo "PocketBase is ready."

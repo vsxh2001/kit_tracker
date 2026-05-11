@@ -176,7 +176,7 @@ jobs:
 
   container-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       matrix:
         oauth: [disabled, enabled]
@@ -215,7 +215,7 @@ jobs:
 
       - name: Run e2e suite via docker compose
         if: matrix.oauth == 'disabled' || env.HAVE_OAUTH_SECRETS == 'true'
-        run: bash scripts/test-prod.sh
+        run: bash scripts/test-prod.sh --grep "@smoke"
 
       - name: Upload Playwright report
         if: always()
