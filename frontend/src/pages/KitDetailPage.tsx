@@ -26,7 +26,7 @@ import type { Kit, Transaction } from "../types";
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canTransferKits } = useAuth();
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -96,21 +96,25 @@ export function KitDetailPage() {
           </CardContent>
         </Card>
 
-        {isAdmin && (
+        {(canTransferKits || isAdmin) && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2 pt-0">
-              <Button size="sm" onClick={() => setShowMove(true)}>
-                <ArrowRight className="h-4 w-4" />
-                Move kit
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
-                <Pencil className="h-4 w-4" />
-                Edit
-              </Button>
-              {kit.is_active && (
+              {canTransferKits && (
+                <Button size="sm" onClick={() => setShowMove(true)}>
+                  <ArrowRight className="h-4 w-4" />
+                  Move kit
+                </Button>
+              )}
+              {isAdmin && (
+                <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              )}
+              {isAdmin && kit.is_active && (
                 <Button size="sm" variant="destructive" onClick={() => setShowRetire(true)}>
                   Retire kit
                 </Button>

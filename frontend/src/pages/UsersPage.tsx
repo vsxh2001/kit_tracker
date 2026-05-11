@@ -17,6 +17,7 @@ import { formatDate } from "../lib/utils";
 
 const ROLE_OPTIONS: { value: UserRole | "none"; label: string }[] = [
   { value: "admin", label: "Admin" },
+  { value: "technician", label: "Technician" },
   { value: "user", label: "User" },
   { value: "viewer", label: "Viewer" },
   { value: "none", label: "None" },
