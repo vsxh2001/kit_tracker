@@ -1,11 +1,12 @@
 import { useEffect, useState, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
-import { listEntities, updateEntity, deleteEntity } from "../services/entities";
+import { ImportEntitiesDialog } from "../components/ImportEntitiesDialog";
+import { listEntities, updateEntity, deleteEntity, exportEntitiesCsv } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
 import {
@@ -31,6 +32,7 @@ export function EntitiesPage() {
   const [editTarget, setEditTarget] = useState<Entity | undefined>();
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<PendingConfirm | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -45,6 +47,25 @@ export function EntitiesPage() {
   }
 
   useEffect(() => { startTransition(() => load()); }, []);
+
+  async function handleExport() {
+    try {
+      const csv = await exportEntitiesCsv();
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `entities-${date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
+    }
+  }
 
   function openEdit(e: Entity) {
     setEditTarget(e);
@@ -87,10 +108,20 @@ export function EntitiesPage() {
           <h1 className="text-2xl font-semibold">Entities</h1>
         </div>
         {isAdmin && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4" />
-            New entity
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Button size="sm" variant="outline" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4" />
+              New entity
+            </Button>
+          </div>
         )}
       </div>
 
@@ -187,6 +218,12 @@ export function EntitiesPage() {
         open={showForm}
         onClose={closeForm}
         onSaved={load}
+      />
+
+      <ImportEntitiesDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={load}
       />
 
       <AlertDialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
