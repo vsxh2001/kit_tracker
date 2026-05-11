@@ -43,19 +43,19 @@ test.describe("Login page", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("admin can log in and reaches dashboard", async ({ page }) => {
+  test("admin can log in and reaches dashboard @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("complementary").getByText("logistics@kit.local")).toBeVisible();
   });
 
-  test("user (non-admin) can log in and reaches dashboard", async ({ page }) => {
+  test("user (non-admin) can log in and reaches dashboard @smoke", async ({ page }) => {
     await loginAs(page, "user");
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("complementary").getByText("requester@kit.local")).toBeVisible();
   });
 
-  test("viewer can log in and reaches dashboard", async ({ page }) => {
+  test("viewer can log in and reaches dashboard @smoke", async ({ page }) => {
     await loginAs(page, "viewer");
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("complementary").getByText("viewer@kit.local")).toBeVisible();
@@ -63,7 +63,7 @@ test.describe("Login page", () => {
 });
 
 test.describe("Logout", () => {
-  test("logout clears session and redirects to /login", async ({ page }) => {
+  test("logout clears session and redirects to /login @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.getByRole("button", { name: /sign out/i }).click();
     await page.waitForURL("**/login");

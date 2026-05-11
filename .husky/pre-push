@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+cd frontend
+echo "→ Lint" && npm run lint || exit 1
+echo "→ Build" && npm run build || exit 1
+echo "→ Smoke e2e" && npm run test:smoke || exit 1

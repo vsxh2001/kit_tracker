@@ -86,7 +86,7 @@ test.describe.serial("Users management — nav and access control", () => {
   // -------------------------------------------------------------------------
   // Test 1 — admin sees "Users" link in sidebar
   // -------------------------------------------------------------------------
-  test("admin sees Users link in sidebar", async ({ page }) => {
+  test("admin sees Users link in sidebar @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await expect(
       page.getByRole("link", { name: "Users" }),

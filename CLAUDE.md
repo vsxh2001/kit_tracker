@@ -7,12 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 All frontend commands run from `frontend/`:
 
 ```bash
-npm run dev       # start Vite dev server (http://localhost:5173)
-npm run build     # tsc -b && vite build (type-check + bundle)
-npm run lint      # ESLint
-npm run test      # run Playwright e2e suite (needs PocketBase + Vite running)
-npm run test:ci   # same with CI=true (retries enabled, HTML report)
-npm run test:prod # full e2e against dockerized stack via scripts/test-prod.sh
+npm run dev        # start Vite dev server (http://localhost:5173)
+npm run build      # tsc -b && vite build (type-check + bundle)
+npm run lint       # ESLint
+npm run test       # run full Playwright e2e suite (needs PocketBase + Vite running)
+npm run test:smoke # ~18 @smoke-tagged tests, ~2 min (fast gate)
+npm run test:full  # entire suite via chromium (explicit project flag)
+npm run test:ci    # same as test with CI=true (retries enabled, HTML report)
+npm run test:prod  # full e2e against dockerized stack via scripts/test-prod.sh
 ```
 
 PocketBase (local dev):
@@ -45,6 +47,16 @@ Playwright tests live in `frontend/e2e/`. Tests need PocketBase + Vite running *
 Tests run serially (`workers: 1`) — PocketBase is shared mutable state. Each describe block seeds + tears down its own data via `e2e/helpers/api.ts` (direct REST, no UI).
 
 CI uses bundled Chromium. Locally uses `/usr/bin/google-chrome` (`executablePath` in `playwright.config.ts`). `playwright.config.ts` honors `PLAYWRIGHT_TEST_BASE_URL` so docker-mode points at :8090 (frontend served by PB) instead of :5173.
+
+### Smoke vs Full
+
+- `npm run test:smoke` — ~18 tests, ~2 min. Tagged with `@smoke` in test name. Runs on every push (CI + pre-push hook).
+- `npm run test:full` — entire suite, ~18 min. Runs on PR with `full-e2e` label or nightly cron (6am UTC).
+- `npm test` — alias for full suite locally.
+
+### Pre-push hook
+
+`.husky/pre-push` runs `lint && build && test:smoke` before every push. Bypass with `git push --no-verify` (don't, unless you really mean it).
 
 Single spec:
 ```bash

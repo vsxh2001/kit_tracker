@@ -89,7 +89,7 @@ test.describe("T1-T6: Serialized component lifecycle", () => {
     await deactivateEntity(entityBId);
   });
 
-  test("T1: create serialized component via REST — UI shows it on /components", async ({ page }) => {
+  test("T1: create serialized component via REST — UI shows it on /components @smoke", async ({ page }) => {
     const comp = await createTestComponent({ serial: SERIAL, type: "Battery", initialEntity: entityAId });
     componentId = comp.id;
 
@@ -395,7 +395,7 @@ test.describe("T11-T15: Permission enforcement (REST-level)", () => {
     await deactivateEntity(sharedEnt2Id);
   });
 
-  test("T11: viewer can GET /api/collections/components → 200 with results (P0)", async () => {
+  test("T11: viewer can GET /api/collections/components → 200 with results (P0) @smoke", async () => {
     const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
     const res = await fetch(`${PB_URL}/api/collections/components/records`, {
       headers: { Authorization: token },

@@ -191,7 +191,7 @@ for (const role of ROLES) {
     const m = MATRIX[role];
 
     // Login + reach dashboard
-    test(`${role} — login and reach dashboard`, async ({ page }) => {
+    test(`${role} — login and reach dashboard${role === "admin" ? " @smoke" : ""}`, async ({ page }) => {
       await loginAs(page, role);
       await expect(page).toHaveURL(/dashboard/, {
         message: `${role} should land on dashboard after login`,
