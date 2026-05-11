@@ -63,7 +63,7 @@ jobs:
           chmod +x pb/pocketbase pb/setup_collections.sh pb/seed_test_users.sh
 
       - name: Start PocketBase
-        run: ./pb/pocketbase serve --http=0.0.0.0:8090 --dir=/tmp/pb_data &
+        run: ./pb/pocketbase serve --http=0.0.0.0:8090 --dir=/tmp/pb_data --migrationsDir=pb/pb_migrations --hooksDir=pb/pb_hooks &
 
       - name: Wait for PocketBase
         run: timeout 30 bash -c 'until curl -sf http://127.0.0.1:8090/api/health; do sleep 1; done'
