@@ -47,8 +47,15 @@ done
 # Failure stops the container: broken schema → broken app.
 /app/pb/setup_collections.sh
 
-# Seed test users for Playwright e2e tests
-/app/pb/seed_test_users.sh "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" || true
+# Setup app admin matching PB superuser (idempotent, runs every boot)
+/app/pb/bootstrap_app_admin.sh || echo "WARN: bootstrap_app_admin.sh failed"
+
+# Seed test users (dev/CI only — keep hardcoded Pass1234! out of prod)
+if [ "${SEED_TEST_USERS:-0}" = "1" ]; then
+  /app/pb/seed_test_users.sh "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" || echo "WARN: seed_test_users failed"
+else
+  echo "Skipping test-user seed (set SEED_TEST_USERS=1 to enable for dev/CI)"
+fi
 
 # Google OAuth handling — credentials come from env vars, no argv leak.
 if [ -n "${GOOGLE_OAUTH_DISABLE:-}" ]; then

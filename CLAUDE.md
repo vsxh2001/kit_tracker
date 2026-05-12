@@ -249,6 +249,18 @@ Container only runs `setup_oauth.sh` when both CLIENT_ID + SECRET are set. Setti
 
 ## Deployment
 
+### First-boot identity
+
+PB has two identity stores: `_superusers` (panel `/_/`) and `users` (app `/login`).
+Without configuration these are separate.
+
+This container auto-creates an app user matching `PB_SUPERUSER_EMAIL` with `role=admin`
+on first boot via `pb/bootstrap_app_admin.sh`. You can sign in to both `/_/` (PB panel)
+and `/login` (app) with the same credentials.
+
+Test users (`logistics@kit.local` etc, password `Pass1234!`) are seeded ONLY when
+`SEED_TEST_USERS=1`. CI sets it; prod does NOT — test passwords stay out of prod.
+
 Target: Fly.io. App name: `kit-tracker` (in `fly.toml`). Region: fra (Frankfurt, closest to Israel). PocketBase + SQLite on persistent `pb_data` volume.
 
 ### Prerequisites (one-time setup)
