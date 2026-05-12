@@ -48,6 +48,9 @@ set +u
 source .env
 set -u
 
+# Enable test-user seeding for local dev / CI parity
+export SEED_TEST_USERS=1
+
 echo "========== Tearing down any existing compose state and volumes =========="
 docker compose down -v 2>/dev/null || true
 
