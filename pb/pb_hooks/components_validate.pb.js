@@ -83,10 +83,11 @@ onRecordBeforeCreateRequest((e) => {
       const componentId = e.record.getString("component");
       const existing = $app.dao().findRecordsByFilter(
         "component_transactions",
-        "component = '" + componentId + "'",
+        "component = {:cid}",
         "",
         1,
-        0
+        0,
+        { cid: componentId }
       );
       if (existing.length > 0) {
         throw new BadRequestError(

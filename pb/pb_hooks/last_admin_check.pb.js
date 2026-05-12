@@ -25,13 +25,32 @@ onRecordBeforeUpdateRequest((e) => {
   // concurrent demote-last-admin requests both see count=0 and both fail.
   const otherAdmins = $app.dao().findRecordsByFilter(
     "users",
-    "role = 'admin' && id != '" + e.record.id + "'",
+    "role = 'admin' && id != {:id}",
     "",
     2,
-    0
+    0,
+    { id: e.record.id }
   );
 
   if (otherAdmins.length === 0) {
     throw new BadRequestError("Cannot demote the last admin");
+  }
+}, "users");
+
+// H4: Prevent deletion of the last admin user.
+onRecordBeforeDeleteRequest((e) => {
+  if (e.record.getString("role") !== "admin") return;
+
+  const otherAdmins = $app.dao().findRecordsByFilter(
+    "users",
+    "role = 'admin' && id != {:id}",
+    "",
+    2,
+    0,
+    { id: e.record.id }
+  );
+
+  if (otherAdmins.length === 0) {
+    throw new BadRequestError("Cannot delete the last admin");
   }
 }, "users");
