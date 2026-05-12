@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { RequireRole } from "./components/RequireRole";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -46,20 +47,20 @@ export default function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="kits" element={<KitsPage />} />
-            <Route path="kits/:id" element={<KitDetailPage />} />
-            <Route path="entities" element={<EntitiesPage />} />
-            <Route path="entities/:id" element={<EntityDetailPage />} />
-            <Route path="requests" element={<RequestsPage />} />
+            <Route path="kits" element={<RequireRole><KitsPage /></RequireRole>} />
+            <Route path="kits/:id" element={<RequireRole><KitDetailPage /></RequireRole>} />
+            <Route path="entities" element={<RequireRole><EntitiesPage /></RequireRole>} />
+            <Route path="entities/:id" element={<RequireRole><EntityDetailPage /></RequireRole>} />
+            <Route path="requests" element={<RequireRole><RequestsPage /></RequireRole>} />
             {/* Calendar is read-only — viewers + user role + above can see. Status filter narrows further. */}
-            <Route path="requests/calendar" element={<RequestsCalendarPage />} />
-            <Route path="requests/:id" element={<RequestDetailPage />} />
+            <Route path="requests/calendar" element={<RequireRole><RequestsCalendarPage /></RequireRole>} />
+            <Route path="requests/:id" element={<RequireRole><RequestDetailPage /></RequireRole>} />
             <Route path="users" element={<AdminOnly><UsersPage /></AdminOnly>} />
             <Route path="audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />
-            <Route path="components" element={<ComponentsPage />} />
-            <Route path="components/:id" element={<ComponentDetailPage />} />
+            <Route path="components" element={<RequireRole><ComponentsPage /></RequireRole>} />
+            <Route path="components/:id" element={<RequireRole><ComponentDetailPage /></RequireRole>} />
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
-            <Route path="stats" element={<StatsPage />} />
+            <Route path="stats" element={<RequireRole><StatsPage /></RequireRole>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
