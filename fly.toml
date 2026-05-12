@@ -9,6 +9,7 @@ primary_region = "fra"
   PB_DATA_DIR = "/app/pb_data"
   PB_HOOKS_DIR = "/app/pb/pb_hooks"
   PB_MIGRATIONS_DIR = "/app/pb/pb_migrations"
+  PB_PUBLIC_DIR = "/app/pb_public"
 
 [[services]]
   internal_port = 8090

@@ -34,9 +34,15 @@ PB_HTTP="${PB_HTTP:-127.0.0.1:8090}"
 PB_DATA_DIR="${PB_DATA_DIR:-pb/pb_data}"
 PB_HOOKS_DIR="${PB_HOOKS_DIR:-pb/pb_hooks}"
 PB_MIGRATIONS_DIR="${PB_MIGRATIONS_DIR:-pb/pb_migrations}"
+# Default publicDir to ./pb_public (CWD-relative). Override via PB_PUBLIC_DIR.
+# Without this flag PB resolves "dir of executable", which for a symlinked
+# binary follows the symlink target (e.g. /usr/local/bin/pb_public) — wrong
+# location in containers. Explicit flag prevents that.
+PB_PUBLIC_DIR="${PB_PUBLIC_DIR:-pb_public}"
 
 exec "$PB_BIN" serve \
   --http="$PB_HTTP" \
   --dir="$PB_DATA_DIR" \
   --hooksDir="$PB_HOOKS_DIR" \
-  --migrationsDir="$PB_MIGRATIONS_DIR"
+  --migrationsDir="$PB_MIGRATIONS_DIR" \
+  --publicDir="$PB_PUBLIC_DIR"
