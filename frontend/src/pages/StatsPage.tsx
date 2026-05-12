@@ -1,9 +1,11 @@
 import { useEffect, useState, startTransition } from "react";
 import { Navigate } from "react-router-dom";
-import { BarChart3, Package, Users, TrendingUp, Clock, AlertTriangle } from "lucide-react";
+import { BarChart3, Package, Users, TrendingUp, Clock, AlertTriangle, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { computeStats } from "../services/stats";
+import { listAllActiveSchedules } from "../services/maintenance";
+import { maintenanceStatus } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import type { UtilizationStats } from "../services/stats";
 import type { RequestStatus } from "../types";
@@ -29,12 +31,15 @@ const ALL_STATUSES: RequestStatus[] = ["open", "approved", "fulfilled", "rejecte
 export function StatsPage() {
   const { canDecideRequests, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<UtilizationStats | null>(null);
+  const [overdueMaintenanceCount, setOverdueMaintenanceCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
     try {
-      setStats(await computeStats());
+      const [s, scheds] = await Promise.all([computeStats(), listAllActiveSchedules()]);
+      setStats(s);
+      setOverdueMaintenanceCount(scheds.filter((sc) => maintenanceStatus(sc.next_due_at) === "overdue").length);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -223,6 +228,30 @@ export function StatsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">avg time from submission to fulfillment</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 7 — Overdue maintenance */}
+          <Card data-testid="card-overdue-maintenance">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Wrench className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Overdue maintenance</span>
+              </div>
+              <div className="flex items-end gap-3">
+                <p className={`text-3xl font-bold tabular-nums tracking-tight ${overdueMaintenanceCount > 0 ? "text-red-500" : ""}`}>
+                  {overdueMaintenanceCount}
+                </p>
+                <span className="text-xs text-muted-foreground mb-1">active schedules past due date</span>
+              </div>
+              {overdueMaintenanceCount > 0 && (
+                <a
+                  href="/maintenance?status=overdue"
+                  className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
+                >
+                  View maintenance →
+                </a>
               )}
             </CardContent>
           </Card>

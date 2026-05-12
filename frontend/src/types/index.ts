@@ -100,6 +100,33 @@ export interface AuditLog {
   expand?: { actor?: PBUser };
 }
 
+export interface KitMaintenanceSchedule {
+  id: string;
+  kit: string;
+  type: string;
+  description: string;
+  interval_days: number;
+  last_done_at: string;       // PB date "YYYY-MM-DD ..." or empty
+  next_due_at: string;
+  is_active: boolean;
+  notes: string;
+  created: string;
+  updated: string;
+  expand?: { kit?: Kit };
+}
+
+export interface MaintenanceRecord {
+  id: string;
+  schedule: string;
+  performed_at: string;
+  performed_by: string;
+  notes: string;
+  certificate: string;       // filename
+  next_due_snapshot: string;
+  created: string;
+  expand?: { schedule?: KitMaintenanceSchedule; performed_by?: PBUser };
+}
+
 export interface ComponentTransaction {
   id: string;
   component: string;

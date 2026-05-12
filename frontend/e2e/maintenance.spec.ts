@@ -1,0 +1,244 @@
+/**
+ * Maintenance UI flows.
+ *
+ * Coverage:
+ *   1. Admin can add a schedule on /kits/:id @smoke
+ *   2. Admin/Tech can record maintenance → last_done + next_due update
+ *   3. /maintenance page renders with sort + status filter
+ *   4. /kits column shows next-maintenance for kit with schedule
+ *   5. Permission gate: viewer + user do NOT see /maintenance link; direct nav redirects
+ */
+
+import { test, expect } from "@playwright/test";
+import { loginAs } from "./helpers/auth";
+import { createTestKit, deleteKit } from "./helpers/api";
+
+const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
+const TS = `maint-${Date.now()}`;
+
+// Helper: get admin token
+async function adminToken(): Promise<string> {
+  const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identity: "logistics@kit.local", password: "Pass1234!" }),
+  });
+  const data = await res.json();
+  return data.token;
+}
+
+async function createScheduleViaApi(kitId: string, type: string, intervalDays = 30): Promise<{ id: string }> {
+  const token = await adminToken();
+  const today = new Date().toISOString().slice(0, 10);
+  const nextDue = new Date(Date.now() + intervalDays * 86400000).toISOString().slice(0, 10);
+  const res = await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kit: kitId,
+      type,
+      description: "Test schedule",
+      interval_days: intervalDays,
+      last_done_at: today,
+      next_due_at: nextDue,
+      is_active: true,
+      notes: "",
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`createScheduleViaApi failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
+async function deactivateSchedule(id: string): Promise<void> {
+  const token = await adminToken();
+  await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active: false }),
+  });
+}
+
+async function getSchedule(id: string): Promise<{ last_done_at: string; next_due_at: string }> {
+  const token = await adminToken();
+  const res = await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${id}`, {
+    headers: { Authorization: token },
+  });
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Test 1: Admin can add schedule on /kits/:id
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — add schedule", () => {
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-ADD`);
+    kitId = kit.id;
+  });
+
+  test.afterAll(async () => {
+    await deleteKit(kitId);
+  });
+
+  test("admin can add schedule on kit detail page @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+
+    // Maintenance section should be visible
+    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible();
+
+    // Click "Add schedule"
+    await page.getByRole("button", { name: "Add schedule" }).first().click();
+
+    // Fill form
+    await page.getByLabel("Type").fill("Calibration");
+    await page.getByLabel("Interval (days)").fill("30");
+
+    // Submit
+    await page.getByRole("button", { name: "Add schedule" }).last().click();
+
+    // Should see the new schedule in the list
+    await expect(page.getByText("Calibration")).toBeVisible({ timeout: 5000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 2: Admin can record maintenance — schedule updates
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — record done", () => {
+  let kitId: string;
+  let schedId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-REC`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "BatteryCheck", 14);
+    schedId = sched.id;
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("admin records maintenance via kit detail page", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+
+    // Find "Record done" button
+    await expect(page.getByText("BatteryCheck")).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "Record done" }).first().click();
+
+    // Dialog should appear
+    await expect(page.getByText("Record Maintenance — BatteryCheck")).toBeVisible();
+
+    // Submit with defaults
+    await page.getByRole("button", { name: "Record done" }).last().click();
+
+    // Success toast
+    await expect(page.getByText("Maintenance recorded")).toBeVisible({ timeout: 5000 });
+
+    // Verify last_done_at was updated via API
+    const updated = await getSchedule(schedId);
+    const today = new Date().toISOString().slice(0, 10);
+    expect(updated.last_done_at.slice(0, 10)).toBe(today);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 3: /maintenance page renders with status filter
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance page", () => {
+  let kitId: string;
+  let schedId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-PAGE`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "PageTest", 90);
+    schedId = sched.id;
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("/maintenance page renders table with status filter chips", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible();
+    // Status filter chips
+    await expect(page.getByRole("button", { name: "All" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Overdue" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Due soon" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "OK" })).toBeVisible();
+
+    // Table column headers visible on desktop
+    await expect(page.getByRole("columnheader", { name: "Kit serial" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Type" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Next due" })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 4: /kits shows next-maintenance column for kit with schedule
+// ---------------------------------------------------------------------------
+
+test.describe("Kits page — next maintenance column", () => {
+  let kitId: string;
+  let schedId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-COL`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "ColCheck", 7);
+    schedId = sched.id;
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("kits table shows next maintenance column", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/kits");
+
+    // Column header present
+    await expect(page.getByRole("columnheader", { name: "Next maintenance" })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 5: Permission gate — viewer/user can't access /maintenance
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — permission gate", () => {
+  test("viewer does not see Maintenance nav link", async ({ page }) => {
+    await loginAs(page, "viewer");
+    await page.goto("/dashboard");
+    // "Maintenance" nav link should NOT be present in sidebar
+    await expect(page.getByRole("link", { name: "Maintenance" })).not.toBeVisible();
+  });
+
+  test("user role does not see Maintenance nav link", async ({ page }) => {
+    await loginAs(page, "user");
+    await page.goto("/dashboard");
+    await expect(page.getByRole("link", { name: "Maintenance" })).not.toBeVisible();
+  });
+
+  test("viewer direct nav to /maintenance redirects to /dashboard", async ({ page }) => {
+    await loginAs(page, "viewer");
+    await page.goto("/maintenance");
+    await page.waitForURL("**/dashboard", { timeout: 5000 });
+  });
+});

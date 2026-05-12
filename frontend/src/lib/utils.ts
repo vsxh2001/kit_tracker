@@ -37,3 +37,14 @@ export const REQUEST_STATUS_VARIANTS = {
 export function formatDateOnly(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-CA"); // YYYY-MM-DD
 }
+
+export type MaintStatus = "ok" | "due-soon" | "overdue";
+export function maintenanceStatus(nextDueAt: string, daysWindow = 7): MaintStatus {
+  if (!nextDueAt) return "ok";
+  const due = new Date(nextDueAt.slice(0, 10) + "T00:00:00").getTime();
+  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00").getTime();
+  const days = (due - today) / 86400000;
+  if (days < 0) return "overdue";
+  if (days <= daysWindow) return "due-soon";
+  return "ok";
+}
