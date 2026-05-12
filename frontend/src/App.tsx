@@ -20,6 +20,7 @@ import { PrintLabelsPage } from "./pages/PrintLabelsPage";
 import { StatsPage } from "./pages/StatsPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
+import { OnCallPage } from "./pages/OnCallPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
             <Route path="maintenance" element={<CanDecideOnly><MaintenancePage /></CanDecideOnly>} />
             <Route path="stats" element={<RequireRole><StatsPage /></RequireRole>} />
+            <Route path="oncall" element={<RequireRole><OnCallPage /></RequireRole>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

@@ -127,6 +127,18 @@ export interface MaintenanceRecord {
   expand?: { schedule?: KitMaintenanceSchedule; performed_by?: PBUser };
 }
 
+export interface OnCallShift {
+  id: string;
+  user: string;
+  start_at: string;
+  end_at: string;
+  notes: string;
+  created_by: string;
+  created: string;
+  updated: string;
+  expand?: { user?: PBUser; created_by?: PBUser };
+}
+
 export interface ComponentTransaction {
   id: string;
   component: string;

@@ -217,6 +217,30 @@ create_collection "$(cat <<EOF
 EOF
 )" >/dev/null
 
+echo "Creating 'on_call_shifts' collection..."
+create_collection "$(cat <<EOF
+{
+  "name": "on_call_shifts",
+  "type": "base",
+  "schema": [
+    {"name":"user","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"start_at","type":"date","required":true,"options":{"min":"","max":""}},
+    {"name":"end_at","type":"date","required":true,"options":{"min":"","max":""}},
+    {"name":"notes","type":"text","required":false},
+    {"name":"created_by","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}}
+  ],
+  "indexes": [
+    "CREATE INDEX IF NOT EXISTS idx_on_call_shifts_range ON on_call_shifts (start_at, end_at)"
+  ],
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "createRule": "@request.auth.role = \"admin\" && @request.data.created_by = @request.auth.id",
+  "updateRule": "@request.auth.role = \"admin\"",
+  "deleteRule": "@request.auth.role = \"admin\""
+}
+EOF
+)" >/dev/null
+
 echo ""
 echo "Done. Collections created with resolved relation IDs."
 echo ""
