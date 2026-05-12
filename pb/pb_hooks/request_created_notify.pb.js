@@ -72,7 +72,7 @@ onRecordAfterCreateRequest((e) => {
     "</table>" +
     "<p><a href='" + esc(requestUrl) + "'>View request &rarr;</a></p>";
 
-  // Fetch all admins (limit 100; paginate if ever >100).
+  // Build recipient list: all admins + currently on-call users (deduped).
   let admins = [];
   try {
     admins = $app.dao().findRecordsByFilter("users", "role = 'admin'", "", 100, 0);
@@ -81,19 +81,50 @@ onRecordAfterCreateRequest((e) => {
     return;
   }
 
+  const nowISO = new Date().toISOString();
+  let onCallShifts = [];
+  try {
+    onCallShifts = $app.dao().findRecordsByFilter(
+      "on_call_shifts",
+      "start_at <= {:now} && end_at >= {:now}",
+      "",
+      100,
+      0,
+      { now: nowISO }
+    );
+  } catch (e) {
+    console.log("[request_created_notify] on-call lookup failed:", e);
+  }
+
+  // Combine admins + on-call users, deduped by id.
+  const recipientsMap = {};
+  for (let i = 0; i < admins.length; i++) {
+    recipientsMap[admins[i].id] = admins[i];
+  }
+  for (let i = 0; i < onCallShifts.length; i++) {
+    try {
+      const u = $app.dao().findRecordById("users", onCallShifts[i].getString("user"));
+      const role = u.getString("role");
+      if (role === "admin" || role === "technician") {
+        recipientsMap[u.id] = u;
+      }
+    } catch (e) { /* skip missing user */ }
+  }
+
   const senderAddress = $app.settings().meta?.senderAddress || ($os.getenv("SMTP_FROM") || "notifications@kit.local");
   const senderName = $app.settings().meta?.senderName || "Kit Tracker";
   const requesterId = record.getString("requester");
+  const recipientIds = Object.keys(recipientsMap);
 
-  for (let i = 0; i < admins.length; i++) {
-    const admin = admins[i];
-    // Don't email an admin who is also the requester (no self-notification).
-    if (admin.id === requesterId) {
+  for (let i = 0; i < recipientIds.length; i++) {
+    const recipient = recipientsMap[recipientIds[i]];
+    // Don't email a recipient who is also the requester (no self-notification).
+    if (recipient.id === requesterId) {
       continue;
     }
-    const adminEmail = admin.getString("email");
-    const adminName = admin.getString("name") || adminEmail;
-    if (!adminEmail) {
+    const recipientEmail = recipient.getString("email");
+    const recipientName = recipient.getString("name") || recipientEmail;
+    if (!recipientEmail) {
       continue;
     }
 
@@ -103,19 +134,19 @@ onRecordAfterCreateRequest((e) => {
           address: senderAddress,
           name: senderName,
         },
-        to: [{ address: adminEmail, name: adminName }],
+        to: [{ address: recipientEmail, name: recipientName }],
         subject: subject,
         html: htmlBody,
       });
       $app.newMailClient().send(message);
-      console.log("[request_created_notify] Notified admin:", adminEmail);
+      console.log("[request_created_notify] Notified:", recipientEmail);
     } catch (mailErr) {
-      // Likely smtp not configured; log and continue so remaining admins still receive.
+      // Likely smtp not configured; log and continue so remaining recipients still receive.
       const msg = String(mailErr);
       if (msg.indexOf("smtp") !== -1 || msg.indexOf("SMTP") !== -1 || msg.indexOf("dial") !== -1) {
-        console.log("[request_created_notify] smtp not configured, skipping notification for:", adminEmail);
+        console.log("[request_created_notify] smtp not configured, skipping notification for:", recipientEmail);
       } else {
-        console.log("[request_created_notify] Failed to send to " + adminEmail + ":", mailErr);
+        console.log("[request_created_notify] Failed to send to " + recipientEmail + ":", mailErr);
       }
     }
   }

@@ -457,6 +457,42 @@ export async function deactivateComponent(id: string): Promise<void> {
   });
 }
 
+// --- On-call shifts ---
+
+export async function createOnCallShift(data: {
+  userId: string;
+  startAt: string;
+  endAt: string;
+  notes?: string;
+}): Promise<{ id: string }> {
+  const token = await getAdminToken();
+  const adminId = await getAdminUserId();
+  const res = await fetch(`${PB_URL}/api/collections/on_call_shifts/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user: data.userId,
+      start_at: data.startAt,
+      end_at: data.endAt,
+      notes: data.notes ?? "",
+      created_by: adminId,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`createOnCallShift failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
+export async function deleteOnCallShift(id: string): Promise<void> {
+  const token = await getAdminToken();
+  await fetch(`${PB_URL}/api/collections/on_call_shifts/records/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: token },
+  });
+}
+
 export async function getUserTokenByEmail(email: string, password: string): Promise<{ token: string; userId: string }> {
   const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
     method: "POST",

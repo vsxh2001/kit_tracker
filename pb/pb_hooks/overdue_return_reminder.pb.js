@@ -43,7 +43,7 @@ function fireOverdueReminder() {
     return { sent: 0, skipped: "no_overdue" };
   }
 
-  // Find admins.
+  // Find admins + currently on-call users, deduped.
   let admins = [];
   try {
     admins = $app.dao().findRecordsByFilter("users", "role = 'admin'", "", 100, 0);
@@ -52,9 +52,39 @@ function fireOverdueReminder() {
     return { sent: 0, skipped: "admin_query_error" };
   }
 
-  if (admins.length === 0) {
-    console.log("[overdue-reminder] No admins to notify.");
-    return { sent: 0, skipped: "no_admins" };
+  const nowISO = new Date().toISOString();
+  let onCallShifts = [];
+  try {
+    onCallShifts = $app.dao().findRecordsByFilter(
+      "on_call_shifts",
+      "start_at <= {:now} && end_at >= {:now}",
+      "",
+      100,
+      0,
+      { now: nowISO }
+    );
+  } catch (e) {
+    console.log("[overdue-reminder] on-call lookup failed:", e);
+  }
+
+  const recipientsMap = {};
+  for (let ri = 0; ri < admins.length; ri++) {
+    recipientsMap[admins[ri].id] = admins[ri];
+  }
+  for (let oi = 0; oi < onCallShifts.length; oi++) {
+    try {
+      const ocUser = $app.dao().findRecordById("users", onCallShifts[oi].getString("user"));
+      const ocRole = ocUser.getString("role");
+      if (ocRole === "admin" || ocRole === "technician") {
+        recipientsMap[ocUser.id] = ocUser;
+      }
+    } catch (e) { /* skip */ }
+  }
+  const recipientIds = Object.keys(recipientsMap);
+
+  if (recipientIds.length === 0) {
+    console.log("[overdue-reminder] No recipients to notify.");
+    return { sent: 0, skipped: "no_recipients" };
   }
 
   // Build table rows for each overdue request.
@@ -126,21 +156,21 @@ function fireOverdueReminder() {
     ($app.settings().meta && $app.settings().meta.senderName) || "Kit Tracker";
 
   let sent = 0;
-  for (let i = 0; i < admins.length; i++) {
-    const admin = admins[i];
-    const adminEmail = admin.getString("email");
-    const adminName = admin.getString("name") || adminEmail;
-    if (!adminEmail) continue;
+  for (let i = 0; i < recipientIds.length; i++) {
+    const recipient = recipientsMap[recipientIds[i]];
+    const recipientEmail = recipient.getString("email");
+    const recipientName = recipient.getString("name") || recipientEmail;
+    if (!recipientEmail) continue;
 
     try {
       const message = new MailerMessage({
         from: { address: senderAddress, name: senderName },
-        to: [{ address: adminEmail, name: adminName }],
+        to: [{ address: recipientEmail, name: recipientName }],
         subject: subject,
         html: htmlBody,
       });
       $app.newMailClient().send(message);
-      console.log("[overdue-reminder] Notified admin:", adminEmail);
+      console.log("[overdue-reminder] Notified:", recipientEmail);
       sent++;
     } catch (mailErr) {
       const msg = String(mailErr);
@@ -149,9 +179,9 @@ function fireOverdueReminder() {
         msg.indexOf("SMTP") !== -1 ||
         msg.indexOf("dial") !== -1
       ) {
-        console.log("[overdue-reminder] SMTP not configured, skipping:", adminEmail);
+        console.log("[overdue-reminder] SMTP not configured, skipping:", recipientEmail);
       } else {
-        console.log("[overdue-reminder] Failed to send to " + adminEmail + ":", mailErr);
+        console.log("[overdue-reminder] Failed to send to " + recipientEmail + ":", mailErr);
       }
     }
   }

@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench } from "lucide-react";
+import { useState, useEffect, useRef, startTransition } from "react";
+import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn } from "../lib/utils";
+import { getCurrentOnCallUsers } from "../services/oncall";
+import type { PBUser } from "../types";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -20,6 +22,22 @@ export function Layout() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
+  const [onCallUsers, setOnCallUsers] = useState<PBUser[]>([]);
+
+  async function loadOnCall() {
+    try {
+      setOnCallUsers(await getCurrentOnCallUsers());
+    } catch {
+      // silently ignore — badge is non-critical
+    }
+  }
+
+  useEffect(() => {
+    if (!hasRole) return;
+    startTransition(() => { loadOnCall(); });
+    const interval = setInterval(() => startTransition(() => { loadOnCall(); }), 60_000);
+    return () => clearInterval(interval);
+  }, [hasRole, location.pathname]);
 
   const initials = user?.name
     ? user.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
@@ -169,6 +187,23 @@ export function Layout() {
           Audit
         </NavLink>
       )}
+      {hasRole && (
+        <NavLink
+          to="/oncall"
+          onClick={closeDrawer}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all",
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            )
+          }
+        >
+          <Clock className="h-5 w-5 shrink-0" />
+          On-Call
+        </NavLink>
+      )}
     </>
   );
 
@@ -204,6 +239,25 @@ export function Layout() {
             <p className="font-semibold text-sm text-white tracking-tight">Kit Tracker</p>
           </div>
         </div>
+        {hasRole && (
+          <div className="px-3 py-2 border-b border-slate-800">
+            {onCallUsers.length > 0 ? (
+              <Link
+                to="/oncall"
+                className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                title="View on-call schedule"
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">On call: {onCallUsers[0].name || onCallUsers[0].email}</span>
+              </Link>
+            ) : (
+              <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                No on-call
+              </p>
+            )}
+          </div>
+        )}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           {navLinks}
         </nav>
@@ -241,6 +295,25 @@ export function Layout() {
             <X className="h-5 w-5" />
           </button>
         </div>
+        {hasRole && (
+          <div className="px-3 py-2 border-b border-slate-800">
+            {onCallUsers.length > 0 ? (
+              <Link
+                to="/oncall"
+                onClick={closeDrawer}
+                className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">On call: {onCallUsers[0].name || onCallUsers[0].email}</span>
+              </Link>
+            ) : (
+              <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                No on-call
+              </p>
+            )}
+          </div>
+        )}
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           {navLinks}
         </nav>

@@ -69,7 +69,37 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
     console.log("[maintenance-reminder] cron: failed to query admins:", queryErr);
     return;
   }
-  if (admins.length === 0) { console.log("[maintenance-reminder] cron: no admins."); return; }
+
+  var nowISOCron = new Date().toISOString();
+  var onCallShiftsCron = [];
+  try {
+    onCallShiftsCron = $app.dao().findRecordsByFilter(
+      "on_call_shifts",
+      "start_at <= {:now} && end_at >= {:now}",
+      "",
+      100,
+      0,
+      { now: nowISOCron }
+    );
+  } catch (e) {
+    console.log("[maintenance-reminder] cron: on-call lookup failed:", e);
+  }
+
+  var recipientsMapCron = {};
+  for (var ri = 0; ri < admins.length; ri++) {
+    recipientsMapCron[admins[ri].id] = admins[ri];
+  }
+  for (var oi = 0; oi < onCallShiftsCron.length; oi++) {
+    try {
+      var ocUser = $app.dao().findRecordById("users", onCallShiftsCron[oi].getString("user"));
+      var ocRole = ocUser.getString("role");
+      if (ocRole === "admin" || ocRole === "technician") {
+        recipientsMapCron[ocUser.id] = ocUser;
+      }
+    } catch (e) { /* skip */ }
+  }
+  var recipientIdsCron = Object.keys(recipientsMapCron);
+  if (recipientIdsCron.length === 0) { console.log("[maintenance-reminder] cron: no recipients."); return; }
 
   var rows = [];
   for (var j = 0; j < due.length; j++) {
@@ -101,26 +131,26 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
   var senderName = ($app.settings().meta && $app.settings().meta.senderName) || "Kit Tracker";
 
   var sent = 0;
-  for (var k = 0; k < admins.length; k++) {
-    var admin = admins[k];
-    var adminEmail = admin.getString("email");
-    if (!adminEmail) continue;
+  for (var k = 0; k < recipientIdsCron.length; k++) {
+    var recipient = recipientsMapCron[recipientIdsCron[k]];
+    var recipientEmail = recipient.getString("email");
+    if (!recipientEmail) continue;
     try {
       var message = new MailerMessage({
         from: { address: senderAddress, name: senderName },
-        to: [{ address: adminEmail, name: admin.getString("name") || adminEmail }],
+        to: [{ address: recipientEmail, name: recipient.getString("name") || recipientEmail }],
         subject: subject,
         html: htmlBody,
       });
       $app.newMailClient().send(message);
-      console.log("[maintenance-reminder] cron: notified admin:", adminEmail);
+      console.log("[maintenance-reminder] cron: notified:", recipientEmail);
       sent++;
     } catch (mailErr) {
       var mailErrStr = String(mailErr);
       if (mailErrStr.indexOf("smtp") !== -1 || mailErrStr.indexOf("SMTP") !== -1 || mailErrStr.indexOf("dial") !== -1) {
-        console.log("[maintenance-reminder] cron: SMTP not configured, skipping:", adminEmail);
+        console.log("[maintenance-reminder] cron: SMTP not configured, skipping:", recipientEmail);
       } else {
-        console.log("[maintenance-reminder] cron: failed to send to " + adminEmail + ":", mailErr);
+        console.log("[maintenance-reminder] cron: failed to send to " + recipientEmail + ":", mailErr);
       }
     }
   }
@@ -203,8 +233,38 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
     return c.json(200, { fired: true, skipped: "admin_query_error", due: due.length, sent: 0 });
   }
 
-  if (admins.length === 0) {
-    return c.json(200, { fired: true, skipped: "no_admins", due: due.length, sent: 0 });
+  var nowISORoute = new Date().toISOString();
+  var onCallShiftsRoute = [];
+  try {
+    onCallShiftsRoute = $app.dao().findRecordsByFilter(
+      "on_call_shifts",
+      "start_at <= {:now} && end_at >= {:now}",
+      "",
+      100,
+      0,
+      { now: nowISORoute }
+    );
+  } catch (e) {
+    console.log("[maintenance-reminder] route: on-call lookup failed:", e);
+  }
+
+  var recipientsMapRoute = {};
+  for (var ri = 0; ri < admins.length; ri++) {
+    recipientsMapRoute[admins[ri].id] = admins[ri];
+  }
+  for (var oi = 0; oi < onCallShiftsRoute.length; oi++) {
+    try {
+      var ocUser = $app.dao().findRecordById("users", onCallShiftsRoute[oi].getString("user"));
+      var ocRole = ocUser.getString("role");
+      if (ocRole === "admin" || ocRole === "technician") {
+        recipientsMapRoute[ocUser.id] = ocUser;
+      }
+    } catch (e) { /* skip */ }
+  }
+  var recipientIdsRoute = Object.keys(recipientsMapRoute);
+
+  if (recipientIdsRoute.length === 0) {
+    return c.json(200, { fired: true, skipped: "no_recipients", due: due.length, sent: 0 });
   }
 
   var rows = [];
@@ -237,26 +297,26 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
   var senderName = ($app.settings().meta && $app.settings().meta.senderName) || "Kit Tracker";
 
   var sent = 0;
-  for (var k = 0; k < admins.length; k++) {
-    var admin = admins[k];
-    var adminEmail = admin.getString("email");
-    if (!adminEmail) continue;
+  for (var k = 0; k < recipientIdsRoute.length; k++) {
+    var recipient = recipientsMapRoute[recipientIdsRoute[k]];
+    var recipientEmail = recipient.getString("email");
+    if (!recipientEmail) continue;
     try {
       var message = new MailerMessage({
         from: { address: senderAddress, name: senderName },
-        to: [{ address: adminEmail, name: admin.getString("name") || adminEmail }],
+        to: [{ address: recipientEmail, name: recipient.getString("name") || recipientEmail }],
         subject: subject,
         html: htmlBody,
       });
       $app.newMailClient().send(message);
-      console.log("[maintenance-reminder] route: notified admin:", adminEmail);
+      console.log("[maintenance-reminder] route: notified:", recipientEmail);
       sent++;
     } catch (mailErr) {
       var mailErrStr = String(mailErr);
       if (mailErrStr.indexOf("smtp") !== -1 || mailErrStr.indexOf("SMTP") !== -1 || mailErrStr.indexOf("dial") !== -1) {
-        console.log("[maintenance-reminder] route: SMTP not configured, skipping:", adminEmail);
+        console.log("[maintenance-reminder] route: SMTP not configured, skipping:", recipientEmail);
       } else {
-        console.log("[maintenance-reminder] route: failed to send to " + adminEmail + ":", mailErr);
+        console.log("[maintenance-reminder] route: failed to send to " + recipientEmail + ":", mailErr);
       }
     }
   }
