@@ -70,7 +70,7 @@ export default function App() {
             <Route path="components/:id" element={<RequireRole><ComponentDetailPage /></RequireRole>} />
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
             <Route path="maintenance" element={<CanDecideOnly><MaintenancePage /></CanDecideOnly>} />
-            <Route path="stats" element={<RequireRole><StatsPage /></RequireRole>} />
+            <Route path="stats" element={<CanDecideOnly><StatsPage /></CanDecideOnly>} />
             <Route path="oncall" element={<RequireRole><OnCallPage /></RequireRole>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

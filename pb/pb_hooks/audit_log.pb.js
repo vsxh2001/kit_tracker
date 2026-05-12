@@ -214,3 +214,173 @@ onRecordAfterUpdateRequest(function(e) {
     console.log("[audit_log] users update error:", err);
   }
 }, "users");
+
+// requests — create
+onRecordAfterCreateRequest(function(e) {
+  try {
+    var info = $apis.requestInfo(e.httpContext);
+    if (!info || !info.authRecord) return;
+    var actorId = info.authRecord.id;
+
+    var data = {};
+    var fields = e.record.collection().schema.fields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if (f && f.name) {
+        data[f.name] = e.record.get(f.name);
+      }
+    }
+
+    var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var log = new Record(auditCol, {
+      collection_name: "requests",
+      record_id: e.record.id,
+      actor: actorId,
+      action: "create",
+      changes: JSON.stringify({ after: data }),
+    });
+    $app.dao().saveRecord(log);
+  } catch (err) {
+    console.log("[audit_log] requests create error:", err);
+  }
+}, "requests");
+
+// requests — update
+onRecordAfterUpdateRequest(function(e) {
+  try {
+    var info = $apis.requestInfo(e.httpContext);
+    if (!info || !info.authRecord) return;
+    var actorId = info.authRecord.id;
+
+    var original = e.record.originalCopy();
+    var before = {};
+    var after = {};
+    var hasChanges = false;
+    var fields = e.record.collection().schema.fields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if (!f || !f.name) continue;
+      var oldVal = original.get(f.name);
+      var newVal = e.record.get(f.name);
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        before[f.name] = oldVal;
+        after[f.name] = newVal;
+        hasChanges = true;
+      }
+    }
+
+    if (!hasChanges) return;
+
+    var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var log = new Record(auditCol, {
+      collection_name: "requests",
+      record_id: e.record.id,
+      actor: actorId,
+      action: "update",
+      changes: JSON.stringify({ before: before, after: after }),
+    });
+    $app.dao().saveRecord(log);
+  } catch (err) {
+    console.log("[audit_log] requests update error:", err);
+  }
+}, "requests");
+
+// transactions — create only (append-only collection, no update rule)
+onRecordAfterCreateRequest(function(e) {
+  try {
+    var info = $apis.requestInfo(e.httpContext);
+    if (!info || !info.authRecord) return;
+    var actorId = info.authRecord.id;
+
+    var data = {};
+    var fields = e.record.collection().schema.fields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if (f && f.name) {
+        data[f.name] = e.record.get(f.name);
+      }
+    }
+
+    var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var log = new Record(auditCol, {
+      collection_name: "transactions",
+      record_id: e.record.id,
+      actor: actorId,
+      action: "create",
+      changes: JSON.stringify({ after: data }),
+    });
+    $app.dao().saveRecord(log);
+  } catch (err) {
+    console.log("[audit_log] transactions create error:", err);
+  }
+}, "transactions");
+
+// on_call_shifts — create
+onRecordAfterCreateRequest(function(e) {
+  try {
+    var info = $apis.requestInfo(e.httpContext);
+    if (!info || !info.authRecord) return;
+    var actorId = info.authRecord.id;
+
+    var data = {};
+    var fields = e.record.collection().schema.fields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if (f && f.name) {
+        data[f.name] = e.record.get(f.name);
+      }
+    }
+
+    var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var log = new Record(auditCol, {
+      collection_name: "on_call_shifts",
+      record_id: e.record.id,
+      actor: actorId,
+      action: "create",
+      changes: JSON.stringify({ after: data }),
+    });
+    $app.dao().saveRecord(log);
+  } catch (err) {
+    console.log("[audit_log] on_call_shifts create error:", err);
+  }
+}, "on_call_shifts");
+
+// on_call_shifts — update
+onRecordAfterUpdateRequest(function(e) {
+  try {
+    var info = $apis.requestInfo(e.httpContext);
+    if (!info || !info.authRecord) return;
+    var actorId = info.authRecord.id;
+
+    var original = e.record.originalCopy();
+    var before = {};
+    var after = {};
+    var hasChanges = false;
+    var fields = e.record.collection().schema.fields();
+    for (var i = 0; i < fields.length; i++) {
+      var f = fields[i];
+      if (!f || !f.name) continue;
+      var oldVal = original.get(f.name);
+      var newVal = e.record.get(f.name);
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+        before[f.name] = oldVal;
+        after[f.name] = newVal;
+        hasChanges = true;
+      }
+    }
+
+    if (!hasChanges) return;
+
+    var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var log = new Record(auditCol, {
+      collection_name: "on_call_shifts",
+      record_id: e.record.id,
+      actor: actorId,
+      action: "update",
+      changes: JSON.stringify({ before: before, after: after }),
+    });
+    $app.dao().saveRecord(log);
+  } catch (err) {
+    console.log("[audit_log] on_call_shifts update error:", err);
+  }
+}, "on_call_shifts");
