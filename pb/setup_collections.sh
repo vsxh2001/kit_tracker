@@ -68,8 +68,8 @@ create_collection '{
     {"name":"description","type":"text"},
     {"name":"is_active","type":"bool","required":true}
   ],
-  "listRule": "@request.auth.id != \"\"",
-  "viewRule": "@request.auth.id != \"\"",
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
   "createRule": "@request.auth.role = \"admin\"",
   "updateRule": "@request.auth.role = \"admin\"",
   "deleteRule": null
@@ -86,8 +86,8 @@ create_collection '{
     {"name":"tags","type":"text","required":false},
     {"name":"attachments","type":"file","required":false,"options":{"maxSelect":10,"maxSize":5242880,"mimeTypes":[],"thumbs":[],"protected":false}}
   ],
-  "listRule": "@request.auth.id != \"\"",
-  "viewRule": "@request.auth.id != \"\"",
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
   "createRule": "@request.auth.role = \"admin\"",
   "updateRule": "@request.auth.role = \"admin\"",
   "deleteRule": null
@@ -121,8 +121,8 @@ create_collection "$(cat <<EOF
     {"name":"expected_return","type":"date","required":false,"options":{"min":"","max":""}},
     {"name":"delivery_date","type":"date","required":true,"options":{"min":"","max":""}}
   ],
-  "listRule": "@request.auth.id != \"\"",
-  "viewRule": "@request.auth.id != \"\"",
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
   "createRule": "@request.auth.role = \"admin\" || @request.auth.role = \"technician\" || @request.auth.role = \"user\"",
   "updateRule": "@request.auth.role = \"admin\" || @request.auth.role = \"technician\" || (requester = @request.auth.id && status = \"open\")",
   "deleteRule": "@request.auth.role = \"admin\" || (requester = @request.auth.id && status = \"open\")"
@@ -151,8 +151,8 @@ create_collection "$(cat <<EOF
     {"name":"created_by","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
     {"name":"request","type":"relation","options":{"collectionId":"$REQUESTS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}}
   ],
-  "listRule": "@request.auth.id != \"\"",
-  "viewRule": "@request.auth.id != \"\"",
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
   "createRule": "(@request.auth.role = \"admin\" || @request.auth.role = \"technician\") && @request.data.created_by = @request.auth.id",
   "updateRule": null,
   "deleteRule": null
