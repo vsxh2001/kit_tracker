@@ -160,6 +160,63 @@ create_collection "$(cat <<EOF
 EOF
 )" >/dev/null
 
+SCHEDULES_ID=$(get_collection_id "kit_maintenance_schedules")
+
+echo "Creating 'kit_maintenance_schedules' collection..."
+create_collection "$(cat <<EOF
+{
+  "name": "kit_maintenance_schedules",
+  "type": "base",
+  "schema": [
+    {"name":"kit","type":"relation","required":true,"options":{"collectionId":"$KITS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"type","type":"text","required":true},
+    {"name":"description","type":"text","required":false},
+    {"name":"interval_days","type":"number","required":true,"options":{"min":1,"max":null,"noDecimal":true}},
+    {"name":"last_done_at","type":"date","required":false,"options":{"min":"","max":""}},
+    {"name":"next_due_at","type":"date","required":true,"options":{"min":"","max":""}},
+    {"name":"is_active","type":"bool","required":false},
+    {"name":"notes","type":"text","required":false}
+  ],
+  "indexes": ["CREATE INDEX IF NOT EXISTS idx_kms_kit_active ON kit_maintenance_schedules (kit, is_active)"],
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "createRule": "@request.auth.role = \"admin\"",
+  "updateRule": "@request.auth.role = \"admin\"",
+  "deleteRule": null
+}
+EOF
+)" >/dev/null
+
+SCHEDULES_ID=$(get_collection_id "kit_maintenance_schedules")
+if [ -z "$SCHEDULES_ID" ]; then
+  echo "ERROR: failed to resolve kit_maintenance_schedules collection ID"
+  exit 1
+fi
+echo "Resolved IDs: kit_maintenance_schedules=$SCHEDULES_ID"
+
+echo "Creating 'maintenance_records' collection..."
+create_collection "$(cat <<EOF
+{
+  "name": "maintenance_records",
+  "type": "base",
+  "schema": [
+    {"name":"schedule","type":"relation","required":true,"options":{"collectionId":"$SCHEDULES_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"performed_at","type":"date","required":true,"options":{"min":"","max":""}},
+    {"name":"performed_by","type":"relation","required":true,"options":{"collectionId":"$USERS_ID","cascadeDelete":false,"maxSelect":1,"minSelect":0}},
+    {"name":"notes","type":"text","required":false},
+    {"name":"certificate","type":"file","required":false,"options":{"maxSelect":1,"maxSize":5242880,"mimeTypes":["application/pdf","image/jpeg","image/png","image/webp"],"thumbs":[],"protected":false}},
+    {"name":"next_due_snapshot","type":"date","required":false,"options":{"min":"","max":""}}
+  ],
+  "indexes": ["CREATE INDEX IF NOT EXISTS idx_mr_schedule_performed ON maintenance_records (schedule, performed_at DESC)"],
+  "listRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "viewRule": "@request.auth.id != \"\" && @request.auth.role != \"\"",
+  "createRule": "(@request.auth.role = \"admin\" || @request.auth.role = \"technician\") && @request.data.performed_by = @request.auth.id",
+  "updateRule": null,
+  "deleteRule": null
+}
+EOF
+)" >/dev/null
+
 echo ""
 echo "Done. Collections created with resolved relation IDs."
 echo ""

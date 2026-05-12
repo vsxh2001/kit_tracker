@@ -1,11 +1,13 @@
 import { useEffect, useState, startTransition } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Package, FileText, CheckCircle, Clock } from "lucide-react";
+import { Package, FileText, CheckCircle, Clock, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
 import { listRecentTransactions } from "../services/transactions";
 import { requestsCreatedLast7Days } from "../services/stats";
+import { listAllActiveSchedules } from "../services/maintenance";
+import { maintenanceStatus } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction } from "../types";
@@ -14,11 +16,12 @@ import { useAuth } from "../context/AuthContext";
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canDecideRequests } = useAuth();
   const [kits, setKits] = useState<Kit[]>([]);
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [reqSparkline, setReqSparkline] = useState<DailyCount[]>([]);
+  const [overdueMaintenanceCount, setOverdueMaintenanceCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const pendingApproval = !user?.role;
@@ -28,16 +31,18 @@ export function DashboardPage() {
       async function load() {
         setLoading(true);
         try {
-          const [k, r, t, reqDaily] = await Promise.all([
+          const [k, r, t, reqDaily, schedules] = await Promise.all([
             listKits(),
             listRequests(),
             listRecentTransactions(8),
             requestsCreatedLast7Days(),
+            listAllActiveSchedules(),
           ]);
           setKits(k);
           setRequests(r);
           setRecentTx(t.items.filter((tx) => !tx.expand?.kit?.serial?.startsWith("_deleted_")));
           setReqSparkline(reqDaily);
+          setOverdueMaintenanceCount(schedules.filter((s) => maintenanceStatus(s.next_due_at) === "overdue").length);
         } catch (err: unknown) {
           if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
         } finally {
@@ -95,6 +100,17 @@ export function DashboardPage() {
             <StatCard icon={CheckCircle} label="Awaiting fulfillment" value={approvedRequests} color="green" primary onClick={() => navigate("/requests?status=approved")} />
             <StatCard icon={Clock} label="Total requests" value={requests.length} color="slate" sparklineData={reqCounts} delta={deltaLabel(reqSparkline)} onClick={() => navigate("/requests")} />
           </div>
+          {canDecideRequests && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard
+                icon={Wrench}
+                label="Overdue maintenance"
+                value={overdueMaintenanceCount}
+                color={overdueMaintenanceCount > 0 ? "red" : "slate"}
+                onClick={() => navigate("/maintenance")}
+              />
+            </div>
+          )}
 
           {/* Recent transactions */}
           <div>
@@ -184,6 +200,7 @@ const STAT_COLORS = {
   amber: { chip: "bg-amber-50 text-amber-500 ring-amber-100", bar: "bg-amber-500" },
   green: { chip: "bg-emerald-50 text-emerald-500 ring-emerald-100", bar: "bg-emerald-500" },
   slate: { chip: "bg-slate-100 text-slate-400 ring-slate-200", bar: "bg-slate-400" },
+  red:   { chip: "bg-red-50 text-red-500 ring-red-100", bar: "bg-red-500" },
 } as const;
 
 function StatCard({

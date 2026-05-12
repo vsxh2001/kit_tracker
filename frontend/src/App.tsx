@@ -19,6 +19,7 @@ import { ComponentDetailPage } from "./pages/ComponentDetailPage";
 import { PrintLabelsPage } from "./pages/PrintLabelsPage";
 import { StatsPage } from "./pages/StatsPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
+import { MaintenancePage } from "./pages/MaintenancePage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -26,6 +27,13 @@ function AdminOnly({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useAuth();
   if (loading) return null;
   if (!isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function CanDecideOnly({ children }: { children: React.ReactNode }) {
+  const { canDecideRequests, loading } = useAuth();
+  if (loading) return null;
+  if (!canDecideRequests) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -60,6 +68,7 @@ export default function App() {
             <Route path="components" element={<RequireRole><ComponentsPage /></RequireRole>} />
             <Route path="components/:id" element={<RequireRole><ComponentDetailPage /></RequireRole>} />
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
+            <Route path="maintenance" element={<CanDecideOnly><MaintenancePage /></CanDecideOnly>} />
             <Route path="stats" element={<RequireRole><StatsPage /></RequireRole>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

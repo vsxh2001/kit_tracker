@@ -9,17 +9,19 @@ import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
 import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
+import { listAllActiveSchedules } from "../services/maintenance";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
-import { formatDate, formatDateOnly } from "../lib/utils";
-import type { Kit, Transaction } from "../types";
+import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
+import type { MaintStatus } from "../lib/utils";
+import type { Kit, Transaction, KitMaintenanceSchedule } from "../types";
 
 interface KitRow {
   kit: Kit;
   latest?: Transaction;
 }
 
-type SortField = "serial" | "delivery";
+type SortField = "serial" | "delivery" | "maintenance";
 type SortDir = "asc" | "desc";
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -35,6 +37,7 @@ export function KitsPage() {
   const { isAdmin } = useAuth();
   const [rows, setRows] = useState<KitRow[]>([]);
   const [deliveries, setDeliveries] = useState<Map<string, UpcomingDelivery>>(new Map());
+  const [schedulesByKit, setSchedulesByKit] = useState<Map<string, KitMaintenanceSchedule[]>>(new Map());
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,9 +49,10 @@ export function KitsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [kits, upcomingMap] = await Promise.all([
+      const [kits, upcomingMap, allSchedules] = await Promise.all([
         listKits(),
         listUpcomingDeliveries(),
+        listAllActiveSchedules(),
       ]);
       const withLatest = await Promise.all(
         kits.map(async (kit) => ({
@@ -58,6 +62,14 @@ export function KitsPage() {
       );
       setRows(withLatest);
       setDeliveries(upcomingMap);
+      // Group schedules by kit
+      const byKit = new Map<string, KitMaintenanceSchedule[]>();
+      for (const s of allSchedules) {
+        const arr = byKit.get(s.kit) ?? [];
+        arr.push(s);
+        byKit.set(s.kit, arr);
+      }
+      setSchedulesByKit(byKit);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -106,9 +118,25 @@ export function KitsPage() {
     return matchesSearch && matchesTag;
   });
 
+  function getEarliestNextDue(kitId: string): string | null {
+    const scheds = schedulesByKit.get(kitId) ?? [];
+    if (scheds.length === 0) return null;
+    const dates = scheds.map((s) => s.next_due_at).filter(Boolean).sort();
+    return dates[0] ?? null;
+  }
+
   const sorted = [...filtered].sort((a, b) => {
     if (sortField === "serial") {
       const cmp = a.kit.serial.localeCompare(b.kit.serial);
+      return sortDir === "asc" ? cmp : -cmp;
+    }
+    if (sortField === "maintenance") {
+      const ma = getEarliestNextDue(a.kit.id);
+      const mb = getEarliestNextDue(b.kit.id);
+      if (!ma && !mb) return 0;
+      if (!ma) return sortDir === "asc" ? 1 : -1;
+      if (!mb) return sortDir === "asc" ? -1 : 1;
+      const cmp = ma.localeCompare(mb);
       return sortDir === "asc" ? cmp : -cmp;
     }
     // delivery sort: kits with upcoming come first (asc), kits without sort last
@@ -196,6 +224,7 @@ export function KitsPage() {
             <div className="md:hidden space-y-2">
               {sorted.map(({ kit, latest }) => {
                 const upcoming = deliveries.get(kit.id);
+                const nextMaint = getEarliestNextDue(kit.id);
                 return (
                   <Link key={kit.id} to={`/kits/${kit.id}`}>
                     <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
@@ -215,6 +244,12 @@ export function KitsPage() {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Next: {formatDateOnly(upcoming.deliveryDate)} → {upcoming.targetEntityName}
                         </p>
+                      )}
+                      {nextMaint && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs text-muted-foreground">Maint: {formatDateOnly(nextMaint)}</span>
+                          <KitMaintPill status={maintenanceStatus(nextMaint)} />
+                        </div>
                       )}
                       {parseTags(kit.tags).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
@@ -253,6 +288,12 @@ export function KitsPage() {
                       >
                         Next delivery<SortIcon active={sortField === "delivery"} dir={sortDir} />
                       </th>
+                      <th
+                        className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                        onClick={() => handleSort("maintenance")}
+                      >
+                        Next maintenance<SortIcon active={sortField === "maintenance"} dir={sortDir} />
+                      </th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
                       <th className="px-4 py-2.5" />
@@ -280,6 +321,19 @@ export function KitsPage() {
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {(() => {
+                              const nextDue = getEarliestNextDue(kit.id);
+                              if (!nextDue) return <span className="text-muted-foreground text-xs">—</span>;
+                              const status = maintenanceStatus(nextDue);
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs text-muted-foreground tabular-nums">{formatDateOnly(nextDue)}</span>
+                                  <KitMaintPill status={status} />
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-3">
                             {parseTags(kit.tags).length > 0 ? (
@@ -328,4 +382,10 @@ export function KitsPage() {
       />
     </div>
   );
+}
+
+function KitMaintPill({ status }: { status: MaintStatus }) {
+  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700">Overdue</span>;
+  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">Due soon</span>;
+  return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }
