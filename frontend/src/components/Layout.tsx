@@ -15,6 +15,7 @@ const nav = [
 
 export function Layout() {
   const { user, isAdmin, canDecideRequests } = useAuth();
+  const hasRole = !!user?.role;
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -82,7 +83,7 @@ export function Layout() {
 
   const navLinks = (
     <>
-      {nav.map(({ to, label, icon: Icon }) => (
+      {hasRole && nav.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -100,7 +101,7 @@ export function Layout() {
           {label}
         </NavLink>
       ))}
-      {canDecideRequests && (
+      {hasRole && canDecideRequests && (
         <NavLink
           to="/stats"
           onClick={closeDrawer}
@@ -117,7 +118,7 @@ export function Layout() {
           Stats
         </NavLink>
       )}
-      {isAdmin && (
+      {hasRole && isAdmin && (
         <NavLink
           to="/users"
           onClick={closeDrawer}
@@ -134,7 +135,7 @@ export function Layout() {
           Users
         </NavLink>
       )}
-      {isAdmin && (
+      {hasRole && isAdmin && (
         <NavLink
           to="/audit"
           onClick={closeDrawer}

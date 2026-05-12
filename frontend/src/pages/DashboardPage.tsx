@@ -62,14 +62,22 @@ export function DashboardPage() {
 
   const reqCounts = reqSparkline.map((d) => d.count);
 
-  return (
-    <div className="space-y-7">
-      {pendingApproval && (
+  if (pendingApproval) {
+    return (
+      <div className="space-y-7">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Overview</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        </div>
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Your account is awaiting admin approval. You can browse but actions are limited until your role is assigned.
         </div>
-      )}
+      </div>
+    );
+  }
 
+  return (
+    <div className="space-y-7">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Overview</p>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
