@@ -38,17 +38,34 @@ if [ -z "$TOKEN" ]; then
 fi
 
 # Check if app user already exists
-EXISTING=$(curl -s -G "$PB_URL/api/collections/users/records" \
+EXISTING_JSON=$(curl -s -G "$PB_URL/api/collections/users/records" \
   -H "Authorization: $TOKEN" \
-  --data-urlencode "filter=email = \"$ADMIN_EMAIL\"" \
-  | jq -r '.totalItems')
+  --data-urlencode "filter=email = \"$ADMIN_EMAIL\"")
+EXISTING_COUNT=$(echo "$EXISTING_JSON" | jq -r '.totalItems // 0')
+EXISTING_ID=$(echo "$EXISTING_JSON" | jq -r '.items[0].id // empty')
+EXISTING_ROLE=$(echo "$EXISTING_JSON" | jq -r '.items[0].role // empty')
 
-if [ "${EXISTING:-0}" -gt 0 ]; then
-  echo "App admin user $ADMIN_EMAIL already exists; skipping"
+if [ "${EXISTING_COUNT:-0}" -gt 0 ]; then
+  if [ "$EXISTING_ROLE" = "admin" ]; then
+    echo "App admin user $ADMIN_EMAIL already exists with role=admin; skipping"
+    exit 0
+  fi
+  # Promote existing non-admin to admin
+  HTTP_STATUS=$(curl -s -o /tmp/bootstrap_resp.json -w "%{http_code}" \
+    -X PATCH "$PB_URL/api/collections/users/records/$EXISTING_ID" \
+    -H "Authorization: $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"role":"admin","verified":true}')
+  if [ "$HTTP_STATUS" = "200" ]; then
+    echo "App user $ADMIN_EMAIL promoted to role=admin (was '$EXISTING_ROLE')"
+  else
+    echo "WARN: bootstrap_app_admin.sh — failed to promote $ADMIN_EMAIL (HTTP $HTTP_STATUS):" >&2
+    cat /tmp/bootstrap_resp.json >&2
+  fi
   exit 0
 fi
 
-# Create app user with role=admin, verified, using same password as superuser
+# User doesn't exist — create with role=admin, verified, using same password as superuser
 BODY=$(jq -nc \
   --arg e "$ADMIN_EMAIL" \
   --arg p "$ADMIN_PASSWORD" \
