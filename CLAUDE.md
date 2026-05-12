@@ -362,3 +362,43 @@ flyctl restart
 `.claude/hooks/agent-scope-audit.sh` fires on `SubagentStop`, diffs the agent's commit against base, flags out-of-lane edits via `systemMessage` to the orchestrator. Doesn't block — agents can find legit bugs outside lane (and have); the warning surfaces to enable cherry-pick decisions.
 
 When dispatching: tight brief beats vague brief. Match agent type to the work. Max 3 parallel agents (context overhead defeats the benefit beyond that).
+
+## Demo / Puppet Show
+
+Realistic demo data for local demos, load testing, and multi-agent puppet shows.
+
+### Scripts
+- `scripts/seed_demo_data.mjs` — creates DEMO- prefixed records across all core collections
+- `scripts/teardown_demo_data.mjs` — removes/deactivates all DEMO- prefixed records
+- `scripts/puppet_show.md` — full puppet show runbook
+
+### Quick start
+```bash
+# Install script deps (one-time)
+npm install --prefix scripts
+
+# Seed
+PB_URL=http://127.0.0.1:8090 \
+  PB_SUPERUSER_EMAIL=<email> PB_SUPERUSER_PASSWORD=<pass> \
+  node scripts/seed_demo_data.mjs
+
+# Teardown
+PB_URL=http://127.0.0.1:8090 \
+  PB_SUPERUSER_EMAIL=<email> PB_SUPERUSER_PASSWORD=<pass> \
+  node scripts/teardown_demo_data.mjs
+```
+
+### Demo users (all password `Pass1234!`)
+| Email | Role |
+|---|---|
+| demo-admin-1@kit.local | admin |
+| demo-technician-1@kit.local | technician |
+| demo-technician-2@kit.local | technician |
+| demo-user-1@kit.local | user |
+| demo-user-2@kit.local | user |
+| demo-viewer-1@kit.local | viewer |
+
+### Notes
+- Seeder is idempotent: exits if DEMO- entities already exist.
+- Kits/entities use soft-delete (`is_active=false`) on teardown; other collections hard-deleted via superuser token.
+- Optional collections (`kit_maintenance_schedules`, `on_call_shifts`) skipped with warning if not present.
