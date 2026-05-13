@@ -120,6 +120,8 @@ When dispatching agents, the orchestrator reads assigned ports from `.claude/por
 
 **Request fulfillment** (`fulfillRequest` in `services/requests.ts`) atomically creates a transaction and sets status to `fulfilled`. The two steps must stay coupled — if the transaction fails, status must not change.
 
+**`kits.is_active` defaults to `false` in PocketBase schema.** `createKit()` in `services/kits.ts` always sets `is_active: true` as a defensive default. When creating kits via raw REST (e.g. seed scripts), set `is_active: true` explicitly or kits will be invisible in the UI until activated.
+
 **OAuth users land with empty `role`.** Role is set manually by an admin via the `/users` page (or PB admin UI for bootstrap). The `DashboardPage` shows an amber "awaiting approval" banner when `!user?.role`.
 
 ### Collection rules summary
