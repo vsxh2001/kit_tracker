@@ -16,7 +16,7 @@ import type { Entity, Transaction, Kit, Component } from "../types";
 export function EntityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, canTransferKits } = useAuth();
+  const { canTransferKits, canDecideRequests } = useAuth();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [currentKits, setCurrentKits] = useState<Kit[]>([]);
@@ -75,7 +75,7 @@ export function EntityDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{entity.name}</h1>
           {!entity.is_active && <Badge variant="destructive">Inactive</Badge>}
         </div>
-        {isAdmin && (
+        {canDecideRequests && (
           <Button size="sm" variant="outline" className="ml-auto" onClick={() => setShowEdit(true)}>
             <Pencil className="h-4 w-4" />
             Edit

@@ -90,9 +90,9 @@ const MATRIX: Record<RoleName, MatrixRow> = {
     usersPageRedirects: true,
   },
   technician: {
-    canSeeNewKitButton: false,
+    canSeeNewKitButton: true,
     canSeeMoveKitButton: true,
-    canSeeEditRetireKit: false,
+    canSeeEditRetireKit: true,
     canSeeNewRequestButton: true,
     canSeeApproveRejectButtons: true,
     canSeeDeleteDangerZone: false,

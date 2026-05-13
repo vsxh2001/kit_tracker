@@ -20,7 +20,7 @@ interface ComponentRow {
 }
 
 export function ComponentsPage() {
-  const { isAdmin } = useAuth();
+  const { canDecideRequests } = useAuth();
   const [rows, setRows] = useState<ComponentRow[]>([]);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("__all__");
@@ -92,7 +92,7 @@ export function ComponentsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Components</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{rows.length} component{rows.length !== 1 ? "s" : ""} registered</p>
         </div>
-        {isAdmin && (
+        {canDecideRequests && (
           <Button size="sm" onClick={() => setShowAdd(true)}>
             <Plus className="h-4 w-4" />
             New component
