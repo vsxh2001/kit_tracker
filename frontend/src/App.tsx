@@ -65,7 +65,7 @@ export default function App() {
             <Route path="requests/calendar" element={<RequireRole><RequestsCalendarPage /></RequireRole>} />
             <Route path="requests/:id" element={<RequireRole><RequestDetailPage /></RequireRole>} />
             <Route path="users" element={<AdminOnly><UsersPage /></AdminOnly>} />
-            <Route path="audit" element={<AdminOnly><AuditLogPage /></AdminOnly>} />
+            <Route path="audit" element={<CanDecideOnly><AuditLogPage /></CanDecideOnly>} />
             <Route path="components" element={<RequireRole><ComponentsPage /></RequireRole>} />
             <Route path="components/:id" element={<RequireRole><ComponentDetailPage /></RequireRole>} />
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />

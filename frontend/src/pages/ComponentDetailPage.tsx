@@ -25,7 +25,7 @@ import type { Component, ComponentTransaction } from "../types";
 export function ComponentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, canTransferKits } = useAuth();
+  const { canTransferKits, canDecideRequests } = useAuth();
   const [component, setComponent] = useState<Component | null>(null);
   const [history, setHistory] = useState<ComponentTransaction[]>([]);
   const [showMove, setShowMove] = useState(false);
@@ -153,7 +153,7 @@ export function ComponentDetailPage() {
           </CardContent>
         </Card>
 
-        {(isAdmin || canTransferKits) && (
+        {(canDecideRequests || canTransferKits) && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
@@ -164,13 +164,13 @@ export function ComponentDetailPage() {
                   Move
                 </Button>
               )}
-              {isAdmin && (
+              {canDecideRequests && (
                 <Button size="sm" variant="outline" onClick={openEdit}>
                   <Pencil className="h-4 w-4" />
                   Edit
                 </Button>
               )}
-              {isAdmin && component.is_active && (
+              {canDecideRequests && component.is_active && (
                 <Button size="sm" variant="destructive" onClick={() => setShowDeactivate(true)}>
                   Deactivate
                 </Button>

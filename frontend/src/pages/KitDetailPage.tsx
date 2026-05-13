@@ -36,7 +36,7 @@ import type { Kit, Transaction, Component, KitMaintenanceSchedule } from "../typ
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, canTransferKits } = useAuth();
+  const { canTransferKits, canDecideRequests } = useAuth();
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -151,13 +151,13 @@ export function KitDetailPage() {
                   Move kit
                 </Button>
               )}
-              {isAdmin && (
+              {canDecideRequests && (
                 <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
                   <Pencil className="h-4 w-4" />
                   Edit
                 </Button>
               )}
-              {isAdmin && kit.is_active && (
+              {canDecideRequests && kit.is_active && (
                 <Button size="sm" variant="destructive" onClick={() => setShowRetire(true)}>
                   Retire kit
                 </Button>
@@ -237,7 +237,7 @@ export function KitDetailPage() {
           <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
         </div>
         <div className="flex gap-2 mb-3">
-          {isAdmin && (
+          {canDecideRequests && (
             <button
               onClick={() => setShowAddComp(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
@@ -245,7 +245,7 @@ export function KitDetailPage() {
               Add component
             </button>
           )}
-          {!isAdmin && canTransferKits && (
+          {!canDecideRequests && canTransferKits && (
             <button
               onClick={() => setShowAddComp(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-border hover:bg-slate-50 transition-colors"
@@ -327,7 +327,7 @@ export function KitDetailPage() {
           <h2 className="text-base font-semibold tracking-tight">Maintenance</h2>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{schedules.length} schedule{schedules.length !== 1 ? "s" : ""}</span>
-            {isAdmin && (
+            {canDecideRequests && (
               <button
                 onClick={() => setShowAddSched(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
@@ -343,7 +343,7 @@ export function KitDetailPage() {
             icon={Wrench}
             heading="No maintenance schedules"
             body="Track recurring maintenance by adding a schedule."
-            cta={isAdmin ? { label: "Add schedule", onClick: () => setShowAddSched(true) } : undefined}
+            cta={canDecideRequests ? { label: "Add schedule", onClick: () => setShowAddSched(true) } : undefined}
           />
         ) : (
           <>
@@ -372,7 +372,7 @@ export function KitDetailPage() {
                           Record done
                         </button>
                       )}
-                      {isAdmin && (
+                      {canDecideRequests && (
                         <>
                           <button
                             onClick={() => setShowAddSched(true)}
@@ -436,7 +436,7 @@ export function KitDetailPage() {
                                   Record done
                                 </button>
                               )}
-                              {isAdmin && (
+                              {canDecideRequests && (
                                 <>
                                   <button
                                     onClick={() => setDeactivatingSched(sched)}
@@ -467,8 +467,8 @@ export function KitDetailPage() {
         <CardContent className="pt-0">
           <AttachmentList
             kit={kit}
-            canEdit={isAdmin}
-            onUpload={isAdmin ? async (file) => {
+            canEdit={canDecideRequests}
+            onUpload={canDecideRequests ? async (file) => {
               try {
                 const updated = await uploadKitAttachment(kit.id, file);
                 setKit(updated);
@@ -478,7 +478,7 @@ export function KitDetailPage() {
                 toast({ title: "Upload failed", description: err?.message, variant: "destructive" });
               }
             } : undefined}
-            onDelete={isAdmin ? async (filename) => {
+            onDelete={canDecideRequests ? async (filename) => {
               try {
                 const updated = await deleteKitAttachment(kit.id, filename);
                 setKit(updated);

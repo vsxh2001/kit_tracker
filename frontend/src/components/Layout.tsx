@@ -170,7 +170,7 @@ export function Layout() {
           Users
         </NavLink>
       )}
-      {hasRole && isAdmin && (
+      {hasRole && canDecideRequests && (
         <NavLink
           to="/audit"
           onClick={closeDrawer}

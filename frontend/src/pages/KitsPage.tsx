@@ -34,7 +34,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 export function KitsPage() {
-  const { isAdmin } = useAuth();
+  const { canDecideRequests } = useAuth();
   const [rows, setRows] = useState<KitRow[]>([]);
   const [deliveries, setDeliveries] = useState<Map<string, UpcomingDelivery>>(new Map());
   const [schedulesByKit, setSchedulesByKit] = useState<Map<string, KitMaintenanceSchedule[]>>(new Map());
@@ -157,7 +157,7 @@ export function KitsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Kits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{rows.length} kit{rows.length !== 1 ? "s" : ""} registered</p>
         </div>
-        {isAdmin && (
+        {canDecideRequests && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Button size="sm" variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4" />

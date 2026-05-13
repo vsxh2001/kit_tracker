@@ -26,7 +26,7 @@ interface PendingConfirm { kind: ConfirmKind; entity: Entity; }
 
 export function EntitiesPage() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { canDecideRequests } = useAuth();
   const [entities, setEntities] = useState<Entity[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Entity | undefined>();
@@ -107,7 +107,7 @@ export function EntitiesPage() {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Directory</p>
           <h1 className="text-2xl font-semibold">Entities</h1>
         </div>
-        {isAdmin && (
+        {canDecideRequests && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Button size="sm" variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4" />
@@ -147,7 +147,7 @@ export function EntitiesPage() {
                     <Badge variant={e.is_active ? "success" : "gray"}>{e.is_active ? "Active" : "Inactive"}</Badge>
                   </div>
                   {e.description && <p className="text-xs text-muted-foreground mb-2">{e.description}</p>}
-                  {isAdmin && (
+                  {canDecideRequests && (
                     <div className="flex gap-2 mt-2" onClick={(ev) => ev.stopPropagation()}>
                       <Button variant="ghost" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => openEdit(e)}>Edit</Button>
                       {e.is_active && (
@@ -175,7 +175,7 @@ export function EntitiesPage() {
                       <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Description</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Active</th>
-                      {isAdmin && <th className="p-3" />}
+                      {canDecideRequests && <th className="p-3" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -188,7 +188,7 @@ export function EntitiesPage() {
                             {e.is_active ? "Yes" : "No"}
                           </Badge>
                         </td>
-                        {isAdmin && (
+                        {canDecideRequests && (
                           <td className="p-3">
                             <div className="flex gap-1 justify-end">
                               <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}>Edit</Button>

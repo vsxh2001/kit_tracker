@@ -59,7 +59,7 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export function OnCallPage() {
-  const { isAdmin } = useAuth();
+  const { canDecideRequests } = useAuth();
   const [shifts, setShifts] = useState<OnCallShift[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -105,7 +105,7 @@ export function OnCallPage() {
           <h1 className="text-2xl font-semibold tracking-tight">On-Call</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Scheduled on-call shifts</p>
         </div>
-        {isAdmin && (
+        {canDecideRequests && (
           <Button onClick={() => setAddOpen(true)} className="shrink-0">
             Add shift
           </Button>
@@ -121,7 +121,7 @@ export function OnCallPage() {
           icon={Clock}
           heading="No on-call shifts scheduled"
           body="Add a shift to track who is on call."
-          cta={isAdmin ? { label: "Add shift", onClick: () => setAddOpen(true) } : undefined}
+          cta={canDecideRequests ? { label: "Add shift", onClick: () => setAddOpen(true) } : undefined}
         />
       ) : (
         <>
@@ -137,7 +137,7 @@ export function OnCallPage() {
                       <th className="px-4 py-3 text-left">End</th>
                       <th className="px-4 py-3 text-left">Notes</th>
                       <th className="px-4 py-3 text-left">Status</th>
-                      {isAdmin && <th className="px-4 py-3 text-left">Actions</th>}
+                      {canDecideRequests && <th className="px-4 py-3 text-left">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -156,7 +156,7 @@ export function OnCallPage() {
                           <td className="px-4 py-3 text-muted-foreground">{formatDate(s.end_at)}</td>
                           <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate">{s.notes}</td>
                           <td className="px-4 py-3"><StatusBadge status={status} /></td>
-                          {isAdmin && (
+                          {canDecideRequests && (
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1">
                                 <Button
@@ -209,7 +209,7 @@ export function OnCallPage() {
                       <p>End: {formatDate(s.end_at)}</p>
                       {s.notes && <p>Notes: {s.notes}</p>}
                     </div>
-                    {isAdmin && (
+                    {canDecideRequests && (
                       <div className="flex gap-2 pt-1">
                         <Button
                           variant="outline"

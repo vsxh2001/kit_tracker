@@ -43,10 +43,10 @@ onRecordBeforeUpdateRequest((e) => {
     throw new BadRequestError("Bulk component quantity must be >= 1");
   }
 
-  // Non-admins may only change quantity
+  // Non-admins (and non-technicians) may only change quantity
   const info = $apis.requestInfo(e.httpContext);
   const role = info.authRecord ? info.authRecord.getString("role") : "";
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "technician") {
     const original = $app.dao().findRecordById("components", e.record.id);
     const protectedFields = ["serial", "type", "notes", "is_active", "is_bulk"];
     for (const f of protectedFields) {
