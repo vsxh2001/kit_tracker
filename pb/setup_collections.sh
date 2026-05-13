@@ -55,7 +55,8 @@ curl -s -X PATCH "$PB_URL/api/collections/_pb_users_auth_" \
   -d "$(echo "$USERS_COL" | jq '
     (.schema // []) as $schema |
     if ($schema | map(.name) | index("name")) then . else .schema += [{"name":"name","type":"text","required":false}] end |
-    if ($schema | map(.name) | index("role")) then . else .schema += [{"name":"role","type":"select","required":false,"options":{"values":["","admin","technician","user","viewer"],"maxSelect":1}}] end
+    if ($schema | map(.name) | index("role")) then . else .schema += [{"name":"role","type":"select","required":false,"options":{"values":["","admin","technician","user","viewer","denied"],"maxSelect":1}}] end |
+    if ($schema | map(.name) | index("denial_notes")) then . else .schema += [{"name":"denial_notes","type":"text","required":false}] end
   ')" >/dev/null
 echo "Users collection updated."
 
