@@ -89,8 +89,8 @@ test.describe("Maintenance — add schedule", () => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
-    // Maintenance section should be visible
-    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible();
+    // Maintenance section should be visible (exact match on h2 tag to avoid "No maintenance schedules" h3)
+    await expect(page.locator("h2", { hasText: "Maintenance" })).toBeVisible();
 
     // Click "Add schedule"
     await page.getByRole("button", { name: "Add schedule" }).first().click();
@@ -102,8 +102,8 @@ test.describe("Maintenance — add schedule", () => {
     // Submit
     await page.getByRole("button", { name: "Add schedule" }).last().click();
 
-    // Should see the new schedule in the list
-    await expect(page.getByText("Calibration")).toBeVisible({ timeout: 5000 });
+    // Should see the new schedule in the list (scope to table to avoid notification text)
+    await expect(page.locator("table").getByText("Calibration")).toBeVisible({ timeout: 5000 });
   });
 });
 
