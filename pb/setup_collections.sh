@@ -47,7 +47,7 @@ get_collection_id() {
     | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
-echo "Adding 'name' and 'role' fields to users collection..."
+echo "Adding 'name', 'role', 'phone', and 'title' fields to users collection..."
 USERS_COL=$(curl -s "$PB_URL/api/collections/_pb_users_auth_" -H "Authorization: $TOKEN")
 curl -s -X PATCH "$PB_URL/api/collections/_pb_users_auth_" \
   -H "Authorization: $TOKEN" \
@@ -56,7 +56,9 @@ curl -s -X PATCH "$PB_URL/api/collections/_pb_users_auth_" \
     (.schema // []) as $schema |
     if ($schema | map(.name) | index("name")) then . else .schema += [{"name":"name","type":"text","required":false}] end |
     if ($schema | map(.name) | index("role")) then . else .schema += [{"name":"role","type":"select","required":false,"options":{"values":["","admin","technician","user","viewer","denied"],"maxSelect":1}}] end |
-    if ($schema | map(.name) | index("denial_notes")) then . else .schema += [{"name":"denial_notes","type":"text","required":false}] end
+    if ($schema | map(.name) | index("denial_notes")) then . else .schema += [{"name":"denial_notes","type":"text","required":false}] end |
+    if ($schema | map(.name) | index("phone")) then . else .schema += [{"name":"phone","type":"text","required":false,"options":{"min":null,"max":null,"pattern":""}}] end |
+    if ($schema | map(.name) | index("title")) then . else .schema += [{"name":"title","type":"text","required":false,"options":{"min":null,"max":null,"pattern":""}}] end
   ')" >/dev/null
 echo "Users collection updated."
 
