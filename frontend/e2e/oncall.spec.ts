@@ -28,7 +28,7 @@ test.describe("OnCall — admin add shift @smoke", () => {
     await loginAs(page, "admin");
     await page.goto("/oncall");
 
-    await expect(page.getByRole("heading", { name: "On-Call" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "On-Call", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /add shift/i }).first()).toBeVisible();
 
     await page.getByRole("button", { name: /add shift/i }).first().click();
@@ -94,7 +94,7 @@ test.describe("OnCall — non-admin read-only", () => {
     await loginAs(page, "user");
     await page.goto("/oncall");
 
-    await expect(page.getByRole("heading", { name: "On-Call" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "On-Call", exact: true })).toBeVisible();
     // No "Add shift" button for non-admin
     await expect(page.getByRole("button", { name: /add shift/i })).not.toBeVisible();
     // No edit/delete buttons
@@ -112,7 +112,7 @@ test.describe("OnCall — add dialog filters to admin/technician users", () => {
     await loginAs(page, "admin");
     await page.goto("/oncall");
 
-    await page.getByRole("button", { name: /add shift/i }).click();
+    await page.getByRole("button", { name: /add shift/i }).first().click();
     await expect(page.getByRole("heading", { name: /add on-call shift/i })).toBeVisible();
 
     const userSelect = page.locator("#shift-user");

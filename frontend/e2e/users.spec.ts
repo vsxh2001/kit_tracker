@@ -339,9 +339,9 @@ test.describe("Users management — multi-user table", () => {
   // Test 7 — "Pending" badge shown for user with empty role
   // KNOWN_BUG: same listRule issue
   // -------------------------------------------------------------------------
-  test("Pending badge shown for user with empty role", async ({ page }) => {
+  test("Empty role displays as 'Not assigned' in select", async ({ page }) => {
     const ts = Date.now();
-    const email = `pending-badge-${ts}@test.local`;
+    const email = `empty-role-${ts}@test.local`;
 
     const created = await createTestUser(email, "");
     const userId = created.id;
@@ -354,16 +354,16 @@ test.describe("Users management — multi-user table", () => {
         timeout: 8_000,
       });
 
-      const pendingRow = page.getByRole("row").filter({ hasText: email });
+      const emptyRoleRow = page.getByRole("row").filter({ hasText: email });
       await expect(
-        pendingRow,
-        `Row for ${email} must be visible (blocked by listRule bug)`
+        emptyRoleRow,
+        `Row for ${email} must be visible`
       ).toBeVisible({ timeout: 5_000 });
 
       await expect(
-        pendingRow.getByText("Pending", { exact: true }),
-        "Pending badge must appear in role cell for a user with empty role"
-      ).toBeVisible();
+        emptyRoleRow.getByRole("combobox"),
+        "Role select must show 'Not assigned' for empty role"
+      ).toContainText("Not assigned");
     } finally {
       if (userId) await deleteTestUser(userId);
     }
