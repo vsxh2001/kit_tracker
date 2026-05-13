@@ -133,6 +133,7 @@ export function OnCallPage() {
                   <thead>
                     <tr className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       <th className="px-4 py-3 text-left">User</th>
+                      <th className="px-4 py-3 text-left">Phone</th>
                       <th className="px-4 py-3 text-left">Start</th>
                       <th className="px-4 py-3 text-left">End</th>
                       <th className="px-4 py-3 text-left">Notes</th>
@@ -151,6 +152,11 @@ export function OnCallPage() {
                             {u?.role && (
                               <span className="ml-2"><RoleBadge role={u.role} /></span>
                             )}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {u?.phone ? (
+                              <a href={`tel:${u.phone}`} className="text-indigo-600 hover:underline">{u.phone}</a>
+                            ) : "—"}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{formatDate(s.start_at)}</td>
                           <td className="px-4 py-3 text-muted-foreground">{formatDate(s.end_at)}</td>
