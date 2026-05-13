@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, startTransition } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
-import { cn } from "../lib/utils";
+import { cn, formatTelHref } from "../lib/utils";
 import { getCurrentOnCallUsers } from "../services/oncall";
 import type { PBUser } from "../types";
 
@@ -204,6 +204,23 @@ export function Layout() {
           On-Call
         </NavLink>
       )}
+      {hasRole && (
+        <NavLink
+          to="/profile"
+          onClick={closeDrawer}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all",
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            )
+          }
+        >
+          <User className="h-5 w-5 shrink-0" />
+          Profile
+        </NavLink>
+      )}
     </>
   );
 
@@ -248,7 +265,19 @@ export function Layout() {
                 title="View on-call schedule"
               >
                 <Clock className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">On call: {onCallUsers[0].name || onCallUsers[0].email}</span>
+                <span className="truncate">On call:{" "}
+                  {onCallUsers[0].phone ? (
+                    <a
+                      href={`tel:${formatTelHref(onCallUsers[0].phone!)}`}
+                      className="underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {onCallUsers[0].name || onCallUsers[0].email}
+                    </a>
+                  ) : (
+                    onCallUsers[0].name || onCallUsers[0].email
+                  )}
+                </span>
               </Link>
             ) : (
               <p className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -304,7 +333,19 @@ export function Layout() {
                 className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <Clock className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">On call: {onCallUsers[0].name || onCallUsers[0].email}</span>
+                <span className="truncate">On call:{" "}
+                  {onCallUsers[0].phone ? (
+                    <a
+                      href={`tel:${formatTelHref(onCallUsers[0].phone!)}`}
+                      className="underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {onCallUsers[0].name || onCallUsers[0].email}
+                    </a>
+                  ) : (
+                    onCallUsers[0].name || onCallUsers[0].email
+                  )}
+                </span>
               </Link>
             ) : (
               <p className="flex items-center gap-1.5 text-xs text-slate-500">

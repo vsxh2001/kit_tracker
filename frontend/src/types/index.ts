@@ -5,7 +5,7 @@ export type RequestStatus =
   | "fulfilled"
   | "cancelled";
 
-export type UserRole = "admin" | "technician" | "user" | "viewer";
+export type UserRole = "admin" | "technician" | "user" | "viewer" | "denied";
 
 export interface Kit {
   id: string;
@@ -73,6 +73,9 @@ export interface PBUser {
   name?: string;
   role: UserRole;
   entity?: string;
+  phone?: string;
+  title?: string;
+  denial_notes?: string;
   created: string;
   updated: string;
 }

@@ -34,6 +34,11 @@ export const REQUEST_STATUS_VARIANTS = {
   cancelled: "gray",
 } as const;
 
+/** Strip non-[+\d] characters from a phone string for safe tel: href use. */
+export function formatTelHref(phone: string): string {
+  return phone.replace(/[^+\d]/g, "");
+}
+
 export function formatDateOnly(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-CA"); // YYYY-MM-DD
 }

@@ -39,8 +39,14 @@ export function LoginPage() {
     try {
       await login(email, password);
       navigate("/dashboard");
-    } catch {
-      setError("Invalid email or password.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message :
+        typeof err === "object" && err !== null && "message" in err ? String((err as { message: unknown }).message) : "";
+      if (msg.toLowerCase().includes("denied")) {
+        setError("Your account has been denied. Contact administrator.");
+      } else {
+        setError("Invalid email or password.");
+      }
     } finally {
       setLoading(false);
     }
@@ -164,7 +170,17 @@ export function LoginPage() {
               />
             </div>
 
-            {error && (
+            {error && error.includes("denied") ? (
+              <div className="rounded-md px-3 py-2.5 text-sm text-amber-800 flex items-center gap-2"
+                style={{ backgroundColor: "rgba(251, 191, 36, 0.18)", border: "1px solid rgba(251, 191, 36, 0.4)" }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0" aria-hidden="true">
+                  <circle cx="7" cy="7" r="6.5" stroke="currentColor"/>
+                  <path d="M7 4.5V7.5" stroke="currentColor" strokeLinecap="round"/>
+                  <circle cx="7" cy="9.5" r="0.5" fill="currentColor"/>
+                </svg>
+                {error}
+              </div>
+            ) : error ? (
               <div className="rounded-md px-3 py-2.5 text-sm text-red-300 flex items-center gap-2"
                 style={{ backgroundColor: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
@@ -174,7 +190,7 @@ export function LoginPage() {
                 </svg>
                 {error}
               </div>
-            )}
+            ) : null}
 
             <Button
               type="submit"

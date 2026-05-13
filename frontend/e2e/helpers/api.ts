@@ -505,3 +505,58 @@ export async function getUserTokenByEmail(email: string, password: string): Prom
   const data = await res.json();
   return { token: data.token, userId: data.record.id };
 }
+
+// --- Users (deny / profile) ---
+
+export async function createTestUser(
+  email: string,
+  role: "" | "admin" | "user" | "viewer" | "technician" = ""
+): Promise<{ id: string; email: string; role: string }> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/users/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password: "Pass1234!",
+      passwordConfirm: "Pass1234!",
+      role,
+      emailVisibility: true,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`createTestUser failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
+export async function deleteTestUser(id: string): Promise<void> {
+  const token = await getAdminToken();
+  await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: token },
+  });
+}
+
+export async function getUserById(id: string): Promise<{ id: string; email: string; role: string; denial_notes?: string; phone?: string; title?: string } | null> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
+    headers: { Authorization: token },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function patchUser(id: string, data: Record<string, unknown>): Promise<void> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`patchUser failed: ${JSON.stringify(body)}`);
+  }
+}
