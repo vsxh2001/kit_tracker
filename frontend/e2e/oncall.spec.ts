@@ -29,9 +29,9 @@ test.describe("OnCall — admin add shift @smoke", () => {
     await page.goto("/oncall");
 
     await expect(page.getByRole("heading", { name: "On-Call" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /add shift/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /add shift/i }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /add shift/i }).click();
+    await page.getByRole("button", { name: /add shift/i }).first().click();
     await expect(page.getByRole("heading", { name: /add on-call shift/i })).toBeVisible();
 
     // Select the first eligible user from the dropdown
@@ -61,7 +61,7 @@ test.describe("OnCall — admin add shift @smoke", () => {
     await expect(page.getByRole("heading", { name: /add on-call shift/i })).not.toBeVisible({ timeout: 5000 });
 
     // The new shift should appear somewhere in the table/cards
-    await expect(page.getByText(`${TS}-e2e-note`)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(`${TS}-e2e-note`).first()).toBeVisible({ timeout: 5000 });
   });
 });
 

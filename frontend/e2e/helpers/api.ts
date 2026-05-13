@@ -145,12 +145,14 @@ export async function getEntityByName(
 }
 
 export async function deleteEntityRecord(id: string): Promise<void> {
+  // Soft-delete via is_active=false (delete rule is null)
   const token = await getAdminToken();
   const res = await fetch(`${PB_URL}/api/collections/entities/records/${id}`, {
-    method: "DELETE",
-    headers: { Authorization: token },
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active: false }),
   });
-  if (!res.ok && res.status !== 404) {
+  if (!res.ok) {
     throw new Error(`deleteEntityRecord failed: ${res.status}`);
   }
 }

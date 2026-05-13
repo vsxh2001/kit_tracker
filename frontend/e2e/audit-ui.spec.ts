@@ -79,14 +79,15 @@ test.describe("Audit UI — admin access", () => {
     const rows = page.locator("table tbody tr");
     await expect(rows.first()).toBeVisible({ timeout: 8_000 });
 
-    // Collection filter chips visible
-    await expect(page.getByRole("button", { name: "Kits" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Entities" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Users" })).toBeVisible();
+    // Collection filter chips visible — use first() to resolve strict-mode violations
+    // The filter chips appear before the table content
+    await expect(page.getByRole("button", { name: "Kits" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Entities" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Users" }).first()).toBeVisible();
 
     // Action filter chips visible
-    await expect(page.getByRole("button", { name: "Create" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Update" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Update" }).first()).toBeVisible();
   });
 });
 
