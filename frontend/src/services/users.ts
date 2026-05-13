@@ -27,7 +27,7 @@ export async function updateUserDenial(
 
 export async function restoreUser(
   id: string,
-  role: UserRole
+  role: UserRole | ""
 ): Promise<PBUser> {
   return pb.collection("users").update<PBUser>(id, {
     role,

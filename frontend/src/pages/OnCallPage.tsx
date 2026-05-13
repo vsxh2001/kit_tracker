@@ -17,7 +17,7 @@ import {
 import { Button } from "../components/ui/button";
 import { listShifts, deleteShift } from "../services/oncall";
 import { useAuth } from "../context/AuthContext";
-import { formatDate } from "../lib/utils";
+import { formatDate, formatTelHref } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import type { OnCallShift } from "../types";
 
@@ -155,7 +155,7 @@ export function OnCallPage() {
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {u?.phone ? (
-                              <a href={`tel:${u.phone}`} className="text-indigo-600 hover:underline">{u.phone}</a>
+                              <a href={`tel:${formatTelHref(u.phone)}`} className="text-indigo-600 hover:underline">{u.phone}</a>
                             ) : "—"}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{formatDate(s.start_at)}</td>

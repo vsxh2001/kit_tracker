@@ -14,6 +14,7 @@ export function ProfilePage() {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function load() {
     if (!currentUser?.id) return;
@@ -23,9 +24,13 @@ export function ProfilePage() {
       setName(u.name ?? "");
       setPhone(u.phone ?? "");
       setTitle(u.title ?? "");
+      setLoadError(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      if (!err?.isAbort) console.error(err);
+      if (!err?.isAbort) {
+        console.error(err);
+        setLoadError(err?.message ?? "Failed to load profile");
+      }
     } finally {
       setLoading(false);
     }
@@ -77,6 +82,9 @@ export function ProfilePage() {
         <p className="text-muted-foreground">Loading…</p>
       ) : (
         <form onSubmit={handleSave} className="space-y-4">
+          {loadError && (
+            <p className="text-destructive text-sm">{loadError}</p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="profile-email">Email</Label>
             <Input
@@ -117,7 +125,7 @@ export function ProfilePage() {
               placeholder="e.g. Field Technician"
             />
           </div>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={!!loadError || saving}>
             {saving ? "Saving…" : "Save changes"}
           </Button>
         </form>

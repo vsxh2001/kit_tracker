@@ -91,7 +91,7 @@ export function UsersPage() {
 
     try {
       if (prevRole === "denied") {
-        await restoreUser(u.id, newRole as UserRole);
+        await restoreUser(u.id, newRole);
       } else {
         await updateUserRole(u.id, newRole);
       }

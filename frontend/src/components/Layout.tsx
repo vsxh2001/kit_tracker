@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-do
 import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
-import { cn } from "../lib/utils";
+import { cn, formatTelHref } from "../lib/utils";
 import { getCurrentOnCallUsers } from "../services/oncall";
 import type { PBUser } from "../types";
 
@@ -268,7 +268,7 @@ export function Layout() {
                 <span className="truncate">On call:{" "}
                   {onCallUsers[0].phone ? (
                     <a
-                      href={`tel:${onCallUsers[0].phone}`}
+                      href={`tel:${formatTelHref(onCallUsers[0].phone!)}`}
                       className="underline"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -336,7 +336,7 @@ export function Layout() {
                 <span className="truncate">On call:{" "}
                   {onCallUsers[0].phone ? (
                     <a
-                      href={`tel:${onCallUsers[0].phone}`}
+                      href={`tel:${formatTelHref(onCallUsers[0].phone!)}`}
                       className="underline"
                       onClick={(e) => e.stopPropagation()}
                     >
