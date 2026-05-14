@@ -80,6 +80,19 @@ export interface PBUser {
   updated: string;
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  category?: string;
+  manufacturer?: string;
+  model?: string;
+  description?: string;
+  specs?: string; // JSON string
+  is_active: boolean;
+  created: string;
+  updated: string;
+}
+
 export interface Component {
   id: string;
   serial: string;
@@ -88,8 +101,10 @@ export interface Component {
   is_active: boolean;
   is_bulk: boolean;
   quantity: number;
+  product?: string; // relation id
   created: string;
   updated: string;
+  expand?: { product?: Product };
 }
 
 export interface AuditLog {
