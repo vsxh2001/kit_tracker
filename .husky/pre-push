@@ -1,7 +1,26 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+# Standalone pre-push gate. Husky was removed from devDeps so the
+# legacy `. _/husky.sh` shim is gone; this hook now self-bootstraps.
+# Skip via `git push --no-verify` for emergency / infra-only pushes.
 
-cd frontend
-echo "→ Lint" && npm run lint || exit 1
-echo "→ Build" && npm run build || exit 1
-echo "→ Smoke e2e" && npm run test:smoke || exit 1
+set -e
+
+cd "$(git rev-parse --show-toplevel)/frontend"
+
+echo "→ Lint"
+npm run lint
+
+echo "→ Build"
+npm run build
+
+echo "→ Smoke e2e (requires PB on :8090 and Vite on :5173)"
+if ! curl -sf http://127.0.0.1:8090/api/health >/dev/null 2>&1; then
+  echo "  PB not running on :8090 — skipping smoke. Start with: SEED_TEST_USERS=1 bash pb/start-pb.sh &"
+  echo "  (re-run push after services are up, or use --no-verify if intentional)"
+  exit 1
+fi
+if ! curl -sf http://localhost:5173 >/dev/null 2>&1; then
+  echo "  Vite not running on :5173 — skipping smoke. Start with: npm run dev &"
+  exit 1
+fi
+npm run test:smoke
