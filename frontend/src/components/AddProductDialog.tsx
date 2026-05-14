@@ -65,11 +65,11 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     try {
       const prod = await createProduct({
         name: name.trim(),
-        category: category.trim() || undefined,
-        manufacturer: manufacturer.trim() || undefined,
-        model: model.trim() || undefined,
-        description: description.trim() || undefined,
-        specs: specs.trim() || undefined,
+        category: category.trim() || "",
+        manufacturer: manufacturer.trim() || "",
+        model: model.trim() || "",
+        description: description.trim() || "",
+        specs: specs.trim() || "",
       });
       toast({ title: "Product created", description: prod.name, variant: "success" });
       resetForm();

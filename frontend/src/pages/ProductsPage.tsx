@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AddProductDialog } from "../components/AddProductDialog";
-import { listProducts, countComponentsForProduct } from "../services/products";
+import { listProducts, getComponentCountsByProduct } from "../services/products";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import type { Product } from "../types";
@@ -29,12 +29,11 @@ export function ProductsPage() {
   async function load() {
     setLoading(true);
     try {
-      const products = await listProducts({ includeInactive: showInactive });
-      // Fetch component counts in parallel with unique requestKeys
-      const counts = await Promise.all(
-        products.map((p) => countComponentsForProduct(p.id))
-      );
-      setRows(products.map((p, i) => ({ product: p, componentCount: counts[i] })));
+      const [products, counts] = await Promise.all([
+        listProducts({ includeInactive: showInactive }),
+        getComponentCountsByProduct(),
+      ]);
+      setRows(products.map((p) => ({ product: p, componentCount: counts[p.id] ?? 0 })));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);

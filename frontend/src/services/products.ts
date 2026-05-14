@@ -41,6 +41,19 @@ export async function countComponentsForProduct(productId: string): Promise<numb
   return result.totalItems;
 }
 
+export async function getComponentCountsByProduct(): Promise<Record<string, number>> {
+  const comps = await pb.collection("components").getFullList<Component>({
+    filter: "is_active = true && product != ''",
+    fields: "product",
+    requestKey: "components-by-product",
+  });
+  const map: Record<string, number> = {};
+  for (const c of comps) {
+    if (c.product) map[c.product] = (map[c.product] || 0) + 1;
+  }
+  return map;
+}
+
 export async function listComponentsForProduct(productId: string): Promise<Component[]> {
   return pb.collection("components").getFullList<Component>({
     filter: pb.filter("product = {:productId}", { productId }),
