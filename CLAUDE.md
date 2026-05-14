@@ -251,6 +251,28 @@ Container only runs `setup_oauth.sh` when both CLIENT_ID + SECRET are set. Setti
 
 ## Deployment
 
+### Email notifications setup
+
+PocketBase v0.22 stores mail settings in the DB (not env). `pb/bootstrap_smtp.sh` reads the
+following Fly secrets and PATCHes `/api/settings` on every boot. If `SMTP_HOST` is not set the
+script exits silently (local dev without SMTP stays unaffected).
+
+```bash
+flyctl secrets set -a kit-tracker \
+  SMTP_HOST=smtp.gmail.com \
+  SMTP_PORT=587 \
+  SMTP_USERNAME=your@gmail.com \
+  SMTP_PASSWORD=<gmail-app-password> \
+  SMTP_FROM=your@gmail.com
+```
+
+> **Gmail App Password:** requires 2FA enabled on the Google account.
+> Generate one at <https://myaccount.google.com/apppasswords> (16-char password, no spaces).
+> Do NOT use the Google account's main password — it won't work with SMTP AUTH.
+
+`SMTP_TLS` defaults to `true` (correct for port 587 STARTTLS). Set `SMTP_TLS=false` only for
+unauthenticated relay (e.g. MailHog on port 1025 in local dev).
+
 ### First-boot identity
 
 PB has two identity stores: `_superusers` (panel `/_/`) and `users` (app `/login`).

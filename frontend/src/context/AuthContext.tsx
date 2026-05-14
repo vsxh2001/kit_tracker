@@ -41,6 +41,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, []);
 
+  // Realtime subscription: when the current user's record changes (e.g. role
+  // updated by an admin), refresh the auth token so flags recompute immediately
+  // without requiring a logout/login cycle.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const userId = user.id;
+    pb.collection("users").subscribe(userId, async (e) => {
+      if (cancelled) return;
+      if (e.action === "update") {
+        try { await pb.collection("users").authRefresh(); } catch { /* swallow */ }
+      } else if (e.action === "delete") {
+        pb.authStore.clear();
+      }
+    }).catch((err) => {
+      console.warn("[AuthContext] realtime subscribe failed:", err);
+    });
+    return () => {
+      cancelled = true;
+      pb.collection("users").unsubscribe(userId).catch(() => {});
+    };
+  }, [user?.id]);
+
   const role = user?.role;
   const isAdmin = role === "admin";
   const isTechnician = role === "technician";
