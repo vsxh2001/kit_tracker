@@ -2,13 +2,16 @@ import { pb } from "../lib/pocketbase";
 import type { Component, Product } from "../types";
 
 export async function listProducts(opts?: { includeInactive?: boolean }): Promise<Product[]> {
-  const filters: string[] = [];
-  if (!opts?.includeInactive) filters.push("is_active = true");
-  return pb.collection("products").getFullList<Product>({
+  // PB SDK serializes `filter: undefined` as the string "undefined" in the URL,
+  // which PB rejects. Only set the filter key when we actually have a filter.
+  const params: { sort: string; requestKey: string; filter?: string } = {
     sort: "name",
-    filter: filters.join(" && ") || undefined,
-    requestKey: "list-products",
-  });
+    // Distinct requestKey per filter state — avoids auto-cancel collisions when
+    // the user rapidly toggles "show inactive".
+    requestKey: opts?.includeInactive ? "list-products-all" : "list-products-active",
+  };
+  if (!opts?.includeInactive) params.filter = "is_active = true";
+  return pb.collection("products").getFullList<Product>(params);
 }
 
 export async function getProduct(id: string): Promise<Product> {
@@ -18,7 +21,9 @@ export async function getProduct(id: string): Promise<Product> {
 }
 
 export async function createProduct(data: Partial<Product>): Promise<Product> {
-  return pb.collection("products").create<Product>(data);
+  // Always send is_active explicitly. The PB hook can't distinguish "field
+  // absent" from "field=false", so the service layer owns the default.
+  return pb.collection("products").create<Product>({ is_active: true, ...data });
 }
 
 export async function updateProduct(id: string, data: Partial<Product>): Promise<Product> {

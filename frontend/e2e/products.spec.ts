@@ -68,8 +68,8 @@ test.describe("P1-P3: Admin product CRUD @smoke", () => {
     await dialog.getByRole("button", { name: /create/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 8000 });
 
-    // Product appears in list
-    await expect(page.getByText(PROD_NAME)).toBeVisible({ timeout: 8000 });
+    // Product appears in list — scope to table to avoid strict mode with notification/sidebar
+    await expect(page.getByRole("table").getByText(PROD_NAME)).toBeVisible({ timeout: 8000 });
 
     // Get product id via API for cleanup
     const token = await (async () => {
@@ -105,8 +105,8 @@ test.describe("P1-P3: Admin product CRUD @smoke", () => {
     await dialog.getByRole("button", { name: /save/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 8000 });
 
-    // Updated name visible
-    await expect(page.getByText(`${TS}-Laptop-Updated`)).toBeVisible({ timeout: 8000 });
+    // Updated name visible — scope to heading to avoid notification ambiguity
+    await expect(page.getByRole("heading", { level: 1, name: new RegExp(`${TS}-Laptop-Updated`) })).toBeVisible({ timeout: 8000 });
   });
 
   test("P3: admin soft-deletes product, hidden from default list, visible with show-inactive @smoke", async ({ page }) => {
@@ -133,9 +133,14 @@ test.describe("P1-P3: Admin product CRUD @smoke", () => {
     await waitForProductsPage(page);
     await expect(page.getByText(`${TS}-ToDelete`)).not.toBeVisible();
 
-    // Toggle show inactive
-    await page.getByLabel(/show inactive/i).check();
-    await expect(page.getByText(`${TS}-ToDelete`)).toBeVisible({ timeout: 8000 });
+    // Toggle show inactive — note: filtering might be done client-side
+    // Check that the checkbox exists and click it
+    const inactiveCheckbox = page.getByLabel(/show inactive/i);
+    await expect(inactiveCheckbox).toBeVisible({ timeout: 5000 });
+    await inactiveCheckbox.check();
+    // The product should now be visible. Scope to the desktop table to avoid
+    // strict-mode collision with the mobile card layout (both render in DOM).
+    await expect(page.getByRole("table").getByText(`${TS}-ToDelete`)).toBeVisible({ timeout: 8000 });
 
     await deleteTestProduct(toDeleteId);
   });
@@ -266,8 +271,13 @@ test.describe("P6: AddComponentDialog product picker", () => {
     await page.keyboard.press("Escape");
 
     // Can still create without product: fill required fields and submit
-    await dialog.getByLabel(/type/i).fill("TestType");
-    await dialog.getByRole("button", { name: /create/i }).click();
+    const typeInput = dialog.getByLabel(/type/i);
+    await typeInput.fill("TestType");
+    // Submit button is the last button in the dialog (after Cancel)
+    const buttons = dialog.getByRole("button");
+    const submitBtn = buttons.last(); // Last button is Create/Move
+    await submitBtn.click();
+    // Component should be created, dialog should close
     await expect(dialog).not.toBeVisible({ timeout: 8000 });
   });
 });
@@ -355,7 +365,8 @@ test.describe("P8: KitDetailPage Components card shows product name", () => {
     await expect(page.getByRole("heading", { name: /components in kit/i })).toBeVisible({ timeout: 8000 });
 
     // Product name should appear as a link in the components table
-    await expect(page.getByText(`${TS}-KitProd`)).toBeVisible({
+    // Use getByRole to scope to the link element, avoiding other instances in the page
+    await expect(page.getByRole("link", { name: `${TS}-KitProd` })).toBeVisible({
       message: "Kit detail Components card must show product name when component has linked product",
     });
   });
@@ -394,14 +405,14 @@ test.describe("P9: Products permission enforcement (REST)", () => {
     expect(res.status, "Regular user must NOT create products → 400").toBe(400);
   });
 
-  test("P9c: delete product returns 404 (deleteRule = null)", async () => {
+  test("P9c: delete product returns 403 (deleteRule = null)", async () => {
     const token = (await import("./helpers/api")).getAdminToken;
     const adminToken = await token();
     const res = await fetch(`${PB_URL}/api/collections/products/records/${permProdId}`, {
       method: "DELETE",
       headers: { Authorization: adminToken },
     });
-    // deleteRule = null → nobody can delete
-    expect(res.status, "deleteRule null: even admin cannot hard-delete products → 404").toBe(404);
+    // deleteRule = null → only superadmin can delete (regular admin gets 403)
+    expect(res.status, "deleteRule null: even admin cannot hard-delete products → 403").toBe(403);
   });
 });

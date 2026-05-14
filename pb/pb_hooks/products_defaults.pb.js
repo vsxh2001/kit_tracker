@@ -1,17 +1,13 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Default-fill hook for the products collection.
 //
-// Why: PocketBase v0.22 has no schema-level defaults for bool/text fields.
-// All sibling collections rely on the call site to pass defaults explicitly.
-// To keep is_active=true and specs="{}" guaranteed at the DB layer (and not
-// just by convention), enforce them here on every create where the field
-// was not explicitly set.
+// Scope: only fields where a "missing vs explicit-zero" ambiguity does NOT
+// exist — i.e. text fields whose empty string is meaningfully equivalent to
+// "no value provided". For bool/numeric fields, the call site owns the
+// default (see services/products.ts:createProduct) because PB hooks cannot
+// distinguish "field absent in request" from "field=false in request".
 
 onRecordBeforeCreateRequest((e) => {
-  // is_active: default true if not explicitly set
-  if (!e.record.get("is_active")) {
-    e.record.set("is_active", true);
-  }
   // specs: default "{}" if empty so downstream JSON.parse won't throw
   const specs = e.record.getString("specs");
   if (!specs) {
