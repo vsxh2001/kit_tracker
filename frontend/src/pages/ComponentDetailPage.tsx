@@ -17,6 +17,7 @@ import {
 } from "../components/ui/alert-dialog";
 import { getComponent, updateComponent } from "../services/components";
 import { listTransactionsForComponent } from "../services/componentTransactions";
+import { countComponentsForProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
@@ -28,6 +29,7 @@ export function ComponentDetailPage() {
   const { canTransferKits, canDecideRequests } = useAuth();
   const [component, setComponent] = useState<Component | null>(null);
   const [history, setHistory] = useState<ComponentTransaction[]>([]);
+  const [productInstanceCount, setProductInstanceCount] = useState<number | null>(null);
   const [showMove, setShowMove] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -48,6 +50,13 @@ export function ComponentDetailPage() {
       ]);
       setComponent(c);
       setHistory(h);
+      if (c.product) {
+        countComponentsForProduct(c.product)
+          .then(setProductInstanceCount)
+          .catch(() => {});
+      } else {
+        setProductInstanceCount(null);
+      }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -152,6 +161,31 @@ export function ComponentDetailPage() {
             {latest && <Row label="Current location" value={locationLabel(latest)} />}
           </CardContent>
         </Card>
+        {component.expand?.product && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Product</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 pt-0">
+              <Link to={`/products/${component.expand.product.id}`} className="block hover:underline">
+                <p className="font-medium text-sm">{component.expand.product.name}</p>
+              </Link>
+              {(component.expand.product.manufacturer || component.expand.product.model) && (
+                <p className="text-xs text-muted-foreground">
+                  {[component.expand.product.manufacturer, component.expand.product.model].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              {productInstanceCount !== null && (
+                <Link
+                  to={`/products/${component.expand.product.id}`}
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  Other instances of this product ({productInstanceCount} total)
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {(canDecideRequests || canTransferKits) && (
           <Card>

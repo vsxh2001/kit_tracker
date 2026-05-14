@@ -40,6 +40,7 @@ export async function listComponentsInKit(kitId: string): Promise<Component[]> {
   const [allComponents, latestByComponent] = await Promise.all([
     pb.collection("components").getFullList<Component>({
       filter: "is_active = true",
+      expand: "product",
       requestKey: "components-for-kit-list",
     }),
     getLatestTxPerComponent(),

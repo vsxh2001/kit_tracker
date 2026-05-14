@@ -22,6 +22,8 @@ import { AuditLogPage } from "./pages/AuditLogPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
 import { OnCallPage } from "./pages/OnCallPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ProductsPage } from "./pages/ProductsPage";
+import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -74,6 +76,8 @@ export default function App() {
             <Route path="stats" element={<CanDecideOnly><StatsPage /></CanDecideOnly>} />
             <Route path="oncall" element={<RequireRole><OnCallPage /></RequireRole>} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="products" element={<RequireRole><ProductsPage /></RequireRole>} />
+            <Route path="products/:id" element={<RequireRole><ProductDetailPage /></RequireRole>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
