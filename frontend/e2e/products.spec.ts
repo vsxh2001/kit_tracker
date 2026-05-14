@@ -1,0 +1,407 @@
+/**
+ * products.spec.ts — Products catalog feature tests.
+ *
+ * @smoke tests cover core CRUD flows.
+ *
+ * Groups:
+ *   P1-P3   Admin CRUD (create, edit, soft-delete / restore)
+ *   P4      Technician parity
+ *   P5      Viewer cannot see Add/Edit buttons
+ *   P6      AddComponentDialog product picker
+ *   P7      ComponentDetailPage shows linked product
+ *   P8      KitDetailPage Components card shows product name
+ *
+ * Requires: PocketBase on $PB_URL (default :8090) + Vite on PLAYWRIGHT_TEST_BASE_URL.
+ */
+
+import { test, expect, type Page } from "@playwright/test";
+import {
+  createTestProduct,
+  deleteTestProduct,
+  createTestKit,
+  createTestEntity,
+  createTestTransaction,
+  createTestComponent,
+  deleteKit,
+  deactivateEntity,
+  deactivateComponent,
+  linkComponentToProduct,
+  getUserTokenByEmail,
+} from "./helpers/api";
+import { loginAs } from "./helpers/auth";
+
+const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
+const TS = `prod-${Date.now()}`;
+
+async function waitForProductsPage(page: Page) {
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText(/loading…/i)).not.toBeVisible({ timeout: 8000 });
+}
+
+// ---------------------------------------------------------------------------
+// P1-P3: Admin CRUD
+// ---------------------------------------------------------------------------
+
+test.describe("P1-P3: Admin product CRUD @smoke", () => {
+  let productId: string;
+  const PROD_NAME = `${TS}-Laptop`;
+
+  test.afterAll(async () => {
+    if (productId) await deleteTestProduct(productId);
+  });
+
+  test("P1: admin creates product via UI, sees it in list @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/products");
+    await waitForProductsPage(page);
+
+    // Click Add product
+    await page.getByRole("button", { name: /add product/i }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByLabel(/name/i).fill(PROD_NAME);
+    await dialog.getByLabel(/category/i).fill("Electronics");
+    await dialog.getByLabel(/manufacturer/i).fill("TestCo");
+    await dialog.getByLabel(/model/i).fill("Model-X");
+
+    await dialog.getByRole("button", { name: /create/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 8000 });
+
+    // Product appears in list
+    await expect(page.getByText(PROD_NAME)).toBeVisible({ timeout: 8000 });
+
+    // Get product id via API for cleanup
+    const token = await (async () => {
+      const res = await fetch(`${PB_URL}/api/collections/products/records?filter=name="${PROD_NAME}"`, {
+        headers: { Authorization: (await getUserTokenByEmail("logistics@kit.local", "Pass1234!")).token },
+      });
+      const data = await res.json();
+      return data.items?.[0]?.id;
+    })();
+    productId = token;
+  });
+
+  test("P2: admin edits product, sees update @smoke", async ({ page }) => {
+    if (!productId) {
+      // Create via API if P1 didn't run
+      const prod = await createTestProduct({ name: `${TS}-EditProd`, category: "Electronics" });
+      productId = prod.id;
+    }
+
+    await loginAs(page, "admin");
+    await page.goto(`/products/${productId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+
+    // Click Edit button
+    await page.getByRole("button", { name: /edit/i }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Update name
+    const nameInput = dialog.getByLabel(/name/i);
+    await nameInput.clear();
+    await nameInput.fill(`${TS}-Laptop-Updated`);
+    await dialog.getByRole("button", { name: /save/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 8000 });
+
+    // Updated name visible
+    await expect(page.getByText(`${TS}-Laptop-Updated`)).toBeVisible({ timeout: 8000 });
+  });
+
+  test("P3: admin soft-deletes product, hidden from default list, visible with show-inactive @smoke", async ({ page }) => {
+    // Create fresh product
+    const prod = await createTestProduct({ name: `${TS}-ToDelete`, category: "Electronics" });
+    const toDeleteId = prod.id;
+
+    await loginAs(page, "admin");
+    await page.goto(`/products/${toDeleteId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+
+    // Deactivate
+    await page.getByRole("button", { name: /deactivate/i }).click();
+    const confirmDialog = page.getByRole("alertdialog");
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole("button", { name: /deactivate/i }).click();
+    await expect(confirmDialog).not.toBeVisible({ timeout: 8000 });
+
+    // Inactive badge shown
+    await expect(page.getByText("Inactive")).toBeVisible({ timeout: 8000 });
+
+    // Go to list: not visible by default
+    await page.goto("/products");
+    await waitForProductsPage(page);
+    await expect(page.getByText(`${TS}-ToDelete`)).not.toBeVisible();
+
+    // Toggle show inactive
+    await page.getByLabel(/show inactive/i).check();
+    await expect(page.getByText(`${TS}-ToDelete`)).toBeVisible({ timeout: 8000 });
+
+    await deleteTestProduct(toDeleteId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P4: Technician parity
+// ---------------------------------------------------------------------------
+
+test.describe("P4: Technician can create and edit products", () => {
+  let prodId: string;
+
+  test.afterAll(async () => {
+    if (prodId) await deleteTestProduct(prodId);
+  });
+
+  test("P4: technician can create product @smoke", async ({ page }) => {
+    // Use API — technician role uses tech@kit.local (see components.spec.ts)
+    // We verify at the REST level: admin creates, technician should be able to PATCH
+    // (create rule: admin or technician per DB rules spec)
+    const { token } = await getUserTokenByEmail("tech@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${TS}-TechProd`, is_active: true }),
+    });
+    // PB v0.22: 200 on success for technician (create/update rule = admin or technician)
+    expect(res.status, "Technician must be allowed to create products").toBe(200);
+    const data = await res.json();
+    prodId = data.id;
+
+    // Verify UI: technician sees Add product button
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("tech@kit.local");
+    await page.getByLabel("Password").fill("Pass1234!");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.waitForURL("**/dashboard", { timeout: 10_000 });
+    await page.goto("/products");
+    await waitForProductsPage(page);
+    await expect(page.getByRole("button", { name: /add product/i })).toBeVisible({
+      message: "Technician must see 'Add product' button",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P5: Viewer cannot see Add/Edit buttons
+// ---------------------------------------------------------------------------
+
+test.describe("P5: Viewer cannot see Add/Edit buttons", () => {
+  let viewerProdId: string;
+
+  test.beforeAll(async () => {
+    const prod = await createTestProduct({ name: `${TS}-ViewerProd` });
+    viewerProdId = prod.id;
+  });
+
+  test.afterAll(async () => {
+    if (viewerProdId) await deleteTestProduct(viewerProdId);
+  });
+
+  test("P5: viewer can browse products but not see Add/Edit @smoke", async ({ page }) => {
+    await loginAs(page, "viewer");
+    await page.goto("/products");
+    await waitForProductsPage(page);
+
+    // No "Add product" button
+    await expect(page.getByRole("button", { name: /add product/i })).not.toBeVisible({
+      message: "Viewer must NOT see 'Add product' button",
+    });
+
+    // Can navigate to detail page
+    await page.goto(`/products/${viewerProdId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+
+    // No Edit button
+    await expect(page.getByRole("button", { name: /edit/i })).not.toBeVisible({
+      message: "Viewer must NOT see Edit button on product detail",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P6: AddComponentDialog product picker
+// ---------------------------------------------------------------------------
+
+test.describe("P6: AddComponentDialog product picker", () => {
+  let pickerProdId: string;
+  let entityId: string;
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    pickerProdId = (await createTestProduct({ name: `${TS}-PickerProd`, manufacturer: "PickerCo" })).id;
+    entityId = (await createTestEntity(`${TS}-PickerEntity`, "", "storage")).id;
+    kitId = (await createTestKit(`${TS}-KIT-PICKER`)).id;
+    await createTestTransaction({ kitId, toEntityId: entityId });
+  });
+
+  test.afterAll(async () => {
+    await deleteTestProduct(pickerProdId);
+    await deleteKit(kitId);
+    await deactivateEntity(entityId);
+  });
+
+  test("P6: product picker shows existing products; null product is valid @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByRole("heading", { name: /components in kit/i })).toBeVisible({ timeout: 8000 });
+
+    // Open Add component dialog
+    await page.getByRole("button", { name: /add component/i }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Should have product picker combobox
+    const productPicker = dialog.getByRole("combobox", { name: /product/i });
+    await expect(productPicker).toBeVisible({
+      message: "Add Component dialog must have a product picker",
+    });
+
+    // Open it and verify product appears
+    await productPicker.click();
+    await expect(page.getByRole("option", { name: new RegExp(`${TS}-PickerProd`) })).toBeVisible({
+      message: "Product picker must list the created product",
+    });
+
+    // Close without selecting (null product is valid)
+    await page.keyboard.press("Escape");
+
+    // Can still create without product: fill required fields and submit
+    await dialog.getByLabel(/type/i).fill("TestType");
+    await dialog.getByRole("button", { name: /create/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 8000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P7: ComponentDetailPage shows linked product + N-instances link
+// ---------------------------------------------------------------------------
+
+test.describe("P7: ComponentDetailPage shows linked product", () => {
+  let prodId: string;
+  let compId: string;
+  let entityId: string;
+
+  test.beforeAll(async () => {
+    prodId = (await createTestProduct({ name: `${TS}-LinkedProd`, manufacturer: "LinkCo", model: "LM-1" })).id;
+    entityId = (await createTestEntity(`${TS}-LinkEntity`, "", "storage")).id;
+    const comp = await createTestComponent({
+      serial: `${TS}-LINK-SER`,
+      type: "Gadget",
+      initialEntity: entityId,
+    });
+    compId = comp.id;
+    // Link component to product via API
+    await linkComponentToProduct(compId, prodId);
+  });
+
+  test.afterAll(async () => {
+    if (compId) await deactivateComponent(compId);
+    await deleteTestProduct(prodId);
+    await deactivateEntity(entityId);
+  });
+
+  test("P7: component detail shows product card and instance count @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/components/${compId}`);
+    await expect(page.getByText(/movement history/i)).toBeVisible({ timeout: 8000 });
+
+    // Product card visible
+    await expect(page.getByText(`${TS}-LinkedProd`)).toBeVisible({
+      message: "Component detail must show linked product name",
+    });
+
+    // Instances link visible
+    await expect(page.getByText(/instances of this product/i)).toBeVisible({
+      message: "Component detail must show instances-of-product link",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P8: KitDetailPage Components card shows product name when linked
+// ---------------------------------------------------------------------------
+
+test.describe("P8: KitDetailPage Components card shows product name", () => {
+  let prodId: string;
+  let compId: string;
+  let entityId: string;
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    prodId = (await createTestProduct({ name: `${TS}-KitProd`, manufacturer: "KitCo" })).id;
+    entityId = (await createTestEntity(`${TS}-KitProdEntity`, "", "storage")).id;
+    kitId = (await createTestKit(`${TS}-KIT-PROD`)).id;
+    await createTestTransaction({ kitId, toEntityId: entityId });
+    const comp = await createTestComponent({
+      serial: `${TS}-KITPROD-SER`,
+      type: "Module",
+      initialKit: kitId,
+      fromEntity: entityId,
+    });
+    compId = comp.id;
+    await linkComponentToProduct(compId, prodId);
+  });
+
+  test.afterAll(async () => {
+    if (compId) await deactivateComponent(compId);
+    await deleteTestProduct(prodId);
+    await deleteKit(kitId);
+    await deactivateEntity(entityId);
+  });
+
+  test("P8: kit detail Components table shows product name when linked @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByRole("heading", { name: /components in kit/i })).toBeVisible({ timeout: 8000 });
+
+    // Product name should appear as a link in the components table
+    await expect(page.getByText(`${TS}-KitProd`)).toBeVisible({
+      message: "Kit detail Components card must show product name when component has linked product",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P9: REST-level permission checks for products collection
+// ---------------------------------------------------------------------------
+
+test.describe("P9: Products permission enforcement (REST)", () => {
+  let permProdId: string;
+
+  test.beforeAll(async () => {
+    permProdId = (await createTestProduct({ name: `${TS}-PermProd` })).id;
+  });
+
+  test.afterAll(async () => {
+    if (permProdId) await deleteTestProduct(permProdId);
+  });
+
+  test("P9a: viewer can list products (listRule = any auth)", async () => {
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/products/records`, {
+      headers: { Authorization: token },
+    });
+    expect(res.status, "Viewer must be able to list products").toBe(200);
+  });
+
+  test("P9b: regular user cannot create product (createRule = admin or technician → 400)", async () => {
+    const { token } = await getUserTokenByEmail("requester@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${TS}-NoPermProd`, is_active: true }),
+    });
+    expect(res.status, "Regular user must NOT create products → 400").toBe(400);
+  });
+
+  test("P9c: delete product returns 404 (deleteRule = null)", async () => {
+    const token = (await import("./helpers/api")).getAdminToken;
+    const adminToken = await token();
+    const res = await fetch(`${PB_URL}/api/collections/products/records/${permProdId}`, {
+      method: "DELETE",
+      headers: { Authorization: adminToken },
+    });
+    // deleteRule = null → nobody can delete
+    expect(res.status, "deleteRule null: even admin cannot hard-delete products → 404").toBe(404);
+  });
+});

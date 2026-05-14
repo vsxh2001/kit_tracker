@@ -14,9 +14,10 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { createComponent, listComponents } from "../services/components";
 import { createComponentTransaction } from "../services/componentTransactions";
+import { listProducts } from "../services/products";
 import { useAuth } from "../context/AuthContext";
 import { pb } from "../lib/pocketbase";
-import type { Component } from "../types";
+import type { Component, Product } from "../types";
 
 interface Props {
   open: boolean;
@@ -40,6 +41,8 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
   const [notes, setNotes] = useState("");
   const [isBulk, setIsBulk] = useState(false);
   const [quantity, setQuantity] = useState("1");
+  const [productId, setProductId] = useState("__none__");
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Move existing fields
   const [existingComponents, setExistingComponents] = useState<Component[]>([]);
@@ -58,6 +61,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         setNotes("");
         setIsBulk(false);
         setQuantity("1");
+        setProductId("__none__");
         setSelectedId("");
         setMoveQty("1");
         setError("");
@@ -70,6 +74,9 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
           })
           .catch(() => setError("Failed to load components."));
       }
+      listProducts({ includeInactive: false })
+        .then(setProducts)
+        .catch(() => {});
     }
   }, [open, isAdmin, canTransferKits]);
 
@@ -86,6 +93,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         is_bulk: isBulk,
         quantity: qty,
         is_active: true,
+        product: productId !== "__none__" ? productId : undefined,
       });
       // Create initial transaction placing it in target
       if (targetKit || targetEntity) {
@@ -168,6 +176,31 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         <div className="space-y-4 pt-2">
           {tab === "create" && isAdmin && (
             <>
+              <div className="space-y-1.5">
+                <Label htmlFor="comp-product">Product (optional)</Label>
+                <Select
+                  value={productId}
+                  onValueChange={(v) => {
+                    setProductId(v);
+                    if (v !== "__none__") {
+                      const prod = products.find((p) => p.id === v);
+                      if (prod?.category && !type.trim()) setType(prod.category);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="comp-product">
+                    <SelectValue placeholder="No product linked" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No product linked</SelectItem>
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}{p.manufacturer ? ` — ${p.manufacturer}` : ""}{p.model ? ` ${p.model}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="comp-type">Type</Label>
                 <Input

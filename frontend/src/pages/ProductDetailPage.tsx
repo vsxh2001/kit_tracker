@@ -1,0 +1,282 @@
+import { useEffect, useState, startTransition } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, Pencil } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { EditProductDialog } from "../components/EditProductDialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
+import { getProduct, listComponentsForProduct, softDeleteProduct, restoreProduct } from "../services/products";
+import { useAuth } from "../context/AuthContext";
+import { formatDate } from "../lib/utils";
+import { toast } from "../components/ui/use-toast";
+import type { Component, Product } from "../types";
+
+export function ProductDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { canDecideRequests } = useAuth();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [components, setComponents] = useState<Component[]>([]);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDeactivate, setShowDeactivate] = useState(false);
+  const [showRestore, setShowRestore] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const [p, comps] = await Promise.all([
+        getProduct(id),
+        listComponentsForProduct(id),
+      ]);
+      setProduct(p);
+      setComponents(comps);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { startTransition(() => load()); }, [id]);
+
+  async function handleSoftDelete() {
+    if (!product) return;
+    try {
+      await softDeleteProduct(product.id);
+      toast({ title: "Product deactivated", description: product.name, variant: "success" });
+      setShowDeactivate(false);
+      load();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      toast({ title: "Failed to deactivate", description: e?.message, variant: "destructive" });
+    }
+  }
+
+  async function handleRestore() {
+    if (!product) return;
+    try {
+      await restoreProduct(product.id);
+      toast({ title: "Product restored", description: product.name, variant: "success" });
+      setShowRestore(false);
+      load();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      toast({ title: "Failed to restore", description: e?.message, variant: "destructive" });
+    }
+  }
+
+  if (loading) return <p className="text-muted-foreground">Loading…</p>;
+  if (!product) return <p>Product not found.</p>;
+
+  let specsFormatted = product.specs ?? "";
+  if (specsFormatted) {
+    try {
+      specsFormatted = JSON.stringify(JSON.parse(specsFormatted), null, 2);
+    } catch {
+      // leave as-is
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => navigate("/products")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
+          {!product.is_active && <Badge variant="destructive">Inactive</Badge>}
+        </div>
+      </div>
+
+      {/* Info + Actions */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-0 text-sm pt-0">
+            <Row label="Name" value={product.name} />
+            <Row label="Category" value={product.category || "—"} />
+            <Row label="Manufacturer" value={product.manufacturer || "—"} />
+            <Row label="Model" value={product.model || "—"} />
+            <Row label="Description" value={product.description || "—"} />
+            <Row label="Created" value={formatDate(product.created)} />
+          </CardContent>
+        </Card>
+
+        {canDecideRequests && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 pt-0">
+              <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+              {product.is_active ? (
+                <Button size="sm" variant="destructive" onClick={() => setShowDeactivate(true)}>
+                  Deactivate
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setShowRestore(true)}>
+                  Restore
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Specs */}
+      {specsFormatted && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Specs</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <pre className="text-xs bg-slate-50 rounded-md p-3 overflow-auto max-h-48">{specsFormatted}</pre>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Components of this product */}
+      <div>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-base font-semibold tracking-tight">Components of this product</h2>
+          <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        {components.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No components linked to this product.</p>
+        ) : (
+          <>
+            {/* Mobile */}
+            <div className="md:hidden space-y-2">
+              {components.map((comp) => (
+                <Link key={comp.id} to={`/components/${comp.id}`}>
+                  <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-medium">{comp.type}</span>
+                        {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {comp.is_bulk && <Badge variant="secondary" className="text-[10px]">Bulk × {comp.quantity}</Badge>}
+                        {!comp.is_active && <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <Card className="overflow-hidden hidden md:block">
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50/80">
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {components.map((comp) => (
+                      <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="text-xs font-medium">{comp.type}</div>
+                          {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
+                        </td>
+                        <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
+                        <td className="px-4 py-3">
+                          {comp.is_bulk
+                            ? <Badge variant="secondary" className="text-[10px]">Bulk</Badge>
+                            : <span className="text-muted-foreground opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {comp.is_active
+                            ? <Badge variant="outline" className="text-[10px]">Active</Badge>
+                            : <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link to={`/components/${comp.id}`} className="text-indigo-600 hover:underline text-xs">View</Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {product && showEdit && (
+        <EditProductDialog
+          open={showEdit}
+          product={product}
+          onClose={() => setShowEdit(false)}
+          onSuccess={load}
+        />
+      )}
+
+      <AlertDialog open={showDeactivate} onOpenChange={setShowDeactivate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This product will be marked inactive and hidden from the default catalog. You can restore it later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleSoftDelete}>Deactivate</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRestore} onOpenChange={setShowRestore}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This product will be marked active again and visible in the catalog.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestore}>Restore</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
+      <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">{label}</p>
+      <p className={`text-sm text-right break-all ${mono ? "font-mono text-xs tracking-wide text-indigo-700" : ""}`}>{value}</p>
+    </div>
+  );
+}

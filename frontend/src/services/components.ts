@@ -14,6 +14,7 @@ export async function listComponents(opts?: { type?: string; activeOnly?: boolea
 
 export async function getComponent(id: string): Promise<Component> {
   return pb.collection("components").getOne<Component>(id, {
+    expand: "product",
     requestKey: `get-component-${id}`,
   });
 }

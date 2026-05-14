@@ -1,14 +1,20 @@
 import { useEffect, useState, startTransition } from "react";
 import { Navigate } from "react-router-dom";
-import { BarChart3, Package, Users, TrendingUp, Clock, AlertTriangle, Wrench } from "lucide-react";
+import { BarChart3, Package, Users, TrendingUp, Clock, AlertTriangle, Wrench, Cpu } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { computeStats } from "../services/stats";
 import { listAllActiveSchedules } from "../services/maintenance";
+import { listProducts, countComponentsForProduct } from "../services/products";
 import { maintenanceStatus } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import type { UtilizationStats } from "../services/stats";
-import type { RequestStatus } from "../types";
+import type { RequestStatus, Product } from "../types";
+
+interface ProductUsage {
+  product: Product;
+  count: number;
+}
 
 const STATUS_COLORS: Record<RequestStatus, string> = {
   open: "bg-amber-400",
@@ -32,14 +38,24 @@ export function StatsPage() {
   const { canDecideRequests, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<UtilizationStats | null>(null);
   const [overdueMaintenanceCount, setOverdueMaintenanceCount] = useState(0);
+  const [topProducts, setTopProducts] = useState<ProductUsage[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
     try {
-      const [s, scheds] = await Promise.all([computeStats(), listAllActiveSchedules()]);
+      const [s, scheds, prods] = await Promise.all([
+        computeStats(),
+        listAllActiveSchedules(),
+        listProducts({ includeInactive: false }),
+      ]);
       setStats(s);
       setOverdueMaintenanceCount(scheds.filter((sc) => maintenanceStatus(sc.next_due_at) === "overdue").length);
+      // Count components per product in parallel with unique requestKeys
+      const counts = await Promise.all(prods.map((p) => countComponentsForProduct(p.id)));
+      const usage: ProductUsage[] = prods.map((p, i) => ({ product: p, count: counts[i] }));
+      usage.sort((a, b) => b.count - a.count);
+      setTopProducts(usage.slice(0, 5));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -252,6 +268,29 @@ export function StatsPage() {
                 >
                   View maintenance →
                 </a>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 8 — Top products by usage */}
+          <Card data-testid="card-top-products">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Cpu className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Top products by usage</span>
+              </div>
+              {topProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No products with linked components.</p>
+              ) : (
+                <ol className="space-y-1.5">
+                  {topProducts.map((r, i) => (
+                    <li key={r.product.id} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground shrink-0 w-4">{i + 1}.</span>
+                      <span className="text-sm truncate flex-1 min-w-0">{r.product.name}</span>
+                      <span className="text-xs font-semibold tabular-nums text-indigo-600">{r.count}</span>
+                    </li>
+                  ))}
+                </ol>
               )}
             </CardContent>
           </Card>

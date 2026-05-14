@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, startTransition } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn, formatTelHref } from "../lib/utils";
@@ -13,6 +13,7 @@ const nav = [
   { to: "/entities", label: "Entities", icon: Users },
   { to: "/requests", label: "Requests", icon: FileText },
   { to: "/components", label: "Components", icon: Cpu },
+  { to: "/products", label: "Products", icon: Tag },
 ];
 
 export function Layout() {

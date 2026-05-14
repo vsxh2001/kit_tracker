@@ -560,3 +560,69 @@ export async function patchUser(id: string, data: Record<string, unknown>): Prom
     throw new Error(`patchUser failed: ${JSON.stringify(body)}`);
   }
 }
+
+// --- Products ---
+
+export interface ProductRecord {
+  id: string;
+  name: string;
+  category?: string;
+  manufacturer?: string;
+  model?: string;
+  description?: string;
+  specs?: string;
+  is_active: boolean;
+}
+
+export async function createTestProduct(data: {
+  name: string;
+  category?: string;
+  manufacturer?: string;
+  model?: string;
+  description?: string;
+  specs?: string;
+}): Promise<ProductRecord> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/products/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...data, is_active: true }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`createTestProduct failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
+export async function deleteTestProduct(id: string): Promise<void> {
+  const token = await getAdminToken();
+  await fetch(`${PB_URL}/api/collections/products/records/${id}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active: false }),
+  });
+}
+
+export async function listProductsApi(): Promise<ProductRecord[]> {
+  const token = await getAdminToken();
+  const res = await fetch(
+    `${PB_URL}/api/collections/products/records?sort=name&perPage=200`,
+    { headers: { Authorization: token } }
+  );
+  const data = await res.json();
+  return data.items ?? [];
+}
+
+export async function linkComponentToProduct(componentId: string, productId: string): Promise<void> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/components/records/${componentId}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ product: productId }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`linkComponentToProduct failed: ${JSON.stringify(body)}`);
+  }
+}
