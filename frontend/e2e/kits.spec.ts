@@ -8,13 +8,17 @@
  *   - Empty serial shows validation error
  *   - Cancel button closes dialog without creating
  *   - Kit detail page shows serial, current location, transaction history
- *   - Admin sees Move kit / Edit / Retire buttons on detail page
+ *   - Admin sees Move kit / Edit / Delete buttons on detail page
  *   - Viewer sees no action buttons on kit detail
  *   - Admin can move a kit (MoveKitDialog creates a transaction)
  *   - Moving a kit updates the current entity shown
  *   - Move dialog requires selecting a destination
  *   - Admin can edit kit serial and notes
- *   - Admin can retire a kit (soft-deactivate, redirects to /kits)
+ *   - Admin can delete a kit via /kits row (soft-delete, removed from list)
+ *   - Admin can delete a kit via /kits/:id detail header (redirects to /kits)
+ *   - Viewer cannot see Delete button
+ *   - Kit detail page does NOT show a Restore button
+ *   - PATCH is_active=true via API still works (escape hatch)
  */
 
 import { test, expect } from "@playwright/test";
@@ -27,7 +31,10 @@ import {
   deleteKit,
   deactivateEntity,
   getKitBySerial,
+  getAdminToken,
 } from "./helpers/api";
+
+const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 
 // Unique prefix for all test data in this file — avoids collision across runs
 const TS = `kits-${Date.now()}`;
@@ -183,12 +190,12 @@ test.describe("Kit detail page", () => {
     await expect(page.getByRole("columnheader", { name: "To" })).toBeVisible();
   });
 
-  test("admin sees Move kit, Edit, and Retire kit buttons", async ({ page }) => {
+  test("admin sees Move kit, Edit, and Delete buttons", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
     await expect(page.getByRole("button", { name: /move kit/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /retire kit/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^delete$/i })).toBeVisible();
   });
 
   test("viewer does not see action buttons on kit detail", async ({ page }) => {
@@ -201,8 +208,8 @@ test.describe("Kit detail page", () => {
       page.getByRole("button", { name: /move kit/i })
     ).not.toBeVisible({ message: "Viewer should not see Move kit" });
     await expect(
-      page.getByRole("button", { name: /retire kit/i })
-    ).not.toBeVisible({ message: "Viewer should not see Retire kit" });
+      page.getByRole("button", { name: /^delete$/i })
+    ).not.toBeVisible({ message: "Viewer should not see Delete" });
     await expect(
       page.getByRole("button", { name: /^edit$/i })
     ).not.toBeVisible({ message: "Viewer should not see Edit" });
@@ -365,38 +372,138 @@ test.describe("Kit edit", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Kit retire
+// Kit delete — via /kits/:id detail page
 // ---------------------------------------------------------------------------
 
-test.describe("Kit retire", () => {
-  const RETIRE_SERIAL = `${TS}-RETIRE`;
+test.describe("Kit delete via detail page", () => {
+  const DELETE_SERIAL = `${TS}-DEL-DETAIL`;
   let kitId: string;
 
   test.beforeAll(async () => {
-    const kit = await createTestKit(RETIRE_SERIAL);
+    const kit = await createTestKit(DELETE_SERIAL);
     kitId = kit.id;
   });
 
-  // No afterAll cleanup needed — retiring sets is_active=false which is
-  // effectively the same as deleteKit() soft-delete.
+  // No afterAll cleanup — deleting sets is_active=false (same as deleteKit soft-delete).
 
-  test("admin can retire a kit", async ({ page }) => {
+  test("admin can delete a kit via detail page @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
-    await page.getByRole("button", { name: /retire kit/i }).click();
+    await page.getByRole("button", { name: /^delete$/i }).click();
 
-    // Confirm the retire action in the AlertDialog
-    await page.getByRole("alertdialog").getByRole("button", { name: /^retire$/i }).click();
+    // AlertDialog should appear
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await expect(page.getByRole("alertdialog").getByText(/delete kit/i)).toBeVisible();
 
-    // After retire, page redirects to /kits - wait for it
+    // Confirm
+    await page.getByRole("alertdialog").getByRole("button", { name: /^delete$/i }).click();
+
+    // Redirects to /kits
     await page.waitForURL("**/kits", { timeout: 5000 });
 
-    // Retired kit (is_active=false) should not appear in active kit list
-    await page.getByPlaceholder(/search by serial/i).fill(RETIRE_SERIAL);
+    // Deleted kit should not appear in active list
+    await page.getByPlaceholder(/search by serial/i).fill(DELETE_SERIAL);
     await expect(page.getByText(/no kits found/i)).toBeVisible({
       timeout: 5000,
-      message: "Retired kit should not appear in the active kits list",
+      message: "Deleted kit should not appear in active list",
     });
+  });
+
+  test("kit detail page does not show a Restore button", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByRole("button", { name: /restore/i })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: /reactivate/i })).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Kit delete — via /kits row action
+// ---------------------------------------------------------------------------
+
+test.describe("Kit delete via kits list row", () => {
+  const DELETE_ROW_SERIAL = `${TS}-DEL-ROW`;
+
+  test.beforeAll(async () => {
+    await createTestKit(DELETE_ROW_SERIAL);
+  });
+
+  test("admin can delete a kit via row Delete button", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/kits");
+
+    // Filter to find the specific kit row
+    await page.getByPlaceholder(/search by serial/i).fill(DELETE_ROW_SERIAL);
+    await expect(page.getByRole("cell", { name: DELETE_ROW_SERIAL })).toBeVisible();
+
+    // Click the Delete button in that row
+    await page.getByRole("button", { name: /^delete$/i }).first().click();
+
+    // AlertDialog appears
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+
+    // Confirm
+    await page.getByRole("alertdialog").getByRole("button", { name: /^delete$/i }).click();
+
+    // Kit row disappears from the list
+    await expect(page.getByRole("cell", { name: DELETE_ROW_SERIAL })).not.toBeVisible({
+      timeout: 5000,
+      message: "Deleted kit should be removed from the list",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Kit delete — viewer cannot see Delete button
+// ---------------------------------------------------------------------------
+
+test.describe("Kit delete — viewer access", () => {
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-DEL-VIEW`);
+    kitId = kit.id;
+  });
+
+  test.afterAll(async () => {
+    await deleteKit(kitId);
+  });
+
+  test("viewer cannot see Delete button on detail page", async ({ page }) => {
+    await loginAs(page, "viewer");
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByRole("button", { name: /^delete$/i })).not.toBeVisible({
+      message: "Viewer should not see Delete button",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Kit delete — API escape hatch (PATCH is_active=true still works)
+// ---------------------------------------------------------------------------
+
+test.describe("Kit delete — API escape hatch", () => {
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-DEL-ESCAPE`);
+    kitId = kit.id;
+    // Soft-delete it via API
+    await deleteKit(kitId);
+  });
+
+  test("PATCH is_active=true via API reactivates the kit", async () => {
+    const token = await getAdminToken();
+    const res = await fetch(`${PB_URL}/api/collections/kits/records/${kitId}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: true }),
+    });
+    expect(res.ok).toBe(true);
+    const data = await res.json();
+    expect(data.is_active).toBe(true);
+    // Cleanup
+    await deleteKit(kitId);
   });
 });
