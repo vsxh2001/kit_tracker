@@ -953,19 +953,6 @@ function getAiTools() {
       "If a write tool returns permission_denied, politely explain the user does not have permission."
     );
 
-<<<<<<< Updated upstream
-    // --- Build conversation history for Anthropic (role: user/assistant only) ---
-    var historyMessages = [];
-    var storedMsgs = session.messages;
-    for (var h = 0; h < storedMsgs.length; h++) {
-      var sm = storedMsgs[h];
-      if (sm.role === "user" || sm.role === "assistant") {
-        if (typeof sm.content === "string") {
-          historyMessages.push({ role: sm.role, content: sm.content });
-        }
-      }
-    }
-=======
     // --- Build conversation history for Anthropic ---
     // Fix B (2026-05-15): single-turn / stateless. NO prior messages sent.
     // Each chat call is independent from the model's perspective.
@@ -983,7 +970,6 @@ function getAiTools() {
     // common path. Server-side session.messages is still persisted for
     // audit / debugging, just not sent back to Anthropic.
     var historyMessages = [];
->>>>>>> Stashed changes
 
     // Add the new user message
     var wrappedMessage = "<user_content>" + message + "</user_content>";
