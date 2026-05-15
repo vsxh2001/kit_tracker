@@ -12,7 +12,7 @@ import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { KitQR } from "../components/KitQR";
-import { getKit, getKitHistory, updateKit, uploadKitAttachment, deleteKitAttachment } from "../services/kits";
+import { getKit, getKitHistory, softDeleteKit, uploadKitAttachment, deleteKitAttachment } from "../services/kits";
 import { AttachmentList } from "../components/AttachmentList";
 import { listComponentsInKit } from "../services/componentTransactions";
 import { listSchedulesForKit, updateSchedule } from "../services/maintenance";
@@ -36,13 +36,13 @@ import type { Kit, Transaction, Component, KitMaintenanceSchedule } from "../typ
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canTransferKits, canDecideRequests } = useAuth();
+  const { canTransferKits, canDecideRequests, isAdmin } = useAuth();
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [showMove, setShowMove] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [showRetire, setShowRetire] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [components, setComponents] = useState<Component[]>([]);
   const [showAddComp, setShowAddComp] = useState(false);
@@ -93,15 +93,15 @@ export function KitDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { startTransition(() => load()); }, [id]);
 
-  async function handleRetire() {
+  async function handleDelete() {
     if (!kit) return;
     try {
-      await updateKit(kit.id, { is_active: false });
-      toast({ title: "Kit retired", description: kit.serial, variant: "success" });
+      await softDeleteKit(kit.id);
+      toast({ title: "Kit deleted", description: kit.serial, variant: "success" });
       navigate("/kits");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      toast({ title: "Failed to retire kit", description: err?.message, variant: "destructive" });
+      toast({ title: "Failed to delete kit", description: err?.message, variant: "destructive" });
     }
   }
 
@@ -159,9 +159,9 @@ export function KitDetailPage() {
                   Edit
                 </Button>
               )}
-              {canDecideRequests && kit.is_active && (
-                <Button size="sm" variant="destructive" onClick={() => setShowRetire(true)}>
-                  Retire kit
+              {isAdmin && (
+                <Button size="sm" variant="destructive" onClick={() => setShowDelete(true)}>
+                  Delete
                 </Button>
               )}
             </CardContent>
@@ -536,17 +536,17 @@ export function KitDetailPage() {
         />
       )}
 
-      <AlertDialog open={showRetire} onOpenChange={setShowRetire}>
+      <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Retire {kit.serial}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete kit?</AlertDialogTitle>
             <AlertDialogDescription>
-              This kit will be marked inactive and hidden from active kit lists. You can still view its history.
+              Kit <strong>{kit.serial}</strong> will be hidden from the catalog. Historical transactions referencing it will show as deleted. This cannot be undone from the UI.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleRetire}>Retire</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

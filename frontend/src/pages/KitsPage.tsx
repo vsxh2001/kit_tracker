@@ -7,10 +7,21 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
-import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags } from "../services/kits";
+import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { Skeleton } from "../components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
+import { toast } from "../components/ui/use-toast";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import type { MaintStatus } from "../lib/utils";
@@ -35,7 +46,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 
 export function KitsPage() {
   const navigate = useNavigate();
-  const { canDecideRequests } = useAuth();
+  const { canDecideRequests, isAdmin } = useAuth();
   const [rows, setRows] = useState<KitRow[]>([]);
   const [deliveries, setDeliveries] = useState<Map<string, UpcomingDelivery>>(new Map());
   const [schedulesByKit, setSchedulesByKit] = useState<Map<string, KitMaintenanceSchedule[]>>(new Map());
@@ -44,6 +55,7 @@ export function KitsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Kit | null>(null);
   const [sortField, setSortField] = useState<SortField>("serial");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -97,6 +109,20 @@ export function KitsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
+    }
+  }
+
+  async function handleDeleteKit() {
+    if (!deleteTarget) return;
+    try {
+      await softDeleteKit(deleteTarget.id);
+      setRows((prev) => prev.filter((r) => r.kit.id !== deleteTarget.id));
+      toast({ title: "Kit deleted", description: deleteTarget.serial, variant: "success" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast({ title: "Failed to delete kit", description: err?.message, variant: "destructive" });
+    } finally {
+      setDeleteTarget(null);
     }
   }
 
@@ -261,6 +287,16 @@ export function KitsPage() {
                           ))}
                         </div>
                       )}
+                      {isAdmin && (
+                        <div className="mt-2" onClick={(e) => e.preventDefault()}>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(kit); }}
+                            className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </Link>
                 );
@@ -297,6 +333,7 @@ export function KitsPage() {
                       </th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
+                      {isAdmin && <th className="px-4 py-2.5" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -351,6 +388,16 @@ export function KitsPage() {
                           <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
                             <span className="line-clamp-2">{kit.notes ?? <span className="opacity-40">—</span>}</span>
                           </td>
+                          {isAdmin && (
+                            <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => setDeleteTarget(kit)}
+                                className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -373,6 +420,21 @@ export function KitsPage() {
         onClose={() => setShowImport(false)}
         onImported={load}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete kit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kit <strong>{deleteTarget?.serial}</strong> will be hidden from the catalog. Historical transactions referencing it will show as deleted. This cannot be undone from the UI.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDeleteKit}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

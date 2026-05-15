@@ -133,6 +133,10 @@ export async function uploadKitAttachment(kitId: string, file: File): Promise<Ki
   });
 }
 
+export async function softDeleteKit(id: string): Promise<Kit> {
+  return pb.collection("kits").update<Kit>(id, { is_active: false }, { requestKey: `soft-delete-kit-${id}` });
+}
+
 export async function deleteKitAttachment(kitId: string, filename: string): Promise<Kit> {
   return pb.collection("kits").update<Kit>(kitId, {
     "attachments-": [filename],
