@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,16 +11,32 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { createSchedule } from "../services/maintenance";
+import { listKits } from "../services/kits";
 import { toast } from "./ui/use-toast";
+import type { Kit } from "../types";
 
 interface Props {
-  kitId: string;
+  /** When provided, the kit picker is hidden and this kit is used. */
+  kitId?: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
 
 export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
+  const showKitPicker = !kitId;
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [selectedKitId, setSelectedKitId] = useState("");
+
+  useEffect(() => {
+    if (!showKitPicker || !open) return;
+    startTransition(() => {
+      listKits()
+        .then((data) => setKits(data))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .catch((err: any) => { if (!err?.isAbort) console.error(err); });
+    });
+  }, [showKitPicker, open]);
   const [type, setType] = useState("");
   const [description, setDescription] = useState("");
   const [intervalDays, setIntervalDays] = useState("30");
@@ -36,6 +52,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
     setLastDoneAt("");
     setNotes("");
     setError("");
+    setSelectedKitId("");
   }
 
   function computeNextDue(): string {
@@ -50,6 +67,8 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
   }
 
   async function handleSave() {
+    const resolvedKitId = kitId ?? selectedKitId;
+    if (showKitPicker && !resolvedKitId) { setError("Kit is required."); return; }
     if (!type.trim()) { setError("Type is required."); return; }
     const interval = parseInt(intervalDays, 10);
     if (!interval || interval < 1) { setError("Interval must be at least 1 day."); return; }
@@ -57,7 +76,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
     setLoading(true);
     try {
       await createSchedule({
-        kit: kitId,
+        kit: resolvedKitId,
         type: type.trim(),
         description: description.trim(),
         interval_days: interval,
@@ -92,6 +111,22 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
+          {showKitPicker && (
+            <div className="space-y-1.5">
+              <Label htmlFor="sched-kit">Kit</Label>
+              <select
+                id="sched-kit"
+                value={selectedKitId}
+                onChange={(e) => setSelectedKitId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select a kit…</option>
+                {kits.map((k) => (
+                  <option key={k.id} value={k.id}>{k.serial}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="sched-type">Type</Label>
             <Input

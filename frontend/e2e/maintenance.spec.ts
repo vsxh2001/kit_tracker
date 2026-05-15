@@ -242,3 +242,50 @@ test.describe("Maintenance — permission gate", () => {
     await page.waitForURL("**/dashboard", { timeout: 5000 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Test 6: Admin creates schedule via "New schedule" button on /maintenance
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — new schedule from hub @smoke", () => {
+  let kitId: string;
+  let schedSerial: string;
+
+  test.beforeAll(async () => {
+    schedSerial = `${TS}-HUB`;
+    const kit = await createTestKit(schedSerial);
+    kitId = kit.id;
+  });
+
+  test.afterAll(async () => {
+    await deleteKit(kitId);
+  });
+
+  test("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    // Button must be visible
+    await expect(page.getByRole("button", { name: "New schedule" })).toBeVisible();
+    await page.getByRole("button", { name: "New schedule" }).click();
+
+    // Dialog opens — kit picker present
+    await expect(page.getByLabel("Kit")).toBeVisible();
+
+    // Select the test kit by serial
+    await page.getByLabel("Kit").selectOption({ label: schedSerial });
+
+    // Fill required fields
+    await page.getByLabel("Type").fill("HubCalibration");
+    await page.getByLabel("Interval (days)").fill("45");
+
+    // Save
+    await page.getByRole("button", { name: "Add schedule" }).last().click();
+
+    // Success toast
+    await expect(page.locator("div:has-text('Schedule created')").first()).toBeVisible({ timeout: 10_000 });
+
+    // Schedule appears in the table
+    await expect(page.getByText("HubCalibration")).toBeVisible({ timeout: 5000 });
+  });
+});

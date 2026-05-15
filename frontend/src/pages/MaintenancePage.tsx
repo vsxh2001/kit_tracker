@@ -1,9 +1,11 @@
 import { useEffect, useState, startTransition } from "react";
 import { Navigate } from "react-router-dom";
-import { Wrench } from "lucide-react";
+import { Plus, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
+import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
+import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +22,7 @@ export function MaintenancePage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
+  const [showAddSchedule, setShowAddSchedule] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -49,10 +52,16 @@ export function MaintenancePage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
+        </div>
+        <Button size="sm" onClick={() => setShowAddSchedule(true)}>
+          <Plus className="h-4 w-4" />
+          New schedule
+        </Button>
       </div>
 
       {/* Filters */}
@@ -187,6 +196,12 @@ export function MaintenancePage() {
           onRecorded={() => { setRecordingSchedule(null); load(); }}
         />
       )}
+
+      <AddScheduleDialog
+        open={showAddSchedule}
+        onClose={() => setShowAddSchedule(false)}
+        onSaved={() => { setShowAddSchedule(false); load(); }}
+      />
     </div>
   );
 }
