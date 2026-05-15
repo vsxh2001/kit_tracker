@@ -270,10 +270,13 @@ test.describe("T7-T10: Bulk component lifecycle", () => {
     const userId = await getAdminUserId();
 
     // Step 1: Create new component record with qty=3 (the "split")
+    // Need a product for the split component — use the same product as the bulk comp
+    const bulkCompRecord = await getComponentById(bulkCompId);
+    const splitProductId = bulkCompRecord?.product ?? "";
     const splitRes = await fetch(`${PB_URL}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "Cable", is_bulk: true, quantity: 3, is_active: true, serial: "" }),
+      body: JSON.stringify({ is_bulk: true, quantity: 3, is_active: true, serial: "", product: splitProductId }),
     });
     const splitComp = await splitRes.json();
     splitCompId = splitComp.id;
@@ -449,15 +452,24 @@ test.describe("T11-T15: Permission enforcement (REST-level)", () => {
   test("T14: technician (with parity) POST to /components → 200 allowed (tech parity migration)", async () => {
     const { token } = await getUserTokenByEmail("tech@kit.local", "Pass1234!");
 
+    // First create a product as admin (technician can also create products)
+    const adminToken = await getAdminToken();
+    const prodRes = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${TS}-TechCreated-Product`, is_active: true }),
+    });
+    const prod = await prodRes.json();
+
     const res = await fetch(`${PB_URL}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
       body: JSON.stringify({
         serial: `${TS}-TECH-COMP`,
-        type: "TechCreated",
         is_bulk: false,
         quantity: 1,
         is_active: true,
+        product: prod.id,
       }),
     });
     // PB v0.22: tech parity allows technician to create → 200
@@ -737,16 +749,24 @@ test.describe("T19-T22: Edge cases and hook validation", () => {
   test("T22: serialized component created without serial → 400 from hook", async () => {
     const token = await getAdminToken();
 
+    // Create a product first
+    const prodRes = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${TS}-GPS-Unit-Product`, is_active: true }),
+    });
+    const prod = await prodRes.json();
+
     // is_bulk=false but serial="" — hook must reject
     const res = await fetch(`${PB_URL}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
       body: JSON.stringify({
         serial: "",
-        type: "GPS Unit",
         is_bulk: false,
         quantity: 1,
         is_active: true,
+        product: prod.id,
       }),
     });
     expect(res.status, "Creating serialized component without serial must return 400").toBe(400);
@@ -791,18 +811,16 @@ test.describe("T23-T27: UI, search, and mobile", () => {
     await deactivateEntity(entityId);
   });
 
-  test("T23: filter /components by type shows only matching type", async ({ page }) => {
+  test("T23: search /components by serial finds matching component", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/components");
     await waitForComponentsPage(page);
 
-    // Open type filter combobox and select UIBattery
-    const typeSelect = page.getByRole("combobox").filter({ hasText: /all types/i });
-    await typeSelect.click();
-    await page.getByRole("option", { name: "UIBattery" }).click();
+    // Search by serial to narrow results
+    await page.getByPlaceholder(/search by serial/i).fill(`${TS}-UI-BAT`);
 
-    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-BAT`) })).toBeVisible({ message: "UIBattery must appear after type filter" });
-    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-CAB`) })).not.toBeVisible({ message: "UICable must not appear when filtered to UIBattery" });
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-BAT`) })).toBeVisible({ message: "UIBattery serial must appear after search" });
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-CAB`) })).not.toBeVisible({ message: "UICable must not appear when searching for UIBattery serial" });
   });
 
   test("T24: filter by container kind — in-kit vs standalone", async ({ page }) => {
@@ -810,9 +828,9 @@ test.describe("T23-T27: UI, search, and mobile", () => {
     await page.goto("/components");
     await waitForComponentsPage(page);
 
-    // Location select is the 3rd combobox (after search input and type select).
+    // Location select is the 2nd combobox (after search input; type filter removed).
     // Re-query each time because the trigger label changes after selection.
-    const getLocationSelect = () => page.getByRole("combobox").nth(1);
+    const getLocationSelect = () => page.getByRole("combobox").nth(0);
 
     // Filter: In kit
     await getLocationSelect().click();

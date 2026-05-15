@@ -1,10 +1,11 @@
 import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, ExternalLink } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { EditProductDialog } from "../components/EditProductDialog";
+import { AddComponentDialog } from "../components/AddComponentDialog";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -30,6 +31,7 @@ export function ProductDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
+  const [showAddComp, setShowAddComp] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -47,6 +49,17 @@ export function ProductDetailPage() {
       if (!err?.isAbort) console.error(err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadComponents() {
+    if (!id) return;
+    try {
+      const comps = await listComponentsForProduct(id);
+      setComponents(comps);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
     }
   }
 
@@ -115,6 +128,20 @@ export function ProductDetailPage() {
             <Row label="Manufacturer" value={product.manufacturer || "—"} />
             <Row label="Model" value={product.model || "—"} />
             <Row label="Description" value={product.description || "—"} />
+            {product.url && (
+              <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
+                <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">URL</p>
+                <a
+                  href={product.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-indigo-600 hover:underline text-right break-all flex items-center gap-1"
+                >
+                  {product.url}
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
+              </div>
+            )}
             <Row label="Created" value={formatDate(product.created)} />
           </CardContent>
         </Card>
@@ -157,9 +184,17 @@ export function ProductDetailPage() {
 
       {/* Components of this product */}
       <div>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-base font-semibold tracking-tight">Components of this product</h2>
-          <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-base font-semibold tracking-tight">Components of this product</h2>
+            <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
+          </div>
+          {canDecideRequests && (
+            <Button size="sm" onClick={() => setShowAddComp(true)}>
+              <Plus className="h-4 w-4" />
+              Add component
+            </Button>
+          )}
         </div>
 
         {components.length === 0 ? (
@@ -173,7 +208,7 @@ export function ProductDetailPage() {
                   <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <span className="text-xs font-medium">{comp.type}</span>
+                        <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
                         {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
                       </div>
                       <div className="flex items-center gap-1">
@@ -192,7 +227,7 @@ export function ProductDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
@@ -203,8 +238,9 @@ export function ProductDetailPage() {
                     {components.map((comp) => (
                       <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3">
-                          <div className="text-xs font-medium">{comp.type}</div>
-                          {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
+                          {comp.serial
+                            ? <div className="font-mono text-[11px] text-indigo-700">{comp.serial}</div>
+                            : <span className="text-muted-foreground opacity-40">—</span>}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
                         <td className="px-4 py-3">
@@ -238,6 +274,13 @@ export function ProductDetailPage() {
           onSuccess={load}
         />
       )}
+
+      <AddComponentDialog
+        open={showAddComp}
+        onClose={() => setShowAddComp(false)}
+        presetProductId={product.id}
+        onSuccess={loadComponents}
+      />
 
       <AlertDialog open={showDeactivate} onOpenChange={setShowDeactivate}>
         <AlertDialogContent>

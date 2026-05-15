@@ -23,7 +23,6 @@ export function ComponentsPage() {
   const { canDecideRequests } = useAuth();
   const [rows, setRows] = useState<ComponentRow[]>([]);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("__all__");
   const [locationFilter, setLocationFilter] = useState<"all" | "in-kit" | "standalone">("all");
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -55,11 +54,15 @@ export function ComponentsPage() {
 
   useEffect(() => { startTransition(() => load()); }, []);
 
-  const allTypes = Array.from(new Set(rows.map((r) => r.component.type).filter(Boolean))).sort();
-
   const filtered = rows.filter(({ component, latestTx }) => {
-    if (search && !component.serial.toLowerCase().includes(search.toLowerCase())) return false;
-    if (typeFilter !== "__all__" && component.type !== typeFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const productName = component.expand?.product?.name ?? "";
+      const matches =
+        component.serial.toLowerCase().includes(q) ||
+        productName.toLowerCase().includes(q);
+      if (!matches) return false;
+    }
     if (locationFilter === "in-kit") {
       if (!latestTx?.to_kit) return false;
     } else if (locationFilter === "standalone") {
@@ -84,6 +87,14 @@ export function ComponentsPage() {
     return null;
   }
 
+  function productLabel(component: Component): string {
+    const p = component.expand?.product;
+    if (!p) return "—";
+    const parts = [p.name];
+    if (p.manufacturer || p.model) parts.push([p.manufacturer, p.model].filter(Boolean).join(" "));
+    return parts.join(" · ");
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -103,22 +114,11 @@ export function ComponentsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <Input
-          placeholder="Search by serial…"
+          placeholder="Search by serial or product…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-xs"
         />
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="All types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All types</SelectItem>
-            {allTypes.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select value={locationFilter} onValueChange={(v) => setLocationFilter(v as typeof locationFilter)}>
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -148,6 +148,7 @@ export function ComponentsPage() {
             <div className="md:hidden space-y-2">
               {filtered.map(({ component, latestTx }) => {
                 const link = containerLink(latestTx);
+                const product = component.expand?.product;
                 return (
                   <Link key={component.id} to={`/components/${component.id}`}>
                     <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
@@ -159,7 +160,9 @@ export function ComponentsPage() {
                         ) : (
                           <span className="text-xs text-muted-foreground opacity-40">—</span>
                         )}
-                        <Badge variant="outline" className="text-[10px]">{component.type}</Badge>
+                        {product && (
+                          <Badge variant="outline" className="text-[10px]">{product.name}</Badge>
+                        )}
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{link ? containerLabel(latestTx) : "—"}</span>
@@ -183,7 +186,7 @@ export function ComponentsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Product / Serial</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Container</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
@@ -195,10 +198,17 @@ export function ComponentsPage() {
                   <tbody>
                     {filtered.map(({ component, latestTx }) => {
                       const link = containerLink(latestTx);
+                      const product = component.expand?.product;
                       return (
                         <tr key={component.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
                           <td className="px-4 py-3">
-                            <div className="font-medium text-xs">{component.type}</div>
+                            {product ? (
+                              <Link to={`/products/${product.id}`} className="text-indigo-600 hover:underline font-medium text-xs">
+                                {productLabel(component)}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-xs text-muted-foreground">—</span>
+                            )}
                             {component.serial ? (
                               <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{component.serial}</div>
                             ) : component.is_bulk ? (

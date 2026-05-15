@@ -19,6 +19,11 @@ onRecordBeforeCreateRequest((e) => {
   const isBulk = e.record.getBool("is_bulk");
   const serial = e.record.getString("serial");
   const quantity = e.record.getInt("quantity");
+  const product = e.record.getString("product");
+
+  if (!product || product.trim() === "") {
+    throw new BadRequestError("Component must have a product");
+  }
 
   if (!isBulk && (!serial || serial.trim() === "")) {
     throw new BadRequestError("Serialized component must have a serial");
@@ -34,6 +39,11 @@ onRecordBeforeUpdateRequest((e) => {
   const isBulk = e.record.getBool("is_bulk");
   const serial = e.record.getString("serial");
   const quantity = e.record.getInt("quantity");
+  const product = e.record.getString("product");
+
+  if (!product || product.trim() === "") {
+    throw new BadRequestError("Component must have a product");
+  }
 
   if (!isBulk && (!serial || serial.trim() === "")) {
     throw new BadRequestError("Serialized component must have a serial");
@@ -48,7 +58,7 @@ onRecordBeforeUpdateRequest((e) => {
   const role = info.authRecord ? info.authRecord.getString("role") : "";
   if (role !== "admin" && role !== "technician") {
     const original = $app.dao().findRecordById("components", e.record.id);
-    const protectedFields = ["serial", "type", "notes", "is_active", "is_bulk"];
+    const protectedFields = ["serial", "notes", "is_active", "is_bulk"];
     for (const f of protectedFields) {
       if (e.record.getString(f) !== original.getString(f)) {
         throw new BadRequestError("Non-admins cannot change field: " + f);

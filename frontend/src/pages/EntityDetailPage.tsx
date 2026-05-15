@@ -246,7 +246,7 @@ export function EntityDetailPage() {
                 <div key={comp.id} className="rounded-lg border bg-card px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <span className="text-xs font-medium">{comp.type}</span>
+                      <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
                       {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -279,7 +279,7 @@ export function EntityDetailPage() {
                     {standaloneComponents.map((comp) => (
                       <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3">
-                          <div className="text-xs font-medium">{comp.type}</div>
+                          <div className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</div>
                           {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
