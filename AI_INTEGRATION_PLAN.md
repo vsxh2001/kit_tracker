@@ -188,14 +188,17 @@ Default Haiku 4.5. Promote individual hard queries to Sonnet 4.6 based on a comp
 Updated phase order:
 1. Phase 1 — tool layer + in-app chat read-only (long pole; both downstream features need this)
 2. Phase 2 — Mode B move-kit in chat (writes via UI confirm + Undo)
-3. **Phase 5 — MCP server** — can run **parallel with Phase 2** once Phase 1 tool layer lands
+3. **Phase 5 — MCP server** — **SHIPPED** (see `pb/pb_hooks/ai_mcp.pb.js`)
 4. Phase 3 — prompt tuning + curated test set
 
 Surface (audience = orchestrator + dispatched agents primarily; desk admins via Claude Desktop / Code as bonus):
-- Remote HTTP/SSE MCP server hosted alongside PB on Fly (no new infra; same machine)
-- Auth: per-user PB token sent in MCP transport headers; tools execute scoped to that user's role
-- Reuses tools built in Phase 1 — single source of truth in `pb/pb_hooks/ai_tools/`
-- 1-line setup doc for Claude Desktop / Code users
+- `POST /api/mcp` — Streamable HTTP MCP server (JSON-RPC 2.0). Protocol version `2024-11-05`.
+- Auth: `Authorization: <PB token>` header (same token from PB auth endpoint)
+- 11 tools: `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
+  `list_components`, `resolve_kit`, `resolve_entity`, `create_entity`, `create_kit`, `move_kit`
+- Read tools: any auth. Write tools: admin/technician only.
+- Audit-logged with `changes.via = "mcp"`. Undo not available in MCP v1.
+- Claude Code config: add `"kit-tracker": { "type": "http", "url": "https://kit-tracker.fly.dev/api/mcp", "headers": { "Authorization": "<token>" } }` to `mcpServers` in `~/.claude/settings.json`
 
 Phase 6 (Slack bot) still deferred indefinitely.
 

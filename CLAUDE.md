@@ -379,6 +379,47 @@ tar xzf /tmp/pb-snapshot-YYYYMMDD-HHMMSS.tar.gz
 flyctl restart
 ```
 
+## AI / MCP server
+
+### Endpoint
+
+`POST /api/mcp` — Streamable HTTP MCP server (JSON-RPC 2.0 over HTTP body).
+Protocol version: `2024-11-05`. Server: `kit-tracker-mcp v0.1.0`.
+
+### Auth
+
+`Authorization: <PB user token>` header. Same token from `/api/collections/users/auth-with-password`.
+Read tools (list_*, get_*, resolve_*) — any authenticated user.
+Write tools (create_*, move_*) — admin/technician only.
+
+### 11 tools
+
+`list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`, `list_components`,
+`resolve_kit`, `resolve_entity`, `create_entity`, `create_kit`, `move_kit`.
+
+### Claude Code / Desktop config
+
+Add to `~/.claude/settings.json` (or Claude Desktop `claude_desktop_config.json`):
+
+```json
+"mcpServers": {
+  "kit-tracker": {
+    "type": "http",
+    "url": "https://kit-tracker.fly.dev/api/mcp",
+    "headers": { "Authorization": "<your-PB-token>" }
+  }
+}
+```
+
+For local dev replace the URL with `http://127.0.0.1:8090/api/mcp`.
+
+### Hook source
+
+`pb/pb_hooks/ai_mcp.pb.js` — single `routerAdd` with inlined tool definitions
+(PB v0.22 Goja isolation; no cross-file imports possible).
+Write calls are audit-logged with `changes.via = "mcp"`.
+Undo is not provided via MCP v1 — issue a reverse operation from the client.
+
 ## Agent system (`.claude/agents/`)
 
 11 specialist agents declared in `.claude/agents/*.md` with frontmatter `tools:` (capability cap) + `allowed_paths:` (lane glob). `.claude/agents/TEAM.md` is the orchestrator playbook (brief templates per agent, workflow patterns, parallelism rules).
