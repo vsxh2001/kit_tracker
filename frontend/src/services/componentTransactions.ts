@@ -111,7 +111,7 @@ export async function splitAndMoveBulk(
 
   // 2. Create new component record with split qty
   const moved = await createComponent({
-    type: source.type,
+    product: source.product,
     notes: source.notes,
     is_active: true,
     is_bulk: true,

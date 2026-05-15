@@ -27,6 +27,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [manufacturer, setManufacturer] = useState(product.manufacturer ?? "");
   const [model, setModel] = useState(product.model ?? "");
   const [description, setDescription] = useState(product.description ?? "");
+  const [url, setUrl] = useState(product.url ?? "");
   const [specs, setSpecs] = useState(product.specs ?? "");
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
@@ -40,6 +41,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         setManufacturer(product.manufacturer ?? "");
         setModel(product.model ?? "");
         setDescription(product.description ?? "");
+        setUrl(product.url ?? "");
         setSpecs(product.specs ?? "");
         setError("");
         setSpecsError("");
@@ -70,6 +72,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         manufacturer: manufacturer.trim() || "",
         model: model.trim() || "",
         description: description.trim() || "",
+        url: url.trim() || "",
         specs: specs.trim() || "",
       });
       toast({ title: "Product updated", description: name.trim(), variant: "success" });
@@ -138,6 +141,15 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description…"
               rows={2}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-prod-url">URL</Label>
+            <Input
+              id="edit-prod-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com/datasheet"
             />
           </div>
           <div className="space-y-1.5">

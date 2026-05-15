@@ -94,7 +94,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Move Component — {component.serial || component.type}</DialogTitle>
+          <DialogTitle>Move Component — {component.serial || component.expand?.product?.name || "Component"}</DialogTitle>
           <DialogDescription className="sr-only">
             Move this component to a kit or entity. Creates a transaction record.
           </DialogDescription>

@@ -88,6 +88,7 @@ export interface Product {
   model?: string;
   description?: string;
   specs?: string; // JSON string
+  url?: string;
   is_active: boolean;
   created: string;
   updated: string;
@@ -96,12 +97,11 @@ export interface Product {
 export interface Component {
   id: string;
   serial: string;
-  type: string;
   notes: string;
   is_active: boolean;
   is_bulk: boolean;
   quantity: number;
-  product?: string; // relation id
+  product: string; // relation id, now required
   created: string;
   updated: string;
   expand?: { product?: Product };

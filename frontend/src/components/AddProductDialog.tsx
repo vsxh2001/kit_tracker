@@ -25,6 +25,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
   const [description, setDescription] = useState("");
+  const [url, setUrl] = useState("");
   const [specs, setSpecs] = useState("");
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
@@ -36,6 +37,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     setManufacturer("");
     setModel("");
     setDescription("");
+    setUrl("");
     setSpecs("");
     setError("");
     setSpecsError("");
@@ -69,6 +71,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
         manufacturer: manufacturer.trim() || "",
         model: model.trim() || "",
         description: description.trim() || "",
+        url: url.trim() || "",
         specs: specs.trim() || "",
       });
       toast({ title: "Product created", description: prod.name, variant: "success" });
@@ -138,6 +141,15 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description…"
               rows={2}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-url">URL</Label>
+            <Input
+              id="prod-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com/datasheet"
             />
           </div>
           <div className="space-y-1.5">

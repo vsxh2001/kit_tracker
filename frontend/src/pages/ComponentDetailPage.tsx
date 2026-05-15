@@ -35,7 +35,6 @@ export function ComponentDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editSerial, setEditSerial] = useState("");
-  const [editType, setEditType] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
@@ -71,7 +70,6 @@ export function ComponentDetailPage() {
   function openEdit() {
     if (!component) return;
     setEditSerial(component.serial);
-    setEditType(component.type);
     setEditNotes(component.notes);
     setEditError("");
     setShowEdit(true);
@@ -79,12 +77,10 @@ export function ComponentDetailPage() {
 
   async function handleSaveEdit() {
     if (!component) return;
-    if (!editType.trim()) { setEditError("Type is required."); return; }
     setEditSaving(true);
     try {
       await updateComponent(component.id, {
         serial: editSerial.trim(),
-        type: editType.trim(),
         notes: editNotes.trim(),
       });
       toast({ title: "Component updated", variant: "success" });
@@ -102,7 +98,8 @@ export function ComponentDetailPage() {
     if (!component) return;
     try {
       await updateComponent(component.id, { is_active: false });
-      toast({ title: "Component deactivated", description: component.serial || component.type, variant: "success" });
+      const label = component.serial || component.expand?.product?.name || component.product;
+      toast({ title: "Component deactivated", description: label, variant: "success" });
       navigate("/components");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
@@ -128,6 +125,7 @@ export function ComponentDetailPage() {
   if (!component) return <p>Component not found.</p>;
 
   const latest = history[0];
+  const productName = component.expand?.product?.name ?? component.expand?.product?.category ?? "—";
 
   return (
     <div className="space-y-6">
@@ -139,7 +137,7 @@ export function ComponentDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight">
             {component.serial
               ? <span className="font-mono tracking-wide text-indigo-700">{component.serial}</span>
-              : <span>{component.type}</span>}
+              : <span>{productName}</span>}
           </h1>
           {!component.is_active && <Badge variant="destructive">Inactive</Badge>}
           {component.is_bulk && <Badge variant="secondary">Bulk</Badge>}
@@ -153,7 +151,6 @@ export function ComponentDetailPage() {
             <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-0 text-sm pt-0">
-            <Row label="Type" value={component.type} />
             <Row label="Serial" value={component.serial || "—"} mono />
             <Row label="Notes" value={component.notes || "—"} />
             <Row label="Quantity" value={String(component.quantity)} />
@@ -319,15 +316,6 @@ export function ComponentDetailPage() {
               <AlertDialogDescription className="sr-only">Edit component details.</AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-3 py-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Type</label>
-                <input
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={editType}
-                  onChange={(e) => setEditType(e.target.value)}
-                  placeholder="e.g. Battery"
-                />
-              </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">Serial</label>
                 <input

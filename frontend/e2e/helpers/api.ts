@@ -274,10 +274,10 @@ export async function getLatestTransactionForKit(
 export interface ComponentRecord {
   id: string;
   serial: string;
-  type: string;
   is_bulk: boolean;
   quantity: number;
   is_active: boolean;
+  product: string;
 }
 
 export interface ComponentTxRecord {
@@ -301,12 +301,17 @@ export interface ComponentTxRecord {
  * If only `initialKit` is provided (no initialEntity), the initial transaction
  * places it from the same entity the kit currently lives in into the kit.
  * Caller must have already moved the kit to an entity before calling this.
+ *
+ * `productId` is now required (components must have a product).
+ * If not provided, a temporary test product is auto-created and used.
  */
 export async function createTestComponent(opts: {
   serial?: string;
   type?: string;
   isBulk?: boolean;
   quantity?: number;
+  /** Product id to link. If omitted, a test product is auto-created. */
+  productId?: string;
   /** Place at this entity (standalone). Creates entity→entity initial tx. */
   initialEntity?: string;
   /** Place into this kit. If provided, creates entity→kit initial tx (needs fromEntity). */
@@ -322,16 +327,36 @@ export async function createTestComponent(opts: {
   const type = opts.type ?? "TestComponent";
   const serial = opts.serial ?? (isBulk ? "" : `SN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
 
+  // Resolve product id — auto-create a test product if not provided
+  let productId = opts.productId;
+  if (!productId) {
+    const prodRes = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `Test Product: ${type}`,
+        category: type,
+        is_active: true,
+      }),
+    });
+    if (!prodRes.ok) {
+      const body = await prodRes.json();
+      throw new Error(`createTestComponent: auto-create product failed: ${JSON.stringify(body)}`);
+    }
+    const prod = await prodRes.json();
+    productId = prod.id;
+  }
+
   const compRes = await fetch(`${PB_URL}/api/collections/components/records`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
     body: JSON.stringify({
       serial,
-      type,
       notes: "",
       is_active: true,
       is_bulk: isBulk,
       quantity: qty,
+      product: productId,
     }),
   });
   if (!compRes.ok) {

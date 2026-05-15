@@ -269,7 +269,7 @@ export function KitDetailPage() {
                           {comp.expand.product.name}
                         </Link>
                       ) : (
-                        <span className="text-xs font-medium">{comp.type}</span>
+                        <span className="text-xs font-medium text-muted-foreground">—</span>
                       )}
                       {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
                     </div>
@@ -308,7 +308,7 @@ export function KitDetailPage() {
                               {comp.expand.product.name}
                             </Link>
                           ) : (
-                            <div className="text-xs font-medium">{comp.type}</div>
+                            <div className="text-xs font-medium text-muted-foreground">—</div>
                           )}
                           {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>

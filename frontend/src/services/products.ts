@@ -62,7 +62,7 @@ export async function getComponentCountsByProduct(): Promise<Record<string, numb
 export async function listComponentsForProduct(productId: string): Promise<Component[]> {
   return pb.collection("components").getFullList<Component>({
     filter: pb.filter("product = {:productId}", { productId }),
-    sort: "serial,type",
+    sort: "serial",
     requestKey: `list-components-for-product-${productId}`,
   });
 }

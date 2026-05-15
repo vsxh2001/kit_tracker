@@ -245,7 +245,7 @@ test.describe("P6: AddComponentDialog product picker", () => {
     await deactivateEntity(entityId);
   });
 
-  test("P6: product picker shows existing products; null product is valid @smoke", async ({ page }) => {
+  test("P6: product picker shows existing products; selecting one creates component @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
     await expect(page.getByRole("heading", { name: /components in kit/i })).toBeVisible({ timeout: 8000 });
@@ -261,19 +261,15 @@ test.describe("P6: AddComponentDialog product picker", () => {
       message: "Add Component dialog must have a product picker",
     });
 
-    // Open it and verify product appears
+    // Open it and select the test product
     await productPicker.click();
-    await expect(page.getByRole("option", { name: new RegExp(`${TS}-PickerProd`) })).toBeVisible({
+    const productOption = page.getByRole("option", { name: new RegExp(`${TS}-PickerProd`) });
+    await expect(productOption).toBeVisible({
       message: "Product picker must list the created product",
     });
+    await productOption.click();
 
-    // Close without selecting (null product is valid)
-    await page.keyboard.press("Escape");
-
-    // Can still create without product: fill required fields and submit
-    const typeInput = dialog.getByLabel(/type/i);
-    await typeInput.fill("TestType");
-    // Submit button is the last button in the dialog (after Cancel)
+    // Submit with product selected — component should be created, dialog should close
     const buttons = dialog.getByRole("button");
     const submitBtn = buttons.last(); // Last button is Create/Move
     await submitBtn.click();
@@ -414,5 +410,109 @@ test.describe("P9: Products permission enforcement (REST)", () => {
     });
     // deleteRule = null → only superadmin can delete (regular admin gets 403)
     expect(res.status, "deleteRule null: even admin cannot hard-delete products → 403").toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P10: Create component from product detail page
+// ---------------------------------------------------------------------------
+
+test.describe("P10: Create component from product detail page", () => {
+  let p10ProdId: string;
+  let p10EntityId: string;
+
+  test.beforeAll(async () => {
+    p10ProdId = (await createTestProduct({ name: `${TS}-P10Prod`, category: "Electronics" })).id;
+    p10EntityId = (await createTestEntity(`${TS}-P10Entity`, "", "storage")).id;
+  });
+
+  test.afterAll(async () => {
+    await deleteTestProduct(p10ProdId);
+    await deactivateEntity(p10EntityId);
+  });
+
+  test("P10: admin clicks 'Add component' on product detail page, creates component linked to product @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/products/${p10ProdId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+
+    // "Add component" button in linked-components section
+    const addBtn = page.getByRole("button", { name: /add component/i });
+    await expect(addBtn).toBeVisible({ message: "Admin must see 'Add component' button on product detail" });
+    await addBtn.click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Product field should be locked/pre-filled — no editable combobox for product
+    // The product name should appear as a read-only display
+    await expect(dialog.getByText(`${TS}-P10Prod`)).toBeVisible({
+      message: "Dialog must show the preset product name in read-only display",
+    });
+
+    // Fill serial to satisfy serialized requirement (is_bulk=false)
+    const serialInput = dialog.getByLabel(/serial/i);
+    await serialInput.fill(`${TS}-P10-SER`);
+
+    // Submit — exact "Create" to avoid matching "Create new" in product picker
+    await dialog.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 8000 });
+
+    // Component section should now show 1 component
+    await expect(page.getByText(/1 component/).first()).toBeVisible({ timeout: 8000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P11: Product with url shows clickable link
+// ---------------------------------------------------------------------------
+
+test.describe("P11: Product with url shows clickable link", () => {
+  let p11ProdId: string;
+  const TEST_URL = "https://example.com/datasheet";
+
+  test.beforeAll(async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `${TS}-P11Prod`,
+        url: TEST_URL,
+        is_active: true,
+      }),
+    });
+    const data = await res.json();
+    p11ProdId = data.id;
+  });
+
+  test.afterAll(async () => {
+    if (p11ProdId) await deleteTestProduct(p11ProdId);
+  });
+
+  test("P11: product detail page shows clickable url link when url is set @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/products/${p11ProdId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+
+    // URL link should be visible and clickable
+    const urlLink = page.getByRole("link", { name: new RegExp(TEST_URL) });
+    await expect(urlLink).toBeVisible({
+      message: "Product detail must show url as a clickable link",
+    });
+
+    // Verify it has target=_blank
+    const href = await urlLink.getAttribute("href");
+    expect(href, "URL link must point to the correct href").toBe(TEST_URL);
+  });
+
+  test("P11b: REST: POST product with url → stored; GET returns url", async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/products/records/${p11ProdId}`, {
+      headers: { Authorization: token },
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.url, "GET product must return the stored url").toBe(TEST_URL);
   });
 });

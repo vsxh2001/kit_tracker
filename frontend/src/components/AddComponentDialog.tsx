@@ -25,11 +25,13 @@ interface Props {
   targetKit?: string;
   targetEntity?: string;
   onSuccess: () => void;
+  /** When set, product picker is locked to this product (read-only). */
+  presetProductId?: string;
 }
 
 type Tab = "create" | "move";
 
-export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onSuccess }: Props) {
+export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onSuccess, presetProductId }: Props) {
   const { isAdmin, canTransferKits } = useAuth();
 
   const defaultTab: Tab = isAdmin ? "create" : "move";
@@ -37,12 +39,12 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
 
   // Create new fields
   const [serial, setSerial] = useState("");
-  const [type, setType] = useState("");
   const [notes, setNotes] = useState("");
   const [isBulk, setIsBulk] = useState(false);
   const [quantity, setQuantity] = useState("1");
-  const [productId, setProductId] = useState("__none__");
+  const [productId, setProductId] = useState(presetProductId ?? "");
   const [products, setProducts] = useState<Product[]>([]);
+  const [presetProduct, setPresetProduct] = useState<Product | null>(null);
 
   // Move existing fields
   const [existingComponents, setExistingComponents] = useState<Component[]>([]);
@@ -57,11 +59,10 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
       startTransition(() => {
         setTab(isAdmin ? "create" : "move");
         setSerial("");
-        setType("");
         setNotes("");
         setIsBulk(false);
         setQuantity("1");
-        setProductId("__none__");
+        setProductId(presetProductId ?? "");
         setSelectedId("");
         setMoveQty("1");
         setError("");
@@ -69,31 +70,43 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
       if (canTransferKits) {
         listComponents({ activeOnly: true })
           .then((comps) => {
-            // Exclude components already in this target
             setExistingComponents(comps);
           })
           .catch(() => setError("Failed to load components."));
       }
-      listProducts({ includeInactive: false })
-        .then(setProducts)
-        .catch(() => {});
+      if (presetProductId) {
+        // Load just enough to display the locked product name
+        listProducts({ includeInactive: true })
+          .then((prods) => {
+            const found = prods.find((p) => p.id === presetProductId) ?? null;
+            setPresetProduct(found);
+            setProducts(prods);
+          })
+          .catch(() => {});
+      } else {
+        listProducts({ includeInactive: false })
+          .then((prods) => {
+            setProducts(prods);
+            setPresetProduct(null);
+          })
+          .catch(() => {});
+      }
     }
-  }, [open, isAdmin, canTransferKits]);
+  }, [open, isAdmin, canTransferKits, presetProductId]);
 
   async function handleCreate() {
-    if (!type.trim()) { setError("Type is required."); return; }
+    if (!productId) { setError("Product is required."); return; }
     setError("");
     setLoading(true);
     try {
       const qty = parseInt(quantity, 10) || 1;
       const comp = await createComponent({
         serial: serial.trim(),
-        type: type.trim(),
         notes: notes.trim(),
         is_bulk: isBulk,
         quantity: qty,
         is_active: true,
-        product: productId !== "__none__" ? productId : undefined,
+        product: productId,
       });
       // Create initial transaction placing it in target
       if (targetKit || targetEntity) {
@@ -106,7 +119,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
           created_by: pb.authStore.model?.id,
         });
       }
-      toast({ title: "Component created", description: comp.serial || comp.type, variant: "success" });
+      toast({ title: "Component created", description: comp.serial || comp.expand?.product?.name || comp.product, variant: "success" });
       onSuccess();
       onClose();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,38 +190,30 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
           {tab === "create" && isAdmin && (
             <>
               <div className="space-y-1.5">
-                <Label htmlFor="comp-product">Product (optional)</Label>
-                <Select
-                  value={productId}
-                  onValueChange={(v) => {
-                    setProductId(v);
-                    if (v !== "__none__") {
-                      const prod = products.find((p) => p.id === v);
-                      if (prod?.category && !type.trim()) setType(prod.category);
-                    }
-                  }}
-                >
-                  <SelectTrigger id="comp-product">
-                    <SelectValue placeholder="No product linked" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">No product linked</SelectItem>
-                    {products.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}{p.manufacturer ? ` — ${p.manufacturer}` : ""}{p.model ? ` ${p.model}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-type">Type</Label>
-                <Input
-                  id="comp-type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  placeholder="e.g. Battery"
-                />
+                <Label htmlFor="comp-product">Product *</Label>
+                {presetProductId ? (
+                  <div className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                    {presetProduct
+                      ? `${presetProduct.name}${presetProduct.manufacturer ? ` — ${presetProduct.manufacturer}` : ""}${presetProduct.model ? ` ${presetProduct.model}` : ""}`
+                      : presetProductId}
+                  </div>
+                ) : (
+                  <Select
+                    value={productId}
+                    onValueChange={setProductId}
+                  >
+                    <SelectTrigger id="comp-product">
+                      <SelectValue placeholder="Select a product…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}{p.manufacturer ? ` — ${p.manufacturer}` : ""}{p.model ? ` ${p.model}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="comp-serial">Serial (optional)</Label>
@@ -263,7 +268,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
                   <SelectContent>
                     {existingComponents.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.type}{c.serial ? ` — ${c.serial}` : ""}{c.is_bulk ? ` (qty: ${c.quantity})` : ""}
+                        {c.expand?.product?.name ?? c.product}{c.serial ? ` — ${c.serial}` : ""}{c.is_bulk ? ` (qty: ${c.quantity})` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
