@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, startTransition } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn, formatTelHref } from "../lib/utils";
 import { getCurrentOnCallUsers } from "../services/oncall";
 import type { PBUser } from "../types";
+import { ChatSidebar } from "./ChatSidebar";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +25,7 @@ export function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
   const [onCallUsers, setOnCallUsers] = useState<PBUser[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
 
   async function loadOnCall() {
     try {
@@ -387,6 +389,19 @@ export function Layout() {
           </div>
         </main>
       </div>
+
+      {/* Floating Ask AI button */}
+      <button
+        onClick={() => setChatOpen(true)}
+        aria-label="Ask AI"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-900/40 hover:bg-indigo-500 transition-colors text-sm font-medium"
+      >
+        <Sparkles className="h-4 w-4 shrink-0" />
+        Ask AI
+      </button>
+
+      {/* AI Chat Sidebar */}
+      <ChatSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }
