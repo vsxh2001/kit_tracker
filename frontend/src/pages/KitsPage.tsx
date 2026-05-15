@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
-import { Link } from "react-router-dom";
-import { Plus, ArrowRight, Download, Upload, ChevronUp, ChevronDown, Printer } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, Download, Upload, ChevronUp, ChevronDown, Printer } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -34,6 +34,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 export function KitsPage() {
+  const navigate = useNavigate();
   const { canDecideRequests } = useAuth();
   const [rows, setRows] = useState<KitRow[]>([]);
   const [deliveries, setDeliveries] = useState<Map<string, UpcomingDelivery>>(new Map());
@@ -296,14 +297,13 @@ export function KitsPage() {
                       </th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
-                      <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
                   <tbody>
                     {sorted.map(({ kit, latest }) => {
                       const upcoming = deliveries.get(kit.id);
                       return (
-                        <tr key={kit.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
+                        <tr key={kit.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/kits/${kit.id}`)}>
                           <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</td>
                           <td className="px-4 py-3">
                             {latest?.expand?.to_entity?.name ? (
@@ -350,13 +350,6 @@ export function KitsPage() {
                           </td>
                           <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
                             <span className="line-clamp-2">{kit.notes ?? <span className="opacity-40">—</span>}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Link to={`/kits/${kit.id}`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </Button>
-                            </Link>
                           </td>
                         </tr>
                       );

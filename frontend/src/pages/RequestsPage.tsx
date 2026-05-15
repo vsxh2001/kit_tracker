@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, startTransition } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { Plus, ArrowRight, CalendarDays } from "lucide-react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Plus, CalendarDays } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
@@ -25,6 +25,7 @@ function getStatusFromParams(params: URLSearchParams): RequestStatus | "all" {
 }
 
 export function RequestsPage() {
+  const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const canCreate = isAdmin || user?.role === "user" || user?.role === "technician";
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,12 +157,11 @@ export function RequestsPage() {
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Target</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Expected return</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Delivery date</th>
-                      <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((r) => (
-                      <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
+                      <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/requests/${r.id}`)}>
                         <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">{formatDateOnly(r.date)}</td>
                         <td className="px-4 py-3">
                           {r.expand?.requester?.name ?? r.expand?.requester?.email ?? <span className="opacity-40">—</span>}
@@ -178,13 +178,6 @@ export function RequestsPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
                           {formatDateOnly(r.delivery_date)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link to={`/requests/${r.id}`}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
                         </td>
                       </tr>
                     ))}

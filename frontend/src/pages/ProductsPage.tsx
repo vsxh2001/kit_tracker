@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
-import { Link } from "react-router-dom";
-import { Plus, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -18,6 +18,7 @@ interface ProductRow {
 }
 
 export function ProductsPage() {
+  const navigate = useNavigate();
   const { canDecideRequests } = useAuth();
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [search, setSearch] = useState("");
@@ -158,12 +159,11 @@ export function ProductsPage() {
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Model</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Components</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
-                      <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map(({ product, componentCount }) => (
-                      <tr key={product.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
+                      <tr key={product.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/products/${product.id}`)}>
                         <td className="px-4 py-3 font-medium text-xs">{product.name}</td>
                         <td className="px-4 py-3 text-xs">
                           {product.category
@@ -177,13 +177,6 @@ export function ProductsPage() {
                           {product.is_active
                             ? <Badge variant="outline" className="text-[10px]">Active</Badge>
                             : <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link to={`/products/${product.id}`}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
                         </td>
                       </tr>
                     ))}
