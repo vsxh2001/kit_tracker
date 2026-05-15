@@ -37,6 +37,7 @@ export function ProductDetailPage() {
   async function load() {
     if (!id) return;
     setLoading(true);
+    let aborted = false;
     try {
       const [p, comps] = await Promise.all([
         getProduct(id),
@@ -46,9 +47,10 @@ export function ProductDetailPage() {
       setComponents(comps);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      if (!err?.isAbort) console.error(err);
+      if (err?.isAbort) { aborted = true; return; }
+      console.error(err);
     } finally {
-      setLoading(false);
+      if (!aborted) setLoading(false);
     }
   }
 

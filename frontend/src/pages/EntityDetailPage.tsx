@@ -28,6 +28,7 @@ export function EntityDetailPage() {
 
   async function load() {
     if (!id) return;
+    let aborted = false;
     try {
       const [e, txs, comps] = await Promise.all([
         getEntity(id),
@@ -53,9 +54,10 @@ export function EntityDetailPage() {
       setStandaloneComponents(comps);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      if (!err?.isAbort) console.error(err);
+      if (err?.isAbort) { aborted = true; return; }
+      console.error(err);
     } finally {
-      setLoading(false);
+      if (!aborted) setLoading(false);
     }
   }
 

@@ -55,6 +55,7 @@ export function KitDetailPage() {
   async function load() {
     if (!id) return;
     setLoading(true);
+    let aborted = false;
     try {
       const [k, h, comps, scheds] = await Promise.all([
         getKit(id),
@@ -69,9 +70,10 @@ export function KitDetailPage() {
       setSchedules(scheds);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      if (!err?.isAbort) console.error(err);
+      if (err?.isAbort) { aborted = true; return; }
+      console.error(err);
     } finally {
-      setLoading(false);
+      if (!aborted) setLoading(false);
     }
   }
 

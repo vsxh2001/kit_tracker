@@ -31,7 +31,7 @@ export function ComponentsPage() {
     setLoading(true);
     try {
       const [components, allTxs] = await Promise.all([
-        listComponents({ activeOnly: true }),
+        listComponents({ activeOnly: true, requestKey: "list-components-page" }),
         pb.collection("component_transactions").getFullList<ComponentTransaction>({
           sort: "-timestamp,-created",
           expand: "to_kit,to_entity",
