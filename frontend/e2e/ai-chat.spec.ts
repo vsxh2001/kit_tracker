@@ -1,10 +1,13 @@
 /**
- * AI Chat sidebar — Phase 0 smoke tests.
+ * AI Chat sidebar — Phase 1 tests.
  *
  * Covers:
  *   - Logged-in user clicks floating "Ask AI" button → drawer opens
- *   - Types "hello" + sends → assistant echo message appears
+ *   - Sends a message → assistant reply rendered with markdown
+ *   - Backticked record IDs become clickable links
  *   - Rate limit: 429 response shows error toast
+ *   - Cost cap: 503 response shows cost cap toast
+ *   - "Plumbing only" disclaimer removed
  */
 
 import { test, expect } from "@playwright/test";
@@ -22,7 +25,9 @@ test.describe("AI Chat sidebar", () => {
     await loginAs(page, "admin");
     await page.getByRole("button", { name: /ask ai/i }).click();
     await expect(page.getByRole("complementary", { name: /ai chat/i })).toBeVisible();
-    await expect(page.getByText("Plumbing only — AI replies pending")).toBeVisible();
+    // Phase 1: disclaimer removed — only the Claude subtitle is shown
+    await expect(page.getByText(/powered by claude/i)).toBeVisible();
+    await expect(page.getByText("Plumbing only — AI replies pending")).not.toBeVisible();
   });
 
   test("chat drawer closes when X button clicked", async ({ page }) => {
@@ -32,32 +37,94 @@ test.describe("AI Chat sidebar", () => {
     await expect(page.getByRole("complementary", { name: /ai chat/i })).not.toBeInViewport();
   });
 
-  test("sends message and receives echo reply @smoke", async ({ page }) => {
+  test("sends message and receives assistant reply @smoke", async ({ page }) => {
     await loginAs(page, "admin");
+
+    // Stub Anthropic to return a canned response with a record ID
+    await page.route("**/api.anthropic.com/**", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "msg_test",
+          type: "message",
+          role: "assistant",
+          content: [{ type: "text", text: "There are 3 kits. For example kit `abc1234567890de` is at Lab-A." }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 100, output_tokens: 50 }
+        }),
+      });
+    });
+
+    // Stub the PB chat endpoint directly (since PB hook calls Anthropic server-side)
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reply: "There are 3 kits. For example kit `abc1234567890de` is at Lab-A.",
+          sessionId: "test-session",
+          done: true,
+        }),
+      });
+    });
+
     await page.getByRole("button", { name: /ask ai/i }).click();
 
     const input = page.getByRole("textbox", { name: /chat message input/i });
-    await input.fill("hello");
+    await input.fill("list kits");
     await input.press("Enter");
 
-    // User bubble appears. `exact: true` avoids strict-mode collision with the
-    // echo reply ("You said: hello. ...") which also contains the word "hello".
-    await expect(page.getByText("hello", { exact: true })).toBeVisible();
+    // User bubble appears
+    await expect(page.getByText("list kits")).toBeVisible();
 
-    // Echo reply appears (Phase 0 stub)
-    await expect(
-      page.getByText(/you said: hello\. \(ai not wired yet/i)
-    ).toBeVisible({ timeout: 10_000 });
+    // Assistant reply appears
+    await expect(page.getByText(/there are 3 kits/i)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("backticked record ID becomes a clickable link @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    // Stub the PB chat endpoint to return a reply with a backticked ID
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reply: "Kit `abc1234567890de` is at Lab-A since Monday.",
+          sessionId: "test-session",
+          done: true,
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    const input = page.getByRole("textbox", { name: /chat message input/i });
+    await input.fill("where is kit abc?");
+    await input.press("Enter");
+
+    // The ID should be rendered as a link
+    const link = page.getByRole("link", { name: "abc1234567890de" });
+    await expect(link).toBeVisible({ timeout: 10_000 });
+    await expect(link).toHaveAttribute("href", /\/kits\/abc1234567890de/);
   });
 
   test("Send button triggers message send", async ({ page }) => {
     await loginAs(page, "admin");
-    await page.getByRole("button", { name: /ask ai/i }).click();
 
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ reply: "pong", sessionId: "s", done: true }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
     await page.getByRole("textbox", { name: /chat message input/i }).fill("ping");
     await page.getByRole("button", { name: /send message/i }).click();
 
-    await expect(page.getByText(/you said: ping/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("pong")).toBeVisible({ timeout: 10_000 });
   });
 
   test("Shift+Enter adds newline without sending", async ({ page }) => {
@@ -68,7 +135,7 @@ test.describe("AI Chat sidebar", () => {
     await input.fill("line1");
     await input.press("Shift+Enter");
     // After Shift+Enter there should be no assistant reply yet (message not sent)
-    await expect(page.getByText(/you said: line1/i)).not.toBeVisible();
+    await expect(page.getByText(/pong/i)).not.toBeVisible();
   });
 
   test("rate limit 429 shows error toast", async ({ page }) => {
@@ -89,10 +156,29 @@ test.describe("AI Chat sidebar", () => {
     await input.fill("test");
     await input.press("Enter");
 
-    // Toast renders the message twice (visible title + aria-live announce);
-    // scope to the first match.
     await expect(page.getByText(/rate limit reached/i).first()).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(/try again in 3600 seconds/i).first()).toBeVisible();
+  });
+
+  test("cost cap 503 shows daily budget toast", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    // Intercept the /api/ai/chat route to return a 503 cost cap
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "daily_cost_cap", spent_cents: 100, cap_cents: 100 }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    const input = page.getByRole("textbox", { name: /chat message input/i });
+    await input.fill("test");
+    await input.press("Enter");
+
+    await expect(page.getByText(/daily ai budget reached/i).first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/try again tomorrow/i).first()).toBeVisible();
   });
 });
 
@@ -108,7 +194,7 @@ test.describe("AI Chat API (direct)", () => {
     return data.token as string;
   }
 
-  test("POST /api/ai/chat returns echo reply", async () => {
+  test("POST /api/ai/chat returns a reply", async () => {
     const token = await getAdminToken();
     const res = await fetch(`${PB_URL}/api/ai/chat`, {
       method: "POST",
@@ -117,7 +203,8 @@ test.describe("AI Chat API (direct)", () => {
     });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.reply).toContain("You said: integration test");
+    expect(typeof data.reply).toBe("string");
+    expect(data.reply.length).toBeGreaterThan(0);
     expect(data.done).toBe(true);
   });
 

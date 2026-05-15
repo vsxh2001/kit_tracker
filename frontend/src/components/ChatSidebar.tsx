@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Send, Bot } from "lucide-react";
+import { Link } from "react-router-dom";
 import { cn } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
-import { sendChatMessage, AiRateLimitError } from "../services/ai";
+import { sendChatMessage, AiRateLimitError, AiCostCapError } from "../services/ai";
 import type { Message } from "../types/ai";
 
 let _msgCounter = 0;
@@ -13,6 +14,73 @@ function genId() {
 interface ChatSidebarProps {
   open: boolean;
   onClose: () => void;
+}
+
+interface TextSegment {
+  type: "text" | "code" | "link";
+  value: string;
+  href?: string;
+}
+
+/**
+ * Parse assistant message text into segments for rendering.
+ * - Backtick spans → inline code; if the span looks like a PB record ID (15 alphanum)
+ *   we also render it as a clickable link based on context (kits / entities).
+ * - Newlines → preserved via whitespace-pre-wrap on the container.
+ */
+function parseAssistantContent(text: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  // Split on backtick spans
+  const parts = text.split(/(`[^`]+`)/g);
+  for (const part of parts) {
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      const inner = part.slice(1, -1);
+      // Check if it looks like a PB record ID (15 lowercase alphanum)
+      if (/^[a-z0-9]{15}$/.test(inner)) {
+        // We don't know the collection without context; default to kits.
+        // For Phase 1 the model is instructed to cite IDs — most will be kit IDs.
+        // A smarter approach would check prefix conventions (future).
+        segments.push({ type: "link", value: inner, href: `/kits/${inner}` });
+      } else {
+        segments.push({ type: "code", value: inner });
+      }
+    } else if (part) {
+      segments.push({ type: "text", value: part });
+    }
+  }
+  return segments;
+}
+
+function AssistantMessage({ content }: { content: string }) {
+  const segments = parseAssistantContent(content);
+  return (
+    <span>
+      {segments.map((seg, i) => {
+        if (seg.type === "link") {
+          return (
+            <Link
+              key={i}
+              to={seg.href!}
+              className="font-mono text-indigo-300 underline hover:text-indigo-200"
+            >
+              {seg.value}
+            </Link>
+          );
+        }
+        if (seg.type === "code") {
+          return (
+            <code
+              key={i}
+              className="font-mono text-xs bg-slate-700 px-1 py-0.5 rounded text-slate-200"
+            >
+              {seg.value}
+            </code>
+          );
+        }
+        return <span key={i}>{seg.value}</span>;
+      })}
+    </span>
+  );
 }
 
 export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
@@ -74,6 +142,12 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
           description: `Too many messages. Try again in ${err.retryAfterSeconds} seconds.`,
           variant: "destructive",
         });
+      } else if (err instanceof AiCostCapError) {
+        toast({
+          title: "Daily AI budget reached",
+          description: "The daily AI usage budget has been reached. Try again tomorrow.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Chat error",
@@ -119,7 +193,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
             <Bot className="h-5 w-5 text-indigo-400 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-white">Ask AI</p>
-              <p className="text-xs text-amber-400">Plumbing only — AI replies pending</p>
+              <p className="text-xs text-slate-400">Powered by Claude — verify critical data</p>
             </div>
           </div>
           <button
@@ -153,13 +227,17 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
               )}
               <div
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap break-words",
+                  "rounded-lg px-3 py-2 text-sm max-w-[80%] break-words",
                   m.role === "user"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-800 text-slate-100"
+                    ? "bg-indigo-600 text-white whitespace-pre-wrap"
+                    : "bg-slate-800 text-slate-100 whitespace-pre-wrap"
                 )}
               >
-                {m.content}
+                {m.role === "assistant" ? (
+                  <AssistantMessage content={m.content} />
+                ) : (
+                  m.content
+                )}
               </div>
             </div>
           ))}

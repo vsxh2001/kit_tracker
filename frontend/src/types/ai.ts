@@ -22,3 +22,9 @@ export interface RateLimitError {
   error: "rate_limit";
   retry_after_seconds: number;
 }
+
+export interface CostCapError {
+  error: "daily_cost_cap";
+  spent_cents: number;
+  cap_cents: number;
+}

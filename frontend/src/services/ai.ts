@@ -1,5 +1,5 @@
 import { pb } from "../lib/pocketbase";
-import type { ChatResponse, RateLimitError } from "../types/ai";
+import type { ChatResponse, RateLimitError, CostCapError } from "../types/ai";
 
 export class AiRateLimitError extends Error {
   retryAfterSeconds: number;
@@ -7,6 +7,17 @@ export class AiRateLimitError extends Error {
     super("Rate limit exceeded");
     this.name = "AiRateLimitError";
     this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export class AiCostCapError extends Error {
+  spentCents: number;
+  capCents: number;
+  constructor(spentCents: number, capCents: number) {
+    super("Daily AI cost cap reached");
+    this.name = "AiCostCapError";
+    this.spentCents = spentCents;
+    this.capCents = capCents;
   }
 }
 
@@ -30,6 +41,11 @@ export async function sendChatMessage(
   if (res.status === 429) {
     const data: RateLimitError = await res.json();
     throw new AiRateLimitError(data.retry_after_seconds ?? 3600);
+  }
+
+  if (res.status === 503) {
+    const data: CostCapError = await res.json().catch(() => ({ error: "daily_cost_cap", spent_cents: 0, cap_cents: 100 }));
+    throw new AiCostCapError(data.spent_cents ?? 0, data.cap_cents ?? 100);
   }
 
   if (!res.ok) {
