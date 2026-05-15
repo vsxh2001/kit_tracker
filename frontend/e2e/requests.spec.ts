@@ -170,13 +170,18 @@ test.describe("Request creation", () => {
       message: "Newly created request should show the kit serial in the table",
     });
 
-    // Capture request id for cleanup — find the row and navigate to detail
+    // Capture request id for cleanup — find the row, click it to navigate, then extract ID from URL
     const row = page.getByRole("row").filter({ hasText: `${TS}-REQ-KIT` }).first();
-    const link = row.getByRole("link");
-    const href = await link.getAttribute("href");
-    if (href) {
-      createdRequestId = href.split("/requests/")[1];
+    await row.click();
+    // Wait for navigation to complete
+    await page.waitForURL(/\/requests\/[a-z0-9]+$/);
+    const currentUrl = page.url();
+    const match = currentUrl.match(/\/requests\/([a-z0-9]+)$/);
+    if (match) {
+      createdRequestId = match[1];
     }
+    // Navigate back to requests list for other tests
+    await page.goBack();
   });
 
   test("cancel button closes request dialog without creating", async ({
