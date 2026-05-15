@@ -643,7 +643,7 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     expect(typeof data.reply).toBe("string");
   });
 
-  test("MCP tools/list returns all 17 tool definitions for admin", async () => {
+  test("MCP tools/list returns all 20 tool definitions for admin", async () => {
     const token = await (async () => {
       const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
         method: "POST",
@@ -661,7 +661,7 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.result.tools.length).toBe(17);
+    expect(data.result.tools.length).toBe(20);
     const toolNames = data.result.tools.map((t: { name: string }) => t.name);
     expect(toolNames).toContain("resolve_product");
     expect(toolNames).toContain("create_product");
@@ -669,6 +669,9 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     expect(toolNames).toContain("move_component");
     expect(toolNames).toContain("decide_request");
     expect(toolNames).toContain("link_component_to_product");
+    expect(toolNames).toContain("update_entity");
+    expect(toolNames).toContain("update_kit");
+    expect(toolNames).toContain("update_product");
   });
 
   test("MCP create_product returns permission_denied for viewer", async () => {
@@ -717,5 +720,198 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     expect(resultText).toBeTruthy();
     const resultObj = JSON.parse(resultText);
     expect(resultObj.error).toBe("validation_error");
+  });
+});
+
+// Phase 2C: update_* write tool UI tests (Anthropic stubbed)
+test.describe("AI Chat — Phase 2C update tools (UI, Anthropic stubbed)", () => {
+  test("update_entity success shows tool result card with undo button", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "I've reactivated entity FooLab for you.",
+          description: "Updated entity: entabc1234567890",
+          collection: "entities",
+          tool: "update_entity",
+          undoToken: "undoupdateentity01",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("reactivate entity FooLab");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Updated entity/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("update_kit success shows tool result card with undo button", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "I've updated kit KIT-007.",
+          description: "Updated kit: kitabc1234567890",
+          collection: "kits",
+          tool: "update_kit",
+          undoToken: "undoupdatekit00001",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("rename kit KIT-007 serial to KIT-007B");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Updated kit/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("update_product success shows tool result card with undo button", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "I've updated product Samsung 970 EVO SSD.",
+          description: "Updated product: prodabc1234567890",
+          collection: "products",
+          tool: "update_product",
+          undoToken: "undoupdateprod0001",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("fix description of Samsung 970 EVO SSD");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Updated product/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("viewer role sees polite refusal for update_entity (no tool_result card)", async ({ page }) => {
+    await loginAs(page, "viewer");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reply: "I'm sorry, but you don't have permission to update entities. Only admins and technicians can do that.",
+          sessionId: "test-session",
+          done: true,
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("reactivate entity FooLab");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    await expect(page.getByText(/don't have permission/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("tool-result-card")).not.toBeVisible();
+  });
+});
+
+// Phase 2C: Direct API tests for update tools
+test.describe("AI Chat — Phase 2C update tools (direct API)", () => {
+  test("MCP update_entity returns permission_denied for viewer", async () => {
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: { name: "update_entity", arguments: { id: "someentityid123", name: "NewName" } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.error?.message).toBe("permission_denied");
+  });
+
+  test("MCP update_entity returns no_fields_to_update when only id provided", async () => {
+    const adminToken = await (async () => {
+      const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: "logistics@kit.local", password: "Pass1234!" }),
+      });
+      const d = await res.json();
+      return d.token as string;
+    })();
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: adminToken },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 5,
+        method: "tools/call",
+        params: { name: "update_entity", arguments: { id: "someentityid123" } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const resultText = data.result?.content?.[0]?.text;
+    expect(resultText).toBeTruthy();
+    const resultObj = JSON.parse(resultText);
+    expect(resultObj.error).toBe("no_fields_to_update");
+  });
+
+  test("MCP update_kit returns permission_denied for viewer", async () => {
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 6,
+        method: "tools/call",
+        params: { name: "update_kit", arguments: { id: "somekitid12345", serial: "NEW-001" } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.error?.message).toBe("permission_denied");
+  });
+
+  test("MCP update_product returns permission_denied for viewer", async () => {
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: { name: "update_product", arguments: { id: "someprodid12345", name: "NewName" } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.error?.message).toBe("permission_denied");
   });
 });
