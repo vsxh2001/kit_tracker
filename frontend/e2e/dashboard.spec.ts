@@ -21,6 +21,13 @@ import {
 } from "./helpers/api";
 
 test.describe("Dashboard page", () => {
+  test.beforeAll(async () => {
+    // Create test data: entity, kit, and transaction (required for "recent transactions" table)
+    const entity = await createTestEntity(`dashboard-test-${Date.now()}`, "", "storage");
+    const kit = await createTestKit(`dashboard-kit-${Date.now()}`);
+    await createTestTransaction({ kitId: kit.id, toEntityId: entity.id });
+  });
+
   test.beforeEach(async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/dashboard");

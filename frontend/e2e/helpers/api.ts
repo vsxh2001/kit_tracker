@@ -8,6 +8,9 @@
 // own PB instance. Defaults to :8090 when unset (matches main worktree + CI).
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 
+// Note: Admin token is cached per test suite execution to avoid repeated auth calls.
+// For test isolation, individual tests should not rely on this cache persisting across
+// test suites, but within a single suite run it's safe and efficient.
 let _adminToken: string | null = null;
 let _adminUserId: string | null = null;
 

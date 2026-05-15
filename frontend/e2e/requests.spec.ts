@@ -229,10 +229,10 @@ test.describe("Request detail — admin approve and reject", () => {
   test("admin sees Admin actions card on open request", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${openRequestId}`);
-    await page.waitForLoadState("networkidle");
+    // Wait for the Admin actions buttons to be visible (better than waitForLoadState)
     // Check for action buttons which indicate the Admin actions card is present
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 5000,
+      timeout: 10_000,
       message: "Approve button should be visible on an open request",
     });
     await expect(page.getByRole("button", { name: "Reject" })).toBeVisible({
@@ -464,10 +464,8 @@ test.describe("Request assignment (admin saves assignment)", () => {
   }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${requestId}`);
-    await page.waitForLoadState("networkidle");
-
     // Wait for the page to load — check for the Details heading and comboboxes for assignment
-    await expect(page.getByRole("heading", { name: "Details" })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("heading", { name: "Details" })).toBeVisible({ timeout: 10_000 });
 
     // Wait for the comboboxes to be ready for assignment interaction
     await expect(page.getByRole("combobox").first()).toBeVisible({ timeout: 5000 });

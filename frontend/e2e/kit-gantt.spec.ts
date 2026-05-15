@@ -137,10 +137,10 @@ test.describe("Next delivery column shows upcoming approved", () => {
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-DEL1`);
 
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const tomorrowStr = tomorrow.toLocaleDateString("en-CA"); // YYYY-MM-DD format matching app's formatDateOnly
 
     // Desktop table cell (the <span> inside the td) should be visible
-    await expect(page.locator("table").getByText(new RegExp(tomorrowStr.replace(/\//g, "\\/"), "i"))).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("table").getByText(new RegExp(tomorrowStr, "i"))).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("table").getByText(`${TS}-DelEnt1`)).toBeVisible();
   });
 });
@@ -224,13 +224,13 @@ test.describe("Only soonest upcoming delivery is shown", () => {
 
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrow.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const nextWeekStr = nextWeek.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const tomorrowStr = tomorrow.toLocaleDateString("en-CA"); // YYYY-MM-DD format matching app's formatDateOnly
+    const nextWeekStr = nextWeek.toLocaleDateString("en-CA"); // YYYY-MM-DD format
 
     // Desktop table: tomorrow's date visible (soonest)
-    await expect(page.locator("table").getByText(new RegExp(tomorrowStr.replace(/\//g, "\\/"), "i"))).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("table").getByText(new RegExp(tomorrowStr, "i"))).toBeVisible({ timeout: 10_000 });
     // Next week's date should NOT appear in the table
-    await expect(page.locator("table").getByText(new RegExp(nextWeekStr.replace(/\//g, "\\/"), "i"))).not.toBeVisible();
+    await expect(page.locator("table").getByText(new RegExp(nextWeekStr, "i"))).not.toBeVisible();
   });
 });
 
