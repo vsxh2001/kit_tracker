@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
-import { Link } from "react-router-dom";
-import { Plus, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -20,6 +20,7 @@ interface ComponentRow {
 }
 
 export function ComponentsPage() {
+  const navigate = useNavigate();
   const { canDecideRequests } = useAuth();
   const [rows, setRows] = useState<ComponentRow[]>([]);
   const [search, setSearch] = useState("");
@@ -192,7 +193,6 @@ export function ComponentsPage() {
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Created</th>
-                      <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
                   <tbody>
@@ -200,8 +200,8 @@ export function ComponentsPage() {
                       const link = containerLink(latestTx);
                       const product = component.expand?.product;
                       return (
-                        <tr key={component.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors group">
-                          <td className="px-4 py-3">
+                        <tr key={component.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/components/${component.id}`)}>
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             {product ? (
                               <Link to={`/products/${product.id}`} className="text-indigo-600 hover:underline font-medium text-xs">
                                 {productLabel(component)}
@@ -217,7 +217,7 @@ export function ComponentsPage() {
                               </div>
                             ) : null}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             {link ? (
                               <Link to={link} className="text-indigo-600 hover:underline text-xs">
                                 {containerLabel(latestTx)}
@@ -239,13 +239,6 @@ export function ComponentsPage() {
                           </td>
                           <td className="px-4 py-3 text-muted-foreground font-mono text-xs tabular-nums">
                             {formatDate(component.created)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Link to={`/components/${component.id}`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </Button>
-                            </Link>
                           </td>
                         </tr>
                       );
