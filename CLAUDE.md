@@ -392,10 +392,18 @@ Protocol version: `2024-11-05`. Server: `kit-tracker-mcp v0.1.0`.
 Read tools (list_*, get_*, resolve_*) — any authenticated user.
 Write tools (create_*, move_*) — admin/technician only.
 
-### 11 tools
+### 20 tools (chat + MCP in sync as of f64f954)
 
-`list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`, `list_components`,
-`resolve_kit`, `resolve_entity`, `create_entity`, `create_kit`, `move_kit`.
+Read (9): `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
+`list_components`, `resolve_kit`, `resolve_entity`, `resolve_product`.
+
+Write (11): `create_entity`, `create_kit`, `move_kit`, `create_product`,
+`create_component`, `move_component`, `decide_request`,
+`link_component_to_product`, `update_entity`, `update_kit`, `update_product`.
+
+`ai_chat.pb.js` writes get a 30s undo token in the response; MCP does not (issue
+a reverse op from the client). Both audit-log with `changes.via = "ai-agent"` or
+`"mcp"`.
 
 ### Claude Code / Desktop config
 
