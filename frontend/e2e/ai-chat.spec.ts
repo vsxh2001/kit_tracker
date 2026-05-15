@@ -40,8 +40,9 @@ test.describe("AI Chat sidebar", () => {
     await input.fill("hello");
     await input.press("Enter");
 
-    // User bubble appears
-    await expect(page.getByText("hello")).toBeVisible();
+    // User bubble appears. `exact: true` avoids strict-mode collision with the
+    // echo reply ("You said: hello. ...") which also contains the word "hello".
+    await expect(page.getByText("hello", { exact: true })).toBeVisible();
 
     // Echo reply appears (Phase 0 stub)
     await expect(
