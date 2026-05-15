@@ -103,7 +103,8 @@ test.describe("a11y verify — commit a122490", () => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    // Wait for Edit buttons to be visible (better than waitForLoadState)
+    await expect(page.getByRole("button", { name: "Edit" }).first()).toBeVisible({ timeout: 5000 });
 
     // Mobile cards are in .md:hidden container
     const editBtn = page.locator(".md\\:hidden").getByRole("button", { name: "Edit" }).first();
@@ -172,7 +173,8 @@ test.describe("a11y verify — commit a122490", () => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    // Wait for Delete buttons to be visible (better than waitForLoadState)
+    await expect(page.getByRole("button", { name: "Delete" }).first()).toBeVisible({ timeout: 5000 });
 
     // Trigger delete confirmation on first entity — at 375px mobile, cards are visible not table
     const deleteBtn = page.locator(".md\\:hidden").getByRole("button", { name: "Delete" }).first();

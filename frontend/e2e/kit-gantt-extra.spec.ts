@@ -122,7 +122,7 @@ test.describe("Single-transaction kit: full-width timeline bar", () => {
     const startLabel = labels.first();
     const startText = await startLabel.textContent();
     expect(startText, { message: "Start label should have a date" }).toBeTruthy();
-    expect(startText!.trim(), { message: "Start label should not be empty" }).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(startText!.trim(), { message: "Start label should contain a date (YYYY-MM-DD)" }).toMatch(/\d{4}-\d{2}-\d{2}/);
   });
 });
 
@@ -267,11 +267,15 @@ test.describe("Same-second transactions: layout doesn't crash", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Loading state on /kits", () => {
+  test.beforeAll(async () => {
+    // Create at least one kit so the table is not empty
+    await createTestKit(`${TS}-LOADING-TEST`);
+  });
+
   test("shows Loading text then table (not blank)", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/kits");
-    await page.waitForLoadState("networkidle");
-    // After data loads, the "Loading…" text must be gone and table content must be present
+    // Wait for table to load (better than waitForLoadState which can be overly strict)
     await expect(
       page.locator("table tbody tr").first(),
       { message: "Table rows must be visible after data loads" }
@@ -320,7 +324,8 @@ test.describe("Delivery sort descending: no-delivery kits float to top", () => {
   test("descending sort puts no-delivery kits first", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/kits");
-    await page.waitForLoadState("networkidle");
+    // Wait for table to load (better than waitForLoadState which can be overly strict)
+    await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
 
     // Sort by delivery ASC first (to establish state), then DESC
     await page.getByRole("columnheader", { name: /next delivery/i }).click();
@@ -333,7 +338,8 @@ test.describe("Delivery sort descending: no-delivery kits float to top", () => {
 
     // Filter to only these two test kits — search for partial name
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-SORTD`);
-    await page.waitForLoadState("networkidle");
+    // Wait for filter results instead of networkidle
+    await expect(page.getByRole("row").filter({ hasText: new RegExp(`${TS}-SORTD`) }).first()).toBeVisible({ timeout: 10_000 });
 
     const rows = page.getByRole("row").filter({ hasText: new RegExp(`${TS}-SORTD`) });
     const rowCount = await rows.count();

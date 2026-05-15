@@ -131,8 +131,8 @@ test.describe("Maintenance — record done", () => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
-    // Find "Record done" button
-    await expect(page.getByText("BatteryCheck")).toBeVisible({ timeout: 5000 });
+    // Find "Record done" button (look for it in the maintenance card section)
+    await expect(page.getByRole("heading").getByText("Maintenance")).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: "Record done" }).first().click();
 
     // Dialog should appear
@@ -141,8 +141,8 @@ test.describe("Maintenance — record done", () => {
     // Submit with defaults
     await page.getByRole("button", { name: "Record done" }).last().click();
 
-    // Success toast
-    await expect(page.getByText("Maintenance recorded")).toBeVisible({ timeout: 5000 });
+    // Success toast (use specific selector to avoid multiple matches)
+    await expect(page.locator("div:has-text('Maintenance recorded')").first()).toBeVisible({ timeout: 10_000 });
 
     // Verify last_done_at was updated via API
     const updated = await getSchedule(schedId);

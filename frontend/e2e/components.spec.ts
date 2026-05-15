@@ -446,34 +446,34 @@ test.describe("T11-T15: Permission enforcement (REST-level)", () => {
     expect(res.status, "P0: technician must be allowed to create component_transactions (200)").toBe(200);
   });
 
-  test("T14: non-admin (technician) POST to /components → 400 blocked (P0 security — createRule = admin only)", async () => {
+  test("T14: technician (with parity) POST to /components → 200 allowed (tech parity migration)", async () => {
     const { token } = await getUserTokenByEmail("tech@kit.local", "Pass1234!");
 
     const res = await fetch(`${PB_URL}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
       body: JSON.stringify({
-        serial: `${TS}-UNAUTH-COMP`,
-        type: "Unauthorized",
+        serial: `${TS}-TECH-COMP`,
+        type: "TechCreated",
         is_bulk: false,
         quantity: 1,
         is_active: true,
       }),
     });
-    // PB v0.22: createRule violation → 400
-    expect(res.status, "P0: technician must NOT create components (createRule = admin only → 400)").toBe(400);
+    // PB v0.22: tech parity allows technician to create → 200
+    expect(res.status, "P0: technician must create components (createRule = admin OR technician → 200)").toBe(200);
   });
 
-  test("T15: technician PATCH notes on component → 400 blocked by hook (only quantity allowed)", async () => {
+  test("T15: technician (with parity) PATCH notes on component → 200 allowed (tech parity migration)", async () => {
     const { token } = await getUserTokenByEmail("tech@kit.local", "Pass1234!");
 
     const res = await fetch(`${PB_URL}/api/collections/components/records/${sharedCompId}`, {
       method: "PATCH",
       headers: { Authorization: token, "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: "should not be allowed" }),
+      body: JSON.stringify({ notes: "technician updated notes" }),
     });
-    // updateRule now allows admin OR technician; hook blocks non-quantity field changes → 400
-    expect(res.status, "P0: technician must NOT change notes (hook field-guard → 400)").toBe(400);
+    // updateRule now allows admin OR technician; hook allows technician to change any field → 200
+    expect(res.status, "P0: technician must change notes (hook field-guard allows tech → 200)").toBe(200);
   });
 });
 
