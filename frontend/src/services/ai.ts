@@ -55,3 +55,20 @@ export async function sendChatMessage(
 
   return res.json() as Promise<ChatResponse>;
 }
+
+export async function undoAction(token: string): Promise<void> {
+  const authToken = pb.authStore.token;
+  const url = `${pb.baseUrl.replace(/\/$/, "")}/api/ai/undo`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(authToken ? { Authorization: authToken } : {}),
+    },
+    body: JSON.stringify({ undo_token: token }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as { error?: string }).error ?? `Undo failed: ${res.status}`);
+  }
+}

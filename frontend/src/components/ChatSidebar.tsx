@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, Bot } from "lucide-react";
+import { X, Send, Bot, Undo2, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
-import { sendChatMessage, AiRateLimitError, AiCostCapError } from "../services/ai";
-import type { Message } from "../types/ai";
+import { sendChatMessage, undoAction, AiRateLimitError, AiCostCapError } from "../services/ai";
+import type { Message, ToolResult, ClarificationRequest } from "../types/ai";
 
 let _msgCounter = 0;
 function genId() {
@@ -83,6 +83,132 @@ function AssistantMessage({ content }: { content: string }) {
   );
 }
 
+const COLLECTION_PATHS: Record<string, string> = {
+  entities: "/entities",
+  kits: "/kits",
+  transactions: "/kits",
+};
+
+function ToolResultCard({
+  toolResult,
+  undoToken,
+  onUndo,
+}: {
+  toolResult: ToolResult;
+  undoToken?: string;
+  onUndo?: () => void;
+}) {
+  const [undone, setUndone] = useState(false);
+  const [undoVisible, setUndoVisible] = useState(!!undoToken);
+  const [undoing, setUndoing] = useState(false);
+
+  useEffect(() => {
+    if (!undoToken) return;
+    const timer = setTimeout(() => setUndoVisible(false), 30_000);
+    return () => clearTimeout(timer);
+  }, [undoToken]);
+
+  const basePath = COLLECTION_PATHS[toolResult.collection] ?? "/";
+  const recordPath = `${basePath}/${toolResult.record_id}`;
+
+  async function handleUndo() {
+    if (!undoToken || undoing) return;
+    setUndoing(true);
+    try {
+      await undoAction(undoToken);
+      setUndone(true);
+      setUndoVisible(false);
+      onUndo?.();
+      toast({ title: "Undone", description: toolResult.description + " has been undone.", variant: "success" });
+    } catch (err: unknown) {
+      toast({
+        title: "Undo failed",
+        description: err instanceof Error ? err.message : "Could not undo action.",
+        variant: "destructive",
+      });
+    } finally {
+      setUndoing(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="tool-result-card"
+      className={cn(
+        "rounded-lg border px-3 py-2 text-xs mt-1",
+        undone
+          ? "border-slate-600 bg-slate-800/40 text-slate-500"
+          : "border-emerald-700/50 bg-emerald-950/40 text-emerald-200"
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <CheckCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-400" />
+        <div className="flex-1 min-w-0">
+          <p className={cn("font-medium", undone && "line-through text-slate-500")}>
+            {toolResult.description}
+          </p>
+          {!undone && (
+            <Link
+              to={recordPath}
+              className="text-indigo-400 underline hover:text-indigo-300 truncate block"
+            >
+              View record
+            </Link>
+          )}
+          {undone && <p className="text-slate-500 italic">Undone</p>}
+        </div>
+        {undoVisible && !undone && (
+          <button
+            data-testid="undo-button"
+            onClick={handleUndo}
+            disabled={undoing}
+            className={cn(
+              "flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition-colors shrink-0",
+              "bg-slate-700 text-slate-200 hover:bg-slate-600",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            <Undo2 className="h-3 w-3" />
+            Undo
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ClarificationCard({
+  clarification,
+  onChoose,
+}: {
+  clarification: ClarificationRequest;
+  onChoose: (id: string, label: string, field: string) => void;
+}) {
+  return (
+    <div
+      data-testid="clarification-card"
+      className="rounded-lg border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs mt-1"
+    >
+      <p className="text-amber-200 font-medium mb-2">
+        Multiple matches for <code className="font-mono bg-slate-700 px-1 rounded">{clarification.field}</code>. Pick one:
+      </p>
+      <div className="flex flex-col gap-1">
+        {clarification.candidates.map((c) => (
+          <button
+            key={c.id}
+            data-testid={`clarification-choice-${c.id}`}
+            onClick={() => onChoose(c.id, c.label, clarification.field)}
+            className="text-left rounded px-2 py-1 bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors"
+          >
+            <span className="font-medium">{c.label}</span>
+            {c.detail && <span className="text-slate-400 ml-1">— {c.detail}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -111,8 +237,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     el.style.height = Math.min(el.scrollHeight, maxHeight) + "px";
   }, [input]);
 
-  const handleSend = useCallback(async () => {
-    const msg = input.trim();
+  const sendMessage = useCallback(async (msg: string) => {
     if (!msg || loading) return;
 
     const userMsg: Message = {
@@ -133,8 +258,20 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
         role: "assistant",
         content: res.reply,
         ts: new Date().toISOString(),
+        tool_result: res.tool_result,
+        undo_token: res.undo_token,
+        clarification_needed: res.clarification_needed,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Show toast for successful write actions
+      if (res.tool_result && res.undo_token) {
+        toast({
+          title: res.tool_result.description,
+          description: "Action logged. Click Undo in the chat to reverse within 30s.",
+          variant: "success",
+        });
+      }
     } catch (err: unknown) {
       if (err instanceof AiRateLimitError) {
         toast({
@@ -158,13 +295,23 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, sessionId]);
+  }, [loading, sessionId]);
+
+  const handleSend = useCallback(async () => {
+    const msg = input.trim();
+    await sendMessage(msg);
+  }, [input, sendMessage]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  }
+
+  function handleClarificationChoose(id: string, label: string, field: string) {
+    const msg = `use ${id} (${label}) for ${field}`;
+    sendMessage(msg);
   }
 
   return (
@@ -225,18 +372,32 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
                   <Bot className="h-3.5 w-3.5 text-indigo-300" />
                 </div>
               )}
-              <div
-                className={cn(
-                  "rounded-lg px-3 py-2 text-sm max-w-[80%] break-words",
-                  m.role === "user"
-                    ? "bg-indigo-600 text-white whitespace-pre-wrap"
-                    : "bg-slate-800 text-slate-100 whitespace-pre-wrap"
+              <div className="flex flex-col max-w-[80%] min-w-0">
+                <div
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-sm break-words",
+                    m.role === "user"
+                      ? "bg-indigo-600 text-white whitespace-pre-wrap"
+                      : "bg-slate-800 text-slate-100 whitespace-pre-wrap"
+                  )}
+                >
+                  {m.role === "assistant" ? (
+                    <AssistantMessage content={m.content} />
+                  ) : (
+                    m.content
+                  )}
+                </div>
+                {m.role === "assistant" && m.tool_result && (
+                  <ToolResultCard
+                    toolResult={m.tool_result}
+                    undoToken={m.undo_token}
+                  />
                 )}
-              >
-                {m.role === "assistant" ? (
-                  <AssistantMessage content={m.content} />
-                ) : (
-                  m.content
+                {m.role === "assistant" && m.clarification_needed && (
+                  <ClarificationCard
+                    clarification={m.clarification_needed}
+                    onChoose={handleClarificationChoose}
+                  />
                 )}
               </div>
             </div>

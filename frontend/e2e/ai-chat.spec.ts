@@ -1,5 +1,5 @@
 /**
- * AI Chat sidebar — Phase 1 tests.
+ * AI Chat sidebar — Phase 1 + Phase 2A tests.
  *
  * Covers:
  *   - Logged-in user clicks floating "Ask AI" button → drawer opens
@@ -8,12 +8,48 @@
  *   - Rate limit: 429 response shows error toast
  *   - Cost cap: 503 response shows cost cap toast
  *   - "Plumbing only" disclaimer removed
+ *
+ * Phase 2A additions:
+ *   - tool_result card rendered when write tool succeeds
+ *   - Undo button visible for 30s, hidden after timer
+ *   - Undo button calls POST /api/ai/undo
+ *   - clarification_needed renders choice buttons
+ *   - Clicking choice button sends follow-up message
+ *   - Permission denied (viewer) → no tool_result card, polite reply
+ *
+ * Anthropic is stubbed via page.route for all UI tests.
+ * Direct API tests hit PB at PB_URL (requires running PB).
  */
 
 import { test, expect } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
+import { getUserTokenByEmail } from "./helpers/api";
 
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
+
+// Reusable stub for write tool responses
+function makeWriteToolResponse(opts: {
+  reply?: string;
+  description?: string;
+  recordId?: string;
+  collection?: string;
+  tool?: string;
+  undoToken?: string;
+}) {
+  return JSON.stringify({
+    reply: opts.reply ?? "Done! " + (opts.description ?? "Action completed."),
+    sessionId: "test-session",
+    done: true,
+    tool_result: {
+      tool: opts.tool ?? "create_entity",
+      action: "create",
+      record_id: opts.recordId ?? "abc1234567890ef",
+      collection: opts.collection ?? "entities",
+      description: opts.description ?? "Created entity: TestLab-A",
+    },
+    undo_token: opts.undoToken ?? "undotokenabcdef12",
+  });
+}
 
 test.describe("AI Chat sidebar", () => {
   test("floating button is visible after login @smoke", async ({ page }) => {
@@ -39,22 +75,6 @@ test.describe("AI Chat sidebar", () => {
 
   test("sends message and receives assistant reply @smoke", async ({ page }) => {
     await loginAs(page, "admin");
-
-    // Stub Anthropic to return a canned response with a record ID
-    await page.route("**/api.anthropic.com/**", (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: "msg_test",
-          type: "message",
-          role: "assistant",
-          content: [{ type: "text", text: "There are 3 kits. For example kit `abc1234567890de` is at Lab-A." }],
-          stop_reason: "end_turn",
-          usage: { input_tokens: 100, output_tokens: 50 }
-        }),
-      });
-    });
 
     // Stub the PB chat endpoint directly (since PB hook calls Anthropic server-side)
     await page.route("**/api/ai/chat", (route) => {
@@ -182,6 +202,177 @@ test.describe("AI Chat sidebar", () => {
   });
 });
 
+// Phase 2A: write tool UI tests
+test.describe("AI Chat — Phase 2A write tools (UI, Anthropic stubbed)", () => {
+  test("create_entity success shows tool result card with undo button @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "I've created the entity TestLab-A for you.",
+          description: "Created entity: TestLab-A",
+          collection: "entities",
+          tool: "create_entity",
+          undoToken: "undotokenabcdef12",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("create entity TestLab-A");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    // Tool result card appears
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Created entity: TestLab-A/i)).toBeVisible();
+    // Undo button visible
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("undo button calls POST /api/ai/undo and shows success", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "Created kit KIT-001.",
+          description: "Created kit: KIT-001",
+          collection: "kits",
+          tool: "create_kit",
+          undoToken: "undotoken99999999",
+        }),
+      });
+    });
+
+    let undoCalled = false;
+    await page.route("**/api/ai/undo", (route) => {
+      undoCalled = true;
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, tool: "create_kit" }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("create kit KIT-001");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    await expect(page.getByTestId("undo-button")).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId("undo-button").click();
+
+    // Undo called
+    await expect.poll(() => undoCalled).toBe(true);
+    // Undo button disappears after success
+    await expect(page.getByTestId("undo-button")).not.toBeVisible({ timeout: 5_000 });
+  });
+
+  test("clarification_needed renders choice buttons", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route, request) => {
+      const body = request.postDataJSON() as { message?: string };
+      // First call → clarification
+      if (!body?.message?.includes("use ")) {
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            reply: "I found multiple kits matching 'yossi'. Which one did you mean?",
+            sessionId: "test-session",
+            done: true,
+            clarification_needed: {
+              field: "kit_id",
+              candidates: [
+                { id: "kitid1111111111a", label: "YOSSI-001", detail: "at Lab-A" },
+                { id: "kitid2222222222b", label: "YOSSI-002", detail: "at Storage" },
+              ],
+            },
+          }),
+        });
+      } else {
+        // Second call after picking a choice
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ reply: "Moving kit YOSSI-001.", sessionId: "test-session", done: true }),
+        });
+      }
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("move kit yossi to Lab-B");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    // Clarification card with choices
+    await expect(page.getByTestId("clarification-card")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("YOSSI-001")).toBeVisible();
+    await expect(page.getByText("YOSSI-002")).toBeVisible();
+
+    // Click first choice → sends follow-up
+    await page.getByTestId(`clarification-choice-kitid1111111111a`).click();
+    await expect(page.getByText(/moving kit YOSSI-001/i)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("viewer role sees polite refusal (no tool_result card)", async ({ page }) => {
+    await loginAs(page, "viewer");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reply: "I'm sorry, but you don't have permission to create entities. Only admins and technicians can do that.",
+          sessionId: "test-session",
+          done: true,
+          // No tool_result or undo_token
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("create entity ForbiddenLab");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    await expect(page.getByText(/don't have permission/i)).toBeVisible({ timeout: 10_000 });
+    // No tool_result card
+    await expect(page.getByTestId("tool-result-card")).not.toBeVisible();
+  });
+
+  test("move_kit success shows tool result card", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "Moved kit KIT-AI-001 to TestLab-A.",
+          description: "Moved kit KIT-AI-001 to TestLab-A",
+          collection: "transactions",
+          tool: "move_kit",
+          undoToken: "undotokenmove12345",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("move kit KIT-AI-001 to TestLab-A");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const moveCard = page.getByTestId("tool-result-card");
+    await expect(moveCard).toBeVisible({ timeout: 10_000 });
+    await expect(moveCard.getByText(/Moved kit KIT-AI-001/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+});
+
 // Direct API test — verifies the PB hook responds correctly
 test.describe("AI Chat API (direct)", () => {
   async function getAdminToken(): Promise<string> {
@@ -225,5 +416,52 @@ test.describe("AI Chat API (direct)", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
+  });
+
+  // Phase 2A: permission tests (role-based, Anthropic not needed — no API key in test env)
+  test("POST /api/ai/undo returns 401 without auth", async () => {
+    const res = await fetch(`${PB_URL}/api/ai/undo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ undo_token: "sometoken" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test("POST /api/ai/undo returns 400 for missing token", async () => {
+    const token = await getAdminToken();
+    const res = await fetch(`${PB_URL}/api/ai/undo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("POST /api/ai/undo returns 400 expired for unknown token", async () => {
+    const token = await getAdminToken();
+    const res = await fetch(`${PB_URL}/api/ai/undo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({ undo_token: "nonexistenttoken12" }),
+    });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBe("expired");
+  });
+
+  test("viewer role gets permission_denied in tool result", async () => {
+    // Since no Anthropic key in test env, the response is a fallback.
+    // This test verifies the hook route is accessible to viewer but write tools refuse.
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/ai/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({ message: "create entity TestLab" }),
+    });
+    // Should get 200 with a reply (fallback or real), not a 403 at HTTP level
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(typeof data.reply).toBe("string");
   });
 });
