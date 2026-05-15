@@ -172,7 +172,7 @@ Default Haiku 4.5. Promote individual hard queries to Sonnet 4.6 based on a comp
 6. **Anomaly proactive surfacing**: dashboard card "AI insights: 3 kits idle 60+ days" — opt-in?
 7. **What's the first useful query?** Best-bet user story to validate Phase 1 utility before broader rollout.
 
-## 9. What's NOT in this plan
+## 9. What's NOT in this plan (yet)
 
 - Slack bot (deferred; in-app first)
 - Voice input
@@ -180,6 +180,24 @@ Default Haiku 4.5. Promote individual hard queries to Sonnet 4.6 based on a comp
 - Cross-user / team analytics dashboards via AI
 - Training a custom model
 - RAG over historical audit logs as memory
+
+## 9b. MCP server — bumped to parallel with Phase 2
+
+**Rationale revision**: MCP value isn't primarily "user runs Claude Desktop" — it's **orchestrator + dispatched agents working with kit-tracker fluidly without bespoke curl in every brief**. Every future dispatch involving "add 50 kits", "audit last week", "rename entity across references" benefits from typed MCP tools instead of ad-hoc PB API calls. Tool layer is shared with in-app chat, so marginal cost after Phase 1 is ~1d.
+
+Updated phase order:
+1. Phase 1 — tool layer + in-app chat read-only (long pole; both downstream features need this)
+2. Phase 2 — Mode B move-kit in chat (writes via UI confirm + Undo)
+3. **Phase 5 — MCP server** — can run **parallel with Phase 2** once Phase 1 tool layer lands
+4. Phase 3 — prompt tuning + curated test set
+
+Surface (audience = orchestrator + dispatched agents primarily; desk admins via Claude Desktop / Code as bonus):
+- Remote HTTP/SSE MCP server hosted alongside PB on Fly (no new infra; same machine)
+- Auth: per-user PB token sent in MCP transport headers; tools execute scoped to that user's role
+- Reuses tools built in Phase 1 — single source of truth in `pb/pb_hooks/ai_tools/`
+- 1-line setup doc for Claude Desktop / Code users
+
+Phase 6 (Slack bot) still deferred indefinitely.
 
 ## 10. Next steps (if go)
 
