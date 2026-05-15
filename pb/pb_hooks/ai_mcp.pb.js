@@ -255,6 +255,55 @@ routerAdd("POST", "/api/mcp", function(c) {
           },
           required: ["component_id", "product_id"]
         }
+      },
+      {
+        name: "update_entity",
+        description: "Update fields on an existing entity. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Undo not available via MCP — issue a reverse update_entity. Only admin/technician can call this.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Entity record ID (required)" },
+            name: { type: "string", description: "New entity name" },
+            type: { type: "string", description: "New entity type" },
+            description: { type: "string", description: "New description" },
+            is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
+          },
+          required: ["id"]
+        }
+      },
+      {
+        name: "update_kit",
+        description: "Update fields on an existing kit. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Undo not available via MCP — issue a reverse update_kit. Only admin/technician can call this.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Kit record ID (required)" },
+            serial: { type: "string", description: "New serial number" },
+            notes: { type: "string", description: "New notes" },
+            tags: { type: "string", description: "New tags (comma-separated)" },
+            is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
+          },
+          required: ["id"]
+        }
+      },
+      {
+        name: "update_product",
+        description: "Update fields on an existing product. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Undo not available via MCP — issue a reverse update_product. Only admin/technician can call this.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Product record ID (required)" },
+            name: { type: "string", description: "New product name" },
+            category: { type: "string", description: "New category" },
+            manufacturer: { type: "string", description: "New manufacturer" },
+            model: { type: "string", description: "New model identifier" },
+            description: { type: "string", description: "New description" },
+            url: { type: "string", description: "New URL" },
+            specs: { type: "string", description: "New specs" },
+            is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
+          },
+          required: ["id"]
+        }
       }
     ];
 
@@ -683,7 +732,7 @@ routerAdd("POST", "/api/mcp", function(c) {
     // --- Write tools ---
 
     function saveMcpAuditLog(dao, opts) {
-      // opts: { collection_name, record_id, actor, action, tool }
+      // opts: { collection_name, record_id, actor, action, tool, changes? }
       try {
         var auditCollection = dao.findCollectionByNameOrId("audit_log");
         var auditRecord = new Record(auditCollection);
@@ -691,10 +740,12 @@ routerAdd("POST", "/api/mcp", function(c) {
         auditRecord.set("record_id", opts.record_id);
         auditRecord.set("actor", opts.actor);
         auditRecord.set("action", opts.action);
-        auditRecord.set("changes", JSON.stringify({
-          via: "mcp",
-          tool: opts.tool
-        }));
+        var changesObj = { via: "mcp", tool: opts.tool };
+        if (opts.changes) {
+          changesObj.before = opts.changes.before;
+          changesObj.after = opts.changes.after;
+        }
+        auditRecord.set("changes", JSON.stringify(changesObj));
         dao.save(auditRecord);
       } catch (auditErr) {
         console.log("[ai_mcp] audit log error: " + auditErr);
@@ -1196,6 +1247,216 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeUpdateEntity(dao, args, userId, userRole) {
+      if (userRole !== "admin" && userRole !== "technician") {
+        return { error: "permission_denied", detail: "Only admin or technician can update entities." };
+      }
+      var id = String(args.id || "").trim();
+      if (!id) {
+        return { error: "missing_required", detail: "id is required" };
+      }
+      var mutableFields = ["name", "type", "description", "is_active"];
+      var hasUpdate = false;
+      for (var fi = 0; fi < mutableFields.length; fi++) {
+        if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
+      }
+      if (!hasUpdate) {
+        return { error: "no_fields_to_update", detail: "no fields to update" };
+      }
+
+      var record;
+      try {
+        record = dao.findRecordById("entities", id);
+      } catch (_) {
+        return { error: "not_found", detail: "entity not found: " + id };
+      }
+
+      var before = {};
+      var after = {};
+      if (args.name !== undefined) {
+        before.name = safeStr(record, "name");
+        record.set("name", String(args.name));
+        after.name = String(args.name);
+      }
+      if (args.type !== undefined) {
+        before.type = safeStr(record, "type");
+        record.set("type", String(args.type));
+        after.type = String(args.type);
+      }
+      if (args.description !== undefined) {
+        before.description = safeStr(record, "description");
+        record.set("description", String(args.description));
+        after.description = String(args.description);
+      }
+      if (args.is_active !== undefined) {
+        before.is_active = record.getBool ? record.getBool("is_active") : (safeStr(record, "is_active") === "true");
+        record.set("is_active", args.is_active === true);
+        after.is_active = args.is_active === true;
+      }
+
+      try {
+        dao.save(record);
+
+        saveMcpAuditLog(dao, {
+          collection_name: "entities",
+          record_id: id,
+          actor: userId,
+          action: "update",
+          tool: "update_entity",
+          changes: { before: before, after: after }
+        });
+
+        return {
+          success: true,
+          record_id: id,
+          before: before,
+          after: after,
+          description: "Updated entity: " + id + ". Note: undo is not available via MCP — issue a reverse update_entity.",
+          collection: "entities"
+        };
+      } catch (err) {
+        return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
+    function executeUpdateKit(dao, args, userId, userRole) {
+      if (userRole !== "admin" && userRole !== "technician") {
+        return { error: "permission_denied", detail: "Only admin or technician can update kits." };
+      }
+      var id = String(args.id || "").trim();
+      if (!id) {
+        return { error: "missing_required", detail: "id is required" };
+      }
+      var mutableFields = ["serial", "notes", "tags", "is_active"];
+      var hasUpdate = false;
+      for (var fi = 0; fi < mutableFields.length; fi++) {
+        if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
+      }
+      if (!hasUpdate) {
+        return { error: "no_fields_to_update", detail: "no fields to update" };
+      }
+
+      var record;
+      try {
+        record = dao.findRecordById("kits", id);
+      } catch (_) {
+        return { error: "not_found", detail: "kit not found: " + id };
+      }
+
+      var before = {};
+      var after = {};
+      if (args.serial !== undefined) {
+        before.serial = safeStr(record, "serial");
+        record.set("serial", String(args.serial));
+        after.serial = String(args.serial);
+      }
+      if (args.notes !== undefined) {
+        before.notes = safeStr(record, "notes");
+        record.set("notes", String(args.notes));
+        after.notes = String(args.notes);
+      }
+      if (args.tags !== undefined) {
+        before.tags = safeStr(record, "tags");
+        record.set("tags", String(args.tags));
+        after.tags = String(args.tags);
+      }
+      if (args.is_active !== undefined) {
+        before.is_active = record.getBool ? record.getBool("is_active") : (safeStr(record, "is_active") === "true");
+        record.set("is_active", args.is_active === true);
+        after.is_active = args.is_active === true;
+      }
+
+      try {
+        dao.save(record);
+
+        saveMcpAuditLog(dao, {
+          collection_name: "kits",
+          record_id: id,
+          actor: userId,
+          action: "update",
+          tool: "update_kit",
+          changes: { before: before, after: after }
+        });
+
+        return {
+          success: true,
+          record_id: id,
+          before: before,
+          after: after,
+          description: "Updated kit: " + id + ". Note: undo is not available via MCP — issue a reverse update_kit.",
+          collection: "kits"
+        };
+      } catch (err) {
+        return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
+    function executeUpdateProduct(dao, args, userId, userRole) {
+      if (userRole !== "admin" && userRole !== "technician") {
+        return { error: "permission_denied", detail: "Only admin or technician can update products." };
+      }
+      var id = String(args.id || "").trim();
+      if (!id) {
+        return { error: "missing_required", detail: "id is required" };
+      }
+      var mutableFields = ["name", "category", "manufacturer", "model", "description", "url", "specs", "is_active"];
+      var hasUpdate = false;
+      for (var fi = 0; fi < mutableFields.length; fi++) {
+        if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
+      }
+      if (!hasUpdate) {
+        return { error: "no_fields_to_update", detail: "no fields to update" };
+      }
+
+      var record;
+      try {
+        record = dao.findRecordById("products", id);
+      } catch (_) {
+        return { error: "not_found", detail: "product not found: " + id };
+      }
+
+      var before = {};
+      var after = {};
+      var strFields = ["name", "category", "manufacturer", "model", "description", "url", "specs"];
+      for (var si = 0; si < strFields.length; si++) {
+        var sf = strFields[si];
+        if (args[sf] !== undefined) {
+          before[sf] = safeStr(record, sf);
+          record.set(sf, String(args[sf]));
+          after[sf] = String(args[sf]);
+        }
+      }
+      if (args.is_active !== undefined) {
+        before.is_active = record.getBool ? record.getBool("is_active") : (safeStr(record, "is_active") === "true");
+        record.set("is_active", args.is_active === true);
+        after.is_active = args.is_active === true;
+      }
+
+      try {
+        dao.save(record);
+
+        saveMcpAuditLog(dao, {
+          collection_name: "products",
+          record_id: id,
+          actor: userId,
+          action: "update",
+          tool: "update_product",
+          changes: { before: before, after: after }
+        });
+
+        return {
+          success: true,
+          record_id: id,
+          before: before,
+          after: after,
+          description: "Updated product: " + id + ". Note: undo is not available via MCP — issue a reverse update_product.",
+          collection: "products"
+        };
+      } catch (err) {
+        return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function execute(toolName, args, dao, userId, userRole) {
       try {
         if (toolName === "list_kits") return executeListKits(dao, args);
@@ -1215,6 +1476,9 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "move_component") return executeMoveComponent(dao, args, userId, userRole);
         if (toolName === "decide_request") return executeDecideRequest(dao, args, userId, userRole);
         if (toolName === "link_component_to_product") return executeLinkComponentToProduct(dao, args, userId, userRole);
+        if (toolName === "update_entity") return executeUpdateEntity(dao, args, userId, userRole);
+        if (toolName === "update_kit") return executeUpdateKit(dao, args, userId, userRole);
+        if (toolName === "update_product") return executeUpdateProduct(dao, args, userId, userRole);
         return { error: "unknown tool: " + toolName };
       } catch (err) {
         return { error: "tool execution error", detail: String(err && err.message ? err.message : err) };
@@ -1302,7 +1566,10 @@ routerAdd("POST", "/api/mcp", function(c) {
         toolName === "create_component" ||
         toolName === "move_component" ||
         toolName === "decide_request" ||
-        toolName === "link_component_to_product"
+        toolName === "link_component_to_product" ||
+        toolName === "update_entity" ||
+        toolName === "update_kit" ||
+        toolName === "update_product"
       );
 
       // Permission gate for write tools
