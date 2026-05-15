@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { UserCog, Pencil } from "lucide-react";
+import { UserCog, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import {
   Select,
@@ -15,6 +15,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -24,6 +34,7 @@ import {
   updateUserDenial,
   restoreUser,
   updateUserProfile,
+  deleteUser,
 } from "../services/users";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
@@ -40,7 +51,7 @@ const ROLE_OPTIONS: { value: UserRole | "none"; label: string }[] = [
 ];
 
 export function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isAdmin } = useAuth();
   const [users, setUsers] = useState<PBUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -55,6 +66,10 @@ export function UsersPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // Delete confirmation dialog
+  const [deleteTarget, setDeleteTarget] = useState<PBUser | null>(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -214,6 +229,30 @@ export function UsersPage() {
     }
   }
 
+  async function handleDeleteConfirm() {
+    if (!deleteTarget) return;
+    setDeleteInProgress(true);
+    try {
+      await deleteUser(deleteTarget.id);
+      setUsers((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      toast({
+        title: "User deleted",
+        description: `${deleteTarget.email} has been deleted.`,
+        variant: "success",
+      });
+      setDeleteTarget(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast({
+        title: "Failed to delete user",
+        description: err?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteInProgress(false);
+    }
+  }
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     return (
@@ -275,13 +314,35 @@ export function UsersPage() {
                         )}
                         <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(u.created)}</p>
                       </div>
-                      <button
-                        onClick={() => openEditDialog(u)}
-                        className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
-                        aria-label={`Edit ${u.email}`}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                        <button
+                          onClick={() => openEditDialog(u)}
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Edit ${u.email}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        {isAdmin && (
+                          isSelf ? (
+                            <button
+                              disabled
+                              title="Cannot delete your own account"
+                              className="text-muted-foreground/30 cursor-not-allowed"
+                              aria-label="Cannot delete your own account"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteTarget(u)}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label={`Delete ${u.email}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )
+                        )}
+                      </div>
                     </div>
                     <Select value={selectValue} onValueChange={(v) => handleRoleChange(u, v)}>
                       <SelectTrigger className="w-36 h-11 md:h-9">
@@ -313,6 +374,7 @@ export function UsersPage() {
                       <th className="text-left p-3 font-medium text-muted-foreground">Role</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Created</th>
                       <th className="text-left p-3 font-medium text-muted-foreground"></th>
+                      {isAdmin && <th className="text-left p-3 font-medium text-muted-foreground"></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -365,6 +427,28 @@ export function UsersPage() {
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                           </td>
+                          {isAdmin && (
+                            <td className="p-3">
+                              {isSelf ? (
+                                <button
+                                  disabled
+                                  title="Cannot delete your own account"
+                                  className="text-muted-foreground/30 cursor-not-allowed"
+                                  aria-label="Cannot delete your own account"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setDeleteTarget(u)}
+                                  className="text-muted-foreground hover:text-destructive"
+                                  aria-label={`Delete ${u.email}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -451,6 +535,28 @@ export function UsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete user confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{deleteTarget?.email}</strong>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteInProgress}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteInProgress}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteInProgress ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

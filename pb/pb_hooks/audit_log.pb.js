@@ -215,6 +215,27 @@ onRecordAfterUpdateRequest(function(e) {
   }
 }, "users");
 
+// users — delete
+onRecordAfterDeleteRequest(function(e) {
+  try {
+    var info = $apis.requestInfo(e.httpContext);
+    if (!info || !info.authRecord) return;
+    var actorId = info.authRecord.id;
+
+    var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var log = new Record(auditCol, {
+      collection_name: "users",
+      record_id: e.record.id,
+      actor: actorId,
+      action: "delete",
+      changes: JSON.stringify({ before: { email: e.record.getString("email"), role: e.record.getString("role") } }),
+    });
+    $app.dao().saveRecord(log);
+  } catch (err) {
+    console.log("[audit_log] users delete error:", err);
+  }
+}, "users");
+
 // requests — create
 onRecordAfterCreateRequest(function(e) {
   try {

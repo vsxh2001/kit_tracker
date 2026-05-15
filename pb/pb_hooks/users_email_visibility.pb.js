@@ -9,7 +9,10 @@
 // Kit-tracker is an internal tool where admins MUST see emails to manage
 // roles. Force-set on create. Backfill of pre-existing users is handled by
 // migration 1778742000_backfill_email_visibility.js.
+//
+// Uses onModelBeforeCreate (lower-level Dao hook) so admin-panel creates
+// — which bypass onRecordBeforeCreateRequest — are also covered.
 
-onRecordBeforeCreateRequest((e) => {
-  e.record.setEmailVisibility(true);
+onModelBeforeCreate((e) => {
+  e.model.setEmailVisibility(true);
 }, "users");
