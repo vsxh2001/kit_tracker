@@ -465,3 +465,257 @@ test.describe("AI Chat API (direct)", () => {
     expect(typeof data.reply).toBe("string");
   });
 });
+
+// Phase 2B: write tool UI tests (Anthropic stubbed)
+test.describe("AI Chat — Phase 2B write tools (UI, Anthropic stubbed)", () => {
+  test("create_product success shows tool result card with undo button", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "I've created the product Samsung 970 EVO SSD for you.",
+          description: "Created product: Samsung 970 EVO SSD",
+          collection: "products",
+          tool: "create_product",
+          undoToken: "undoproducttoken01",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("create product Samsung 970 EVO SSD, manufacturer Samsung");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Created product: Samsung 970 EVO SSD/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("create_component success shows tool result card", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "Created component SSD-001. Call move_component to place it.",
+          description: "Created component: SSD-001",
+          collection: "components",
+          tool: "create_component",
+          undoToken: "undocomptoken000001",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("create component serial SSD-001");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Created component: SSD-001/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("move_component success shows tool result card", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "Moved component SSD-001 to Kit KIT-001.",
+          description: "Moved component SSD-001 to KIT-001",
+          collection: "component_transactions",
+          tool: "move_component",
+          undoToken: "undomovecomptoken1",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("move component SSD-001 to kit KIT-001");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Moved component SSD-001/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("decide_request success shows tool result card", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "Request req123 has been approved.",
+          description: "Request req123 approved. Note: fulfillment is a separate step.",
+          collection: "requests",
+          tool: "decide_request",
+          undoToken: "undodeciderequest01",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("approve request req123");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/approved/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("link_component_to_product success shows tool result card", async ({ page }) => {
+    await loginAs(page, "admin");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: makeWriteToolResponse({
+          reply: "Re-linked component SSD-001 to product Samsung 970 EVO.",
+          description: "Re-linked component SSD-001 to product prod123",
+          collection: "components",
+          tool: "link_component_to_product",
+          undoToken: "undolinkcomptoken1",
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("link component SSD-001 to product Samsung 970 EVO");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    const card = page.getByTestId("tool-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.getByText(/Re-linked component/i)).toBeVisible();
+    await expect(page.getByTestId("undo-button")).toBeVisible();
+  });
+
+  test("viewer role sees polite refusal for create_product (no tool_result card)", async ({ page }) => {
+    await loginAs(page, "viewer");
+
+    await page.route("**/api/ai/chat", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          reply: "I'm sorry, but you don't have permission to create products. Only admins and technicians can do that.",
+          sessionId: "test-session",
+          done: true,
+        }),
+      });
+    });
+
+    await page.getByRole("button", { name: /ask ai/i }).click();
+    await page.getByRole("textbox", { name: /chat message input/i }).fill("create product ForbiddenProduct");
+    await page.getByRole("button", { name: /send message/i }).click();
+
+    await expect(page.getByText(/don't have permission/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("tool-result-card")).not.toBeVisible();
+  });
+});
+
+// Phase 2B: Direct API permission tests
+test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
+  test("resolve_product returns 200 for any auth user", async () => {
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+    // resolve_product is read-only — viewer can call it via the chat endpoint
+    // Since no Anthropic key, fallback response is expected
+    const res = await fetch(`${PB_URL}/api/ai/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({ message: "find product Samsung" }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(typeof data.reply).toBe("string");
+  });
+
+  test("MCP tools/list returns all 17 tool definitions for admin", async () => {
+    const token = await (async () => {
+      const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: "logistics@kit.local", password: "Pass1234!" }),
+      });
+      const d = await res.json();
+      return d.token as string;
+    })();
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.result.tools.length).toBe(17);
+    const toolNames = data.result.tools.map((t: { name: string }) => t.name);
+    expect(toolNames).toContain("resolve_product");
+    expect(toolNames).toContain("create_product");
+    expect(toolNames).toContain("create_component");
+    expect(toolNames).toContain("move_component");
+    expect(toolNames).toContain("decide_request");
+    expect(toolNames).toContain("link_component_to_product");
+  });
+
+  test("MCP create_product returns permission_denied for viewer", async () => {
+    const { token } = await getUserTokenByEmail("viewer@kit.local", "Pass1234!");
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "create_product", arguments: { name: "TestProduct" } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.error?.message).toBe("permission_denied");
+  });
+
+  test("MCP move_component requires both component_id and to_kit_id or to_entity_id", async () => {
+    const adminToken = await (async () => {
+      const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identity: "logistics@kit.local", password: "Pass1234!" }),
+      });
+      const d = await res.json();
+      return d.token as string;
+    })();
+
+    const res = await fetch(`${PB_URL}/api/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: adminToken },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "move_component", arguments: { component_id: "somecompid123" } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // Should be a result (not an RPC-level error), but with validation_error inside
+    const resultText = data.result?.content?.[0]?.text;
+    expect(resultText).toBeTruthy();
+    const resultObj = JSON.parse(resultText);
+    expect(resultObj.error).toBe("validation_error");
+  });
+});
