@@ -61,6 +61,23 @@ async function deactivateSchedule(id: string): Promise<void> {
   });
 }
 
+async function deleteSchedulesByType(type: string): Promise<void> {
+  const token = await adminToken();
+  const res = await fetch(
+    `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=type="${type}"&perPage=100`,
+    { headers: { Authorization: token } }
+  );
+  const data = await res.json();
+  const schedules = data.items ?? [];
+  for (const sched of schedules) {
+    await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${sched.id}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: false }),
+    });
+  }
+}
+
 async function getSchedule(id: string): Promise<{ last_done_at: string; next_due_at: string }> {
   const token = await adminToken();
   const res = await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${id}`, {
@@ -252,12 +269,17 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
   let schedSerial: string;
 
   test.beforeAll(async () => {
+    // Clean up any leftover HubCalibration schedules from prior test runs before creating our kit
+    await deleteSchedulesByType("HubCalibration");
+
     schedSerial = `${TS}-HUB`;
     const kit = await createTestKit(schedSerial);
     kitId = kit.id;
   });
 
   test.afterAll(async () => {
+    // Clean up schedules by type to prevent growth on retry
+    await deleteSchedulesByType("HubCalibration");
     await deleteKit(kitId);
   });
 
@@ -285,7 +307,7 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     // Success toast
     await expect(page.locator("div:has-text('Schedule created')").first()).toBeVisible({ timeout: 10_000 });
 
-    // Schedule appears in the table
-    await expect(page.getByText("HubCalibration")).toBeVisible({ timeout: 5000 });
+    // Schedule appears in the table (scope to tbody to avoid notification/option matches, use first() for strict mode)
+    await expect(page.locator("tbody").getByText("HubCalibration").first()).toBeVisible({ timeout: 5000 });
   });
 });
