@@ -88,8 +88,10 @@ test.describe("AI Chat sidebar", () => {
     await input.fill("test");
     await input.press("Enter");
 
-    await expect(page.getByText(/rate limit reached/i)).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText(/try again in 3600 seconds/i)).toBeVisible();
+    // Toast renders the message twice (visible title + aria-live announce);
+    // scope to the first match.
+    await expect(page.getByText(/rate limit reached/i).first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/try again in 3600 seconds/i).first()).toBeVisible();
   });
 });
 

@@ -15,7 +15,10 @@ export async function sendChatMessage(
   sessionId?: string
 ): Promise<ChatResponse> {
   const token = pb.authStore.token;
-  const res = await fetch("/api/ai/chat", {
+  // Route through the PB origin (dev: localhost:8090; prod: same-origin
+  // when PB serves frontend). pb.baseUrl is set in lib/pocketbase.ts.
+  const url = `${pb.baseUrl.replace(/\/$/, "")}/api/ai/chat`;
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
