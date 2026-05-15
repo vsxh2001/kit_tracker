@@ -953,6 +953,7 @@ function getAiTools() {
       "If a write tool returns permission_denied, politely explain the user does not have permission."
     );
 
+<<<<<<< Updated upstream
     // --- Build conversation history for Anthropic (role: user/assistant only) ---
     var historyMessages = [];
     var storedMsgs = session.messages;
@@ -964,6 +965,25 @@ function getAiTools() {
         }
       }
     }
+=======
+    // --- Build conversation history for Anthropic ---
+    // Fix B (2026-05-15): single-turn / stateless. NO prior messages sent.
+    // Each chat call is independent from the model's perspective.
+    //
+    // Why: keeping assistant text in history made the model fabricate
+    // success on similar follow-up creates ("✅ I just did this — must be
+    // done already"). Keeping only user history made the model re-execute
+    // prior user requests on every new call (saw 4 user messages, treated
+    // them as a fresh batch — duplicated 4 entities).
+    //
+    // Stateless removes both failure modes. Tradeoff: clarification
+    // follow-ups ("use option A") and multi-turn references ("the kit I
+    // just made") won't work without explicit re-stating. For the Phase 2A
+    // spike, that's acceptable — refine later if multi-turn becomes the
+    // common path. Server-side session.messages is still persisted for
+    // audit / debugging, just not sent back to Anthropic.
+    var historyMessages = [];
+>>>>>>> Stashed changes
 
     // Add the new user message
     var wrappedMessage = "<user_content>" + message + "</user_content>";
