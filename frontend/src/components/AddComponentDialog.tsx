@@ -68,11 +68,14 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         setError("");
       });
       if (canTransferKits) {
-        listComponents({ activeOnly: true })
+        listComponents({ activeOnly: true, requestKey: "list-components-dialog" })
           .then((comps) => {
             setExistingComponents(comps);
           })
-          .catch(() => setError("Failed to load components."));
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .catch((err: any) => {
+            if (!err?.isAbort) setError("Failed to load components.");
+          });
       }
       if (presetProductId) {
         // Load just enough to display the locked product name

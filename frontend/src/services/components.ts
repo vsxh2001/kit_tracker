@@ -1,14 +1,14 @@
 import { pb } from "../lib/pocketbase";
 import type { Component } from "../types";
 
-export async function listComponents(opts?: { activeOnly?: boolean }): Promise<Component[]> {
+export async function listComponents(opts?: { activeOnly?: boolean; requestKey?: string }): Promise<Component[]> {
   const filters: string[] = [];
   if (opts?.activeOnly) filters.push("is_active = true");
   return pb.collection("components").getFullList<Component>({
     sort: "serial",
     filter: filters.join(" && ") || undefined,
     expand: "product",
-    requestKey: "list-components",
+    requestKey: opts?.requestKey ?? "list-components",
   });
 }
 
