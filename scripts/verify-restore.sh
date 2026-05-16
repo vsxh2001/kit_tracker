@@ -1,10 +1,30 @@
 #!/usr/bin/env bash
 # Verify a restored PocketBase data dir by querying collection counts.
-# Usage: bash scripts/verify-restore.sh <port>
+# Usage: bash scripts/verify-restore.sh [--allow-empty] <port>
+#
+# --allow-empty  Skip minimum-row check; only verify collections exist + are queryable.
+#                Use for fresh-DB drills without real data.
+#
+# Env vars:
+#   PB_ADMIN_EMAIL     (default: admin@example.com)
+#   PB_ADMIN_PASSWORD  (default: changeme123)
 set -euo pipefail
 
-PORT="${1:-48190}"
+ALLOW_EMPTY=0
+PORT=""
+
+for arg in "$@"; do
+  if [ "$arg" = "--allow-empty" ]; then
+    ALLOW_EMPTY=1
+  else
+    PORT="$arg"
+  fi
+done
+
+PORT="${PORT:-48190}"
 PB_URL="http://127.0.0.1:$PORT"
+PB_ADMIN_EMAIL="${PB_ADMIN_EMAIL:-admin@example.com}"
+PB_ADMIN_PASSWORD="${PB_ADMIN_PASSWORD:-changeme123}"
 
 echo "→ Health check"
 if ! curl -sf "$PB_URL/api/health" >/dev/null; then
@@ -13,28 +33,52 @@ if ! curl -sf "$PB_URL/api/health" >/dev/null; then
 fi
 echo "  OK"
 
-echo "→ Collection counts (no auth — public collections only)"
-# audit_log requires admin auth, will be skipped if PB has no superuser
-declare -A expected_min
-expected_min[users]=1
-expected_min[entities]=1
-expected_min[kits]=0   # ok if zero on a fresh restore
-expected_min[products]=0
-expected_min[components]=0
-expected_min[transactions]=0
-expected_min[component_transactions]=0
-expected_min[requests]=0
+echo "→ Superuser auth"
+TOKEN=$(curl -sf -X POST "$PB_URL/api/collections/_superusers/auth-with-password" \
+  -H 'Content-Type: application/json' \
+  -d "{\"identity\":\"$PB_ADMIN_EMAIL\",\"password\":\"$PB_ADMIN_PASSWORD\"}" \
+  2>/dev/null | jq -r '.token // empty')
+if [ -z "$TOKEN" ]; then
+  # Fallback for older PB v0.21 endpoint
+  TOKEN=$(curl -sf -X POST "$PB_URL/api/admins/auth-with-password" \
+    -H 'Content-Type: application/json' \
+    -d "{\"identity\":\"$PB_ADMIN_EMAIL\",\"password\":\"$PB_ADMIN_PASSWORD\"}" \
+    2>/dev/null | jq -r '.token // empty')
+fi
+if [ -z "$TOKEN" ]; then
+  echo "  FAIL — superuser auth failed; cannot verify"
+  exit 1
+fi
+echo "  OK"
+
+echo "→ Collection counts"
+declare -A expected_min=(
+  [users]=1
+  [entities]=1
+  [kits]=1
+  [products]=0
+  [components]=0
+  [transactions]=1
+  [component_transactions]=0
+  [requests]=0
+  [audit_log]=1
+)
 
 FAIL=0
-for col in users entities kits products components transactions component_transactions requests; do
-  # Try with admin auth; fall back to public listRule
-  COUNT=$(curl -sf "$PB_URL/api/collections/$col/records?perPage=1" 2>/dev/null | jq -r '.totalItems // empty')
+for col in users entities kits products components transactions component_transactions requests audit_log; do
+  COUNT=$(curl -sf \
+    -H "Authorization: $TOKEN" \
+    "$PB_URL/api/collections/$col/records?perPage=1" \
+    2>/dev/null | jq -r '.totalItems // empty')
   if [ -z "$COUNT" ]; then
-    echo "  WARN $col — list rule blocks anonymous; cannot verify"
+    echo "  FAIL $col — query failed (collection missing or auth rejected)"
+    FAIL=$((FAIL+1))
     continue
   fi
   EXPECTED=${expected_min[$col]:-0}
-  if [ "$COUNT" -ge "$EXPECTED" ]; then
+  if [ "$ALLOW_EMPTY" = "1" ]; then
+    echo "  OK   $col rows=$COUNT (--allow-empty: threshold skipped)"
+  elif [ "$COUNT" -ge "$EXPECTED" ]; then
     echo "  OK   $col rows=$COUNT (>= $EXPECTED)"
   else
     echo "  FAIL $col rows=$COUNT (< $EXPECTED expected)"
@@ -44,7 +88,11 @@ done
 
 echo ""
 if [ "$FAIL" -gt 0 ]; then
-  echo "✗ $FAIL collections failed minimum-row check"
+  echo "✗ $FAIL collections failed check"
   exit 1
 fi
-echo "✓ All collections meet minimum row expectations"
+if [ "$ALLOW_EMPTY" = "1" ]; then
+  echo "✓ All collections queryable (--allow-empty mode; row thresholds skipped)"
+else
+  echo "✓ All collections meet minimum row expectations"
+fi
