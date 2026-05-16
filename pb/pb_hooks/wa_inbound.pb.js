@@ -348,19 +348,34 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // =====================================================================
   var from = "";
   var body = "";
+  var msgSid = "";
   try {
     from = c.request().formValue("From") || "";
     body = c.request().formValue("Body") || "";
+    msgSid = c.request().formValue("MessageSid") || "";
   } catch (e) {
     console.log("[wa_inbound] form parse error: " + e);
     return c.string(200, "");
   }
 
-  console.log("[wa_inbound] inbound from=" + from + " body=" + (body || "").slice(0, 80));
+  console.log("[wa_inbound] inbound from=" + from + " sid=" + msgSid + " body=" + (body || "").slice(0, 80));
 
   if (!from || !body) {
     console.log("[wa_inbound] missing From or Body");
     return c.string(200, "");
+  }
+
+  // --- MessageSid idempotency (Twilio retries on 5xx/timeout) ---
+  // Cache seen SIDs for 1h. If already processed, ack 200 silently.
+  if (msgSid) {
+    var seenKey = "wa_seen:" + msgSid;
+    var alreadySeen = false;
+    try { alreadySeen = !!$app.store().get(seenKey); } catch (e) {}
+    if (alreadySeen) {
+      console.log("[wa_inbound] duplicate MessageSid " + msgSid + " — skipping");
+      return c.string(200, "");
+    }
+    try { $app.store().set(seenKey, String(Date.now() + 3600000)); } catch (e) {}
   }
 
   // Strip "whatsapp:" prefix
