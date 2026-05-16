@@ -1105,6 +1105,128 @@ test.describe("T28-T30: Regression", () => {
 });
 
 // ---------------------------------------------------------------------------
+// T33: null is_serialized fallback — rows must appear in Serialized table
+//
+// Regression for the strict-equality bug (=== true / === false) that silently
+// dropped components whose product has is_serialized=null/undefined from BOTH
+// tables. Fix: serialized check uses !== false; unknown lands in serialized.
+//
+// If PocketBase coerces bool null→false on PATCH, the regression is not
+// reproducible via REST and the test is skipped with a finding note.
+// ---------------------------------------------------------------------------
+
+test.describe("T33: null is_serialized falls back to serialized table", () => {
+  let entityId: string;
+  let productId: string;
+  let componentId: string;
+
+  test.beforeAll(async () => {
+    entityId = (await createTestEntity(`${TS}-T33Entity`, "", "storage")).id;
+  });
+
+  test.afterAll(async () => {
+    const token = await getAdminToken();
+    if (componentId) {
+      await fetch(`${PB_URL}/api/collections/components/records/${componentId}`, {
+        method: "PATCH",
+        headers: { Authorization: token, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      });
+    }
+    if (productId) {
+      await fetch(`${PB_URL}/api/collections/products/records/${productId}`, {
+        method: "PATCH",
+        headers: { Authorization: token, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      });
+    }
+    await deactivateEntity(entityId);
+  });
+
+  test("T33-1: component with null is_serialized product appears in Serialized table (not dropped) @smoke", async ({ page }) => {
+    const token = await getAdminToken();
+    const userId = await getAdminUserId();
+
+    // Create a product, then PATCH is_serialized to null
+    const prodRes = await fetch(`${PB_URL}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `${TS}-NullSer-Product`,
+        is_active: true,
+        is_serialized: true,
+      }),
+    });
+    expect(prodRes.status, "Product creation must succeed").toBe(200);
+    const prod = await prodRes.json();
+    productId = prod.id;
+
+    // Attempt to PATCH is_serialized to null
+    const patchRes = await fetch(`${PB_URL}/api/collections/products/records/${productId}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_serialized: null }),
+    });
+    expect(patchRes.status, "PATCH is_serialized=null must not error").toBe(200);
+
+    // Verify what PB actually stored
+    const fetchedProd = await patchRes.json();
+    if (fetchedProd.is_serialized !== null && fetchedProd.is_serialized !== undefined) {
+      // PB coerced null to a concrete value — skip regression as finding
+      test.skip(
+        true,
+        `Finding: PocketBase coerced is_serialized null → ${fetchedProd.is_serialized}. ` +
+        "Regression not reproducible via REST. Code fix (! == false) still applied."
+      );
+      return;
+    }
+
+    // PB preserved null — create component linked to this product
+    const compRes = await fetch(`${PB_URL}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: productId,
+        serial: `${TS}-T33-SN`,
+        is_bulk: false,
+        is_active: true,
+      }),
+    });
+    expect(compRes.status, "Component creation must succeed").toBe(200);
+    const comp = await compRes.json();
+    componentId = comp.id;
+
+    // Place component at entity via component_transaction
+    await fetch(`${PB_URL}/api/collections/component_transactions/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        component: componentId,
+        to_entity: entityId,
+        quantity: 1,
+        timestamp: new Date().toISOString(),
+        notes: "T33 placement",
+        created_by: userId,
+      }),
+    });
+
+    // Navigate to /components and verify the component appears in Serialized table
+    await loginAs(page, "admin");
+    await page.goto("/components");
+    await waitForComponentsPage(page);
+
+    // Search by serial to isolate
+    await page.getByPlaceholder(/search by serial/i).fill(`${TS}-T33-SN`);
+
+    // Must appear under Serialized section (heading visible + cell visible)
+    await expect(page.getByRole("heading", { name: /serialized components/i })).toBeVisible();
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-T33-SN`) })).toBeVisible({
+      message: "Component with null is_serialized must appear in Serialized table (not dropped)",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // T31: quantity=null for serialized components (DB-level invariant)
 //
 // PocketBase serializes NUMERIC NULL as 0 in the REST JSON response.
