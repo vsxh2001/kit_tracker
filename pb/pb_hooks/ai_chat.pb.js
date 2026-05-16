@@ -2056,6 +2056,15 @@ function getAiTools() {
     }
     var userId = auth.id;
 
+    // T6: tag audit rows from this handler as "ai-agent".
+    // Non-overwrite guard: wa_inbound proxies to this endpoint; when called from WA,
+    // the outer wa_inbound request context is separate — $http.send() creates a new
+    // request context — so audit_via is never set here from WA. We still guard
+    // with the non-overwrite pattern for correctness if the calling convention changes.
+    try {
+      if (!c.get("audit_via")) c.set("audit_via", "ai-agent");
+    } catch (_) {}
+
     var RATE_WINDOW_MS = 60 * 60 * 1000;
     var RATE_MAX = 60;
     var SESSION_TTL_MS = 60 * 60 * 1000;

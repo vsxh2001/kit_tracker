@@ -4,6 +4,12 @@
 // because Goja (PB's JS runtime) does not share top-level function scope
 // between separate onRecord* registration calls.
 // Errors are caught and logged; they NEVER block the original operation.
+//
+// T6: via tag detection is inlined in each callback (not extracted to a helper)
+// because Goja isolates top-level scope per onRecord* registration — a function
+// declared at module level is not visible inside the callbacks.
+// Each callback reads e.httpContext.get("audit_via") set by ai_chat/ai_mcp/wa_inbound;
+// falls back to "web" for direct REST calls from the browser/frontend.
 
 // kits — create
 onRecordAfterCreateRequest(function(e) {
@@ -21,13 +27,16 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "kits",
       record_id: e.record.id,
       actor: actorId,
       action: "create",
-      changes: JSON.stringify({ after: data }),
+      changes: JSON.stringify({ after: data, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -61,13 +70,16 @@ onRecordAfterUpdateRequest(function(e) {
 
     if (!hasChanges) return;
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "kits",
       record_id: e.record.id,
       actor: actorId,
       action: "update",
-      changes: JSON.stringify({ before: before, after: after }),
+      changes: JSON.stringify({ before: before, after: after, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -91,13 +103,16 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "entities",
       record_id: e.record.id,
       actor: actorId,
       action: "create",
-      changes: JSON.stringify({ after: data }),
+      changes: JSON.stringify({ after: data, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -131,13 +146,16 @@ onRecordAfterUpdateRequest(function(e) {
 
     if (!hasChanges) return;
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "entities",
       record_id: e.record.id,
       actor: actorId,
       action: "update",
-      changes: JSON.stringify({ before: before, after: after }),
+      changes: JSON.stringify({ before: before, after: after, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -161,13 +179,16 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "users",
       record_id: e.record.id,
       actor: actorId,
       action: "create",
-      changes: JSON.stringify({ after: data }),
+      changes: JSON.stringify({ after: data, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -201,13 +222,16 @@ onRecordAfterUpdateRequest(function(e) {
 
     if (!hasChanges) return;
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "users",
       record_id: e.record.id,
       actor: actorId,
       action: "update",
-      changes: JSON.stringify({ before: before, after: after }),
+      changes: JSON.stringify({ before: before, after: after, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -222,13 +246,16 @@ onRecordAfterDeleteRequest(function(e) {
     if (!info || !info.authRecord) return;
     var actorId = info.authRecord.id;
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "users",
       record_id: e.record.id,
       actor: actorId,
       action: "delete",
-      changes: JSON.stringify({ before: { email: e.record.getString("email"), role: e.record.getString("role") } }),
+      changes: JSON.stringify({ before: { email: e.record.getString("email"), role: e.record.getString("role") }, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -252,13 +279,16 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "requests",
       record_id: e.record.id,
       actor: actorId,
       action: "create",
-      changes: JSON.stringify({ after: data }),
+      changes: JSON.stringify({ after: data, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -292,13 +322,16 @@ onRecordAfterUpdateRequest(function(e) {
 
     if (!hasChanges) return;
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "requests",
       record_id: e.record.id,
       actor: actorId,
       action: "update",
-      changes: JSON.stringify({ before: before, after: after }),
+      changes: JSON.stringify({ before: before, after: after, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -322,13 +355,16 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "transactions",
       record_id: e.record.id,
       actor: actorId,
       action: "create",
-      changes: JSON.stringify({ after: data }),
+      changes: JSON.stringify({ after: data, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -352,13 +388,16 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "on_call_shifts",
       record_id: e.record.id,
       actor: actorId,
       action: "create",
-      changes: JSON.stringify({ after: data }),
+      changes: JSON.stringify({ after: data, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {
@@ -392,13 +431,16 @@ onRecordAfterUpdateRequest(function(e) {
 
     if (!hasChanges) return;
 
+    var via = "web";
+    try { var _v = e.httpContext.get("audit_via"); if (_v) via = String(_v); } catch (_) {}
+
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
     var log = new Record(auditCol, {
       collection_name: "on_call_shifts",
       record_id: e.record.id,
       actor: actorId,
       action: "update",
-      changes: JSON.stringify({ before: before, after: after }),
+      changes: JSON.stringify({ before: before, after: after, via: via }),
     });
     $app.dao().saveRecord(log);
   } catch (err) {

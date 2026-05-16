@@ -441,6 +441,13 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
     return replyViaTwilio(phone, "Your account isn't approved for WhatsApp access yet.");
   }
 
+  // T6: tag all DAO writes from this handler as "wa-bot" for audit_log hook.
+  // NOTE: this tag is on the outer WA request context. The $http.send() call to
+  // /api/ai/chat runs in a separate request context, so AI-mediated writes get
+  // "ai-agent" (set by ai_chat.pb.js). Only direct DAO writes in this handler
+  // (e.g. the directExec transaction below) receive "wa-bot".
+  try { c.set("audit_via", "wa-bot"); } catch (_) {}
+
   // =====================================================================
   // ENHANCEMENT 1 — Confirmation flow
   // =====================================================================
@@ -515,8 +522,6 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
             notes: "RETURN via WhatsApp",
             created_by: user.id
           });
-          // Tag audit via — set context key for audit_log hook (T6 wires this consistently)
-          try { c.set("audit_via", "wa-bot"); } catch (_) {}
           $app.dao().saveRecord(txRec);
         } catch (e) {
           console.log("[wa_inbound] direct-exec saveRecord error: " + e);
