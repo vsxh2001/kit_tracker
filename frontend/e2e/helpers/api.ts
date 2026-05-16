@@ -334,7 +334,7 @@ export async function createTestComponent(opts: {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: `Test Product: ${type}`,
+        name: `Test Product: ${type} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         category: type,
         is_active: true,
       }),
