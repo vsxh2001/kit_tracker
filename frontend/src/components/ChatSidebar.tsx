@@ -101,11 +101,18 @@ function ToolResultCard({
   const [undone, setUndone] = useState(false);
   const [undoVisible, setUndoVisible] = useState(!!undoToken);
   const [undoing, setUndoing] = useState(false);
+  const [countdown, setCountdown] = useState(() => (undoToken ? 60 : 0));
 
   useEffect(() => {
     if (!undoToken) return;
-    const timer = setTimeout(() => setUndoVisible(false), 30_000);
-    return () => clearTimeout(timer);
+    const hideTimer = setTimeout(() => setUndoVisible(false), 60_000);
+    const ticker = setInterval(() => {
+      setCountdown((s) => (s > 1 ? s - 1 : s));
+    }, 1000);
+    return () => {
+      clearTimeout(hideTimer);
+      clearInterval(ticker);
+    };
   }, [undoToken]);
 
   const basePath = COLLECTION_PATHS[toolResult.collection] ?? "/";
@@ -119,13 +126,19 @@ function ToolResultCard({
       setUndone(true);
       setUndoVisible(false);
       onUndo?.();
-      toast({ title: "Undone", description: toolResult.description + " has been undone.", variant: "success" });
+      toast({ title: "Reverted", description: toolResult.description + " has been reverted.", variant: "success" });
     } catch (err: unknown) {
-      toast({
-        title: "Undo failed",
-        description: err instanceof Error ? err.message : "Could not undo action.",
-        variant: "destructive",
-      });
+      const msg = err instanceof Error ? err.message : "Could not undo action.";
+      if (msg === "expired") {
+        setUndoVisible(false);
+        toast({ title: "Undo window closed", description: "The 60s undo window has elapsed.", variant: "destructive" });
+      } else {
+        toast({
+          title: "Undo failed",
+          description: msg,
+          variant: "destructive",
+        });
+      }
     } finally {
       setUndoing(false);
     }
@@ -169,7 +182,7 @@ function ToolResultCard({
             )}
           >
             <Undo2 className="h-3 w-3" />
-            Undo
+            Undo ({countdown}s)
           </button>
         )}
       </div>
@@ -268,7 +281,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
       if (res.tool_result && res.undo_token) {
         toast({
           title: res.tool_result.description,
-          description: "Action logged. Click Undo in the chat to reverse within 30s.",
+          description: "Action logged. Click Undo in the chat to reverse within 60s.",
           variant: "success",
         });
       }

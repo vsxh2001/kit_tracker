@@ -470,6 +470,61 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   if (pending) {
     // User has a pending confirmation
     if (bodyTrimmed.toLowerCase() === "yes") {
+      // Confirmed — check for direct-exec shortcut first
+      if (pending.directExec) {
+        // Direct-execution path — bypass AI. Invoke move_kit logic directly.
+        console.log("[wa_inbound] YES received — direct-exec: " + JSON.stringify(pending.directExec));
+        try { $app.store().remove(pendingKey); } catch (e) {}
+
+        var deTool = pending.directExec.tool;
+        var deArgs = pending.directExec.args;
+        if (deTool !== "move_kit") {
+          return replyViaTwilio(phone, "Unknown direct-exec tool: " + deTool);
+        }
+        // Resolve kit by serial
+        var kitRecs;
+        try {
+          kitRecs = $app.dao().findRecordsByFilter("kits", "serial = {:s} && is_active = true", "", 5, 0, { s: deArgs.kit_serial });
+        } catch (e) {
+          console.log("[wa_inbound] direct-exec kit lookup error: " + e);
+          return replyViaTwilio(phone, "Internal error resolving kit. Try again.");
+        }
+        if (!kitRecs || kitRecs.length === 0) {
+          return replyViaTwilio(phone, "Kit '" + deArgs.kit_serial + "' not found or inactive.");
+        }
+        if (kitRecs.length > 1) {
+          return replyViaTwilio(phone, "Multiple active kits with serial '" + deArgs.kit_serial + "'. Resolve manually.");
+        }
+        var kitRec = kitRecs[0];
+        // Find latest transaction (current holder) for from_entity
+        var lastTxs;
+        try {
+          lastTxs = $app.dao().findRecordsByFilter("transactions", "kit = {:k}", "-timestamp,-created", 1, 0, { k: kitRec.id });
+        } catch (e) {
+          lastTxs = [];
+        }
+        var fromEntityId = (lastTxs && lastTxs.length > 0) ? lastTxs[0].get("to_entity") : "";
+        // Create transaction
+        try {
+          var txCol = $app.dao().findCollectionByNameOrId("transactions");
+          var txRec = new Record(txCol, {
+            kit: kitRec.id,
+            from_entity: fromEntityId,
+            to_entity: deArgs.to_entity_id,
+            timestamp: new Date().toISOString().replace("T", " ").substring(0, 19) + ".000Z",
+            notes: "RETURN via WhatsApp",
+            created_by: user.id
+          });
+          // Tag audit via — set context key for audit_log hook (T6 wires this consistently)
+          try { c.set("audit_via", "wa-bot"); } catch (_) {}
+          $app.dao().saveRecord(txRec);
+        } catch (e) {
+          console.log("[wa_inbound] direct-exec saveRecord error: " + e);
+          return replyViaTwilio(phone, "Failed to record return: " + String(e && e.message ? e.message : e));
+        }
+        return replyViaTwilio(phone, "Done — " + deArgs.kit_serial + " returned to warehouse.");
+      }
+
       // Confirmed — re-send the original message to /api/ai/chat
       console.log("[wa_inbound] YES received — re-executing: " + pending.messageText.slice(0, 80));
       try { $app.store().remove(pendingKey); } catch (e) {}
@@ -535,6 +590,48 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // WITHOUT calling /api/ai/chat. The actual execution happens on the YES
   // reply (re-entry via the pendingKey branch above).
   //
+  // =====================================================================
+  // Pre-flight RETURN shortcut — bypass AI, resolve serial directly.
+  // Matches: "return X", "send back X", "X is back". Maps to move_kit
+  // targeting DEFAULT_WAREHOUSE_ENTITY_ID env var.
+  // =====================================================================
+  var returnMatch = body.trim().match(/^(?:return|send\s+back)\s+(\S+)\s*$/i)
+                 || body.trim().match(/^(\S+)\s+is\s+back\s*$/i);
+  if (returnMatch) {
+    var serial = returnMatch[1];
+    var warehouseId = $os.getenv("DEFAULT_WAREHOUSE_ENTITY_ID") || "";
+    if (!warehouseId) {
+      console.log("[wa_inbound] RETURN shortcut hit but DEFAULT_WAREHOUSE_ENTITY_ID unset");
+      return replyViaTwilio(phone, "Server has no default warehouse configured. Use full command: move " + serial + " to <warehouse>");
+    }
+    // Validate warehouse entity exists + active
+    var warehouseRec = null;
+    try {
+      warehouseRec = $app.dao().findRecordById("entities", warehouseId);
+    } catch (e) {
+      console.log("[wa_inbound] RETURN warehouse lookup failed: " + e);
+    }
+    if (!warehouseRec || warehouseRec.get("is_active") === false) {
+      return replyViaTwilio(phone, "Configured warehouse entity not found or inactive. Contact admin.");
+    }
+    // Stash pending for direct-execution path on YES.
+    var pendingEntryReturn = JSON.stringify({
+      directExec: {
+        tool: "move_kit",
+        args: { kit_serial: serial, to_entity_id: warehouseId }
+      },
+      messageText: "return " + serial,
+      expiresAtMs: Date.now() + 30000
+    });
+    try {
+      $app.store().set(pendingKey, pendingEntryReturn);
+    } catch (e) {
+      console.log("[wa_inbound] failed to set pending store (RETURN): " + e);
+    }
+    console.log("[wa_inbound] RETURN intent detected — sending confirmation for serial=" + serial);
+    return replyViaTwilio(phone, "Confirm: return " + serial + " to warehouse (" + warehouseRec.get("name") + ")?\n\nReply YES within 30s to execute, or anything else to cancel.");
+  }
+
   // P1 fix: dropped ^\s* anchor — now matches write verbs ANYWHERE in body so
   // Hebrew/Arabic/emoji prefixes (e.g. "🔄 move kit X", "תעביר...") are caught.
   // Trade-off: "tell me where it moved" triggers confirm — acceptable false positive.
