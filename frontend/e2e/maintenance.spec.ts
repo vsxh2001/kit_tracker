@@ -143,7 +143,7 @@ test.describe("Maintenance — record done", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-REC`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "BatteryCheck", 14);
+    const sched = await createScheduleViaApi(kitId, "replacement", 14);
     schedId = sched.id;
   });
 
@@ -187,7 +187,7 @@ test.describe("Maintenance page", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-PAGE`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "PageTest", 90);
+    const sched = await createScheduleViaApi(kitId, "other", 90);
     schedId = sched.id;
   });
 
@@ -225,7 +225,7 @@ test.describe("Kits page — next maintenance column", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-COL`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "ColCheck", 7);
+    const sched = await createScheduleViaApi(kitId, "inspection", 7);
     schedId = sched.id;
   });
 
