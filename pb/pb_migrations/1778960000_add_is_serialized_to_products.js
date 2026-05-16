@@ -17,14 +17,14 @@ migrate(
     // If any linked component has a non-empty serial -> is_serialized = true.
     // If all linked components are is_bulk=true and none have a serial -> is_serialized = false.
     // If no linked components, default true.
-    const products = dao.findRecordsByFilter("products", "id != ''", "", 0, 0);
+    const products = dao.findRecordsByFilter("products", "id != ''", "", 10000, 0);
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
       const linked = dao.findRecordsByFilter(
         "components",
         "product = {:pid}",
         "",
-        0,
+        10000,
         0,
         { pid: p.id }
       );
