@@ -448,6 +448,16 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // (e.g. the directExec transaction below) receive "wa-bot".
   try { c.set("audit_via", "wa-bot"); } catch (_) {}
 
+  // T32 role gate: only admin or technician may perform write operations via WA.
+  // $app.dao().saveRecord() does NOT enforce PB collection rules, so this must
+  // be checked explicitly before any directExec path.
+  function isWriteAuthorized(userRec) {
+    try {
+      var r = userRec && userRec.get && userRec.get("role");
+      return r === "admin" || r === "technician";
+    } catch (_) { return false; }
+  }
+
   // =====================================================================
   // ENHANCEMENT 1 — Confirmation flow
   // =====================================================================
@@ -479,6 +489,13 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
     if (bodyTrimmed.toLowerCase() === "yes") {
       // Confirmed — check for direct-exec shortcut first
       if (pending.directExec) {
+        // T32: defense-in-depth role gate. $app.dao().saveRecord() bypasses PB
+        // collection rules, so we must enforce admin/technician here as well.
+        if (!isWriteAuthorized(user)) {
+          try { $app.store().remove(pendingKey); } catch (_) {}
+          console.log("[wa_inbound] directExec refused — role=" + (user && user.get ? user.get("role") : "unknown"));
+          return replyViaTwilio(phone, "Permission lost — only admins or technicians can move kits.");
+        }
         // Direct-execution path — bypass AI. Invoke move_kit logic directly.
         console.log("[wa_inbound] YES received — direct-exec: " + JSON.stringify(pending.directExec));
         try { $app.store().remove(pendingKey); } catch (e) {}
@@ -603,6 +620,11 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   var returnMatch = body.trim().match(/^(?:return|send\s+back)\s+(\S+)\s*$/i)
                  || body.trim().match(/^(\S+)\s+is\s+back\s*$/i);
   if (returnMatch) {
+    // T32: role gate — only admin/technician may use RETURN shortcut.
+    if (!isWriteAuthorized(user)) {
+      console.log("[wa_inbound] RETURN refused — role=" + (user && user.get ? user.get("role") : "unknown"));
+      return replyViaTwilio(phone, "Only admins or technicians can move kits via WhatsApp.");
+    }
     var serial = returnMatch[1];
     var warehouseId = $os.getenv("DEFAULT_WAREHOUSE_ENTITY_ID") || "";
     if (!warehouseId) {
