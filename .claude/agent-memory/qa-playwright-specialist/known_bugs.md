@@ -1,23 +1,23 @@
 ---
 name: Confirmed Bugs from Live Session
-description: Bugs found during Playwright live sessions (2026-05-09, 2026-05-12, viewer puppet 2026-05-12)
+description: Bugs found during Playwright live sessions (2026-05-09, 2026-05-12, viewer puppet 2026-05-12, tech puppet 2026-05-16)
 type: project
 ---
 
-## BUG-1 — Critical: No unique constraint on kit serial
-`pb/setup_collections.sh` creates `serial` field with `required:true` but no `unique:true`.
-Frontend has no duplicate-check either. Duplicate serials can be created silently.
-Result: two KIT-001 records in DB after testing. Corrupts kit picker dropdowns.
+## BUG-1 — RESOLVED BY DESIGN: No unique constraint on kit serial
+Migration `1778880000_kit_serial_not_unique.js` intentionally drops the UNIQUE constraint to allow
+re-issuing serials after a kit is retired (soft-deleted). Duplicate active serials are now allowed.
+Risk: AI `resolve_kit` returns ambiguous results; kit picker shows two entries. Story B2 in
+PUPPET_SHOW_V2 is now outdated — needs rewrite to document the re-issue flow instead.
 
 ## BUG-2 — Critical: Fulfill ignores local state, reads DB record
 `RequestDetailPage.tsx` line 88: `handleFulfill` checks `request?.designated_kit` and `request?.target_entity`
 (DB record), not local `assignKit`/`assignEntity` state. Admin must click "Save assignment" first, then "Fulfill".
 The UI layout implies single-step but actually requires two steps. No indication to user.
 
-## BUG-3 — Medium: Viewer can open "New request" dialog
-`RequestsPage.tsx` has no `useAuth()` import and no role check on the "New request" button.
-Button visible and functional for viewer role. PocketBase collection rules may block actual create
-but frontend gives no indication — and the create rule may allow any authenticated user.
+## BUG-3 — FIXED (2026-05-16): Viewer cannot create requests
+`RequestsPage.tsx` now imports `useAuth()` and sets `canCreate = isAdmin || role="user" || role="technician"`.
+Viewer (role="viewer") is excluded. Button not rendered for viewers. Confirmed in tech session.
 
 ## BUG-4 — Medium: Requester name shows "—" for non-admin users
 `requests` service expands `requester` relation but PocketBase users collection default viewRule
@@ -65,17 +65,12 @@ Caused 500 Vite overlay error blocking all pages that render kit detail cards.
 Fixed: `npm install qrcode.react` in `frontend/` + force Vite restart.
 The feature was added to the codebase without updating package.json/node_modules.
 
-## BUG-11 — CRITICAL SECURITY: requests.updateRule allows owner to self-approve (2026-05-12)
-Confirmed via API probe during viewer puppet session.
-`requests.updateRule`: `@request.auth.role = "admin" || @request.auth.role = "technician" || (@request.auth.id = requester && status = "open")`
-The owner condition has no field restriction. A user (role="user") can PATCH their own open
-request with `{"status": "approved", "decision_notes": "anything"}` — bypassing approval workflow.
-HTTP 200 confirmed. The owner can also self-assign `designated_kit` or `target_entity` before
-the window closes. Status becomes "approved" which locks out further owner updates (404 after).
-Mitigation needed: restrict owner updates to non-status fields only, or remove owner update
-entirely (force admin/technician to manage lifecycle). Field-level access rules require hooks
-or separate API since PocketBase updateRule applies at row level.
-Demo proof: requests qos0kd05hr5s1ni, a8uayczvv4cvfpt (both deleted by admin after test).
+## BUG-11 — FIXED (2026-05-16): requests self-approve blocked by hook
+`request_field_guard.pb.js` hook now fires `onRecordBeforeUpdateRequest` for requests.
+Blocks any non-admin/non-tech from changing `status` field. ONLY exception: owner can cancel
+own open request (status=open → cancelled). Self-approve attempt returns 400
+"Only admin or technician can change request status."
+Confirmed fixed in technician puppet session 2026-05-16.
 
 ## BUG-12 — Medium: /stats route uses RequireRole but page uses canDecideRequests gate (double-gating)
 `App.tsx` wraps /stats in `RequireRole` (any non-empty role). But `StatsPage.tsx` line 54
@@ -88,3 +83,18 @@ Should align: either use `CanDecideOnly` in App.tsx routing for /stats, or remov
 All Radix `DialogContent` instances missing `aria-describedby` — accessibility issue.
 8 warnings across all dialogs: New Kit, Edit Entity, Move Kit, New Request, Edit Request.
 Fix: add `<DialogDescription>` or pass `aria-describedby={undefined}` explicitly.
+
+## BUG-U01 — Medium: `denied` role bypasses RequireRole and listRule (found 2026-05-16 user puppet)
+`RequireRole.tsx:16` checks `!user?.role` — truthy check, `"denied"` passes.
+`Layout.tsx:22` `hasRole = !!user?.role` — `"denied"` is truthy → full nav visible.
+PB listRules use `@request.auth.role != ""` — `"denied"` passes.
+Fresh login blocked (PB returns 400), but if admin denies mid-session (realtime fires →
+authRefresh → role="denied"), user retains full read access and nav with no warning banner.
+`DashboardPage.tsx:27` `pendingApproval = !user?.role` → `!"denied"` = false → NO banner shown.
+Fix: add `role !== "denied"` checks to RequireRole, hasRole, listRules — or force logout on denied role change.
+
+## BUG-U02 — Low: `getCurrentOnCallUsers` has no sort — non-deterministic sidebar on-call order (found 2026-05-16)
+`services/oncall.ts:getCurrentOnCallUsers` calls `getFullList` with no `sort` parameter.
+When multiple users are simultaneously on-call, PB returns rows in internal/row-id order.
+The sidebar always shows `onCallUsers[0]` — which user appears first is unpredictable.
+Fix: add `sort: "-start_at"` (most recently started = current) or `sort: "start_at"` (longest running = primary).
