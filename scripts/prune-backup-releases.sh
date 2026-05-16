@@ -11,9 +11,10 @@ echo "=== Backup release pruning ==="
 
 # Fetch all releases with backup- prefix, newest first
 echo "Fetching release list..."
+REPO="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY not set}"
 RELEASES=$(gh release list --limit 200 --json createdAt,tagName,name \
   --jq '.[] | select(.tagName | startswith("backup-")) | "\(.createdAt) \(.tagName)"' \
-  --repo "${{ github.repository }}" 2>/dev/null || echo "")
+  --repo "$REPO")
 
 if [ -z "$RELEASES" ]; then
   echo "No backup releases found."
@@ -95,7 +96,7 @@ echo "Summary: keeping ${#KEEP_TAGS[@]}, deleting ${#DELETE_TAGS[@]}"
 # Delete releases
 for TAG in "${DELETE_TAGS[@]}"; do
   echo "Deleting $TAG..."
-  gh release delete "$TAG" --yes --repo "${{ github.repository }}" 2>/dev/null || echo "⚠ Failed to delete $TAG"
+  gh release delete "$TAG" --yes --repo "$REPO"
 done
 
 echo "=== Pruning complete ==="
