@@ -111,13 +111,14 @@ export async function getKitBySerial(serial: string): Promise<{ id: string; seri
 export async function createTestEntity(
   name: string,
   description = "",
-  type = "storage"
+  type = "storage",
+  category: "storage" | "field" = "storage"
 ): Promise<{ id: string; name: string }> {
   const token = await getAdminToken();
   const res = await fetch(`${PB_URL}/api/collections/entities/records`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
-    body: JSON.stringify({ name, description, type, is_active: true }),
+    body: JSON.stringify({ name, description, type, category, is_active: true }),
   });
   if (!res.ok) {
     const body = await res.json();
