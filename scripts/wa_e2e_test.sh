@@ -231,6 +231,7 @@ check_kit() {
 }
 
 check_entity "DEMO-Entity-002"
+check_kit "DEMO-KIT-003"
 check_kit "DEMO-KIT-005"
 check_kit "DEMO-KIT-006"
 check_kit "DEMO-KIT-007"
@@ -467,6 +468,55 @@ else
   else
     fail "Scenario E: viewer RETURN" "${tx_count_e} transaction(s) created — privilege escalation NOT blocked"
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario F: RETURN + YES → audit_log row has via=wa-bot (T13 regression)
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario F: RETURN + YES → audit_log via=wa-bot ==="
+
+# Use DEMO-KIT-003 (untouched by scenarios A-E).
+# We need a kit that is NOT already at the warehouse so the move is real.
+# If it happens to already be there the transaction still writes and the
+# audit_log row is still expected with via=wa-bot — the check is on the
+# audit_log, not the transaction destination.
+SID_F1="SM-${RUN_ID}-F1"
+SID_F2="SM-${RUN_ID}-F2"
+BEFORE_F_MS="$(date +%s%3N)"
+BEFORE_F_ISO="$(date -u "+%Y-%m-%d %H:%M:%S")"
+
+log "F1: sending 'return DEMO-KIT-003' ..."
+resp_f1="$(send_wa "${SID_F1}" "${TECH_PHONE}" "return DEMO-KIT-003")"
+log "F1 response: ${resp_f1:0:200}"
+
+sleep 2
+
+log "F2: sending YES ..."
+resp_f2="$(send_wa "${SID_F2}" "${TECH_PHONE}" "YES")"
+log "F2 response: ${resp_f2:0:200}"
+
+sleep 3
+
+# Query audit_log for a transaction row created after F started with via=wa-bot.
+# Filter: collection_name='transactions' && created >= BEFORE_F_ISO.
+filter_f="collection_name='transactions'&&created>='${BEFORE_F_ISO}'"
+filter_f_enc="$(url_encode "${filter_f}")"
+audit_f_resp="$(curl -s \
+  -H "Authorization: ${ADMIN_TOKEN}" \
+  "${PB_URL}/api/collections/audit_log/records?filter=${filter_f_enc}&sort=-created&perPage=5")"
+
+log "F: raw audit_log response (first 400): ${audit_f_resp:0:400}"
+
+# Extract all .via values from changes JSON in matching rows
+audit_f_via_list="$(echo "${audit_f_resp}" | jq -r '[.items[] | (.changes | fromjson | .via)] | .[]' 2>/dev/null || true)"
+log "F: via values in new audit_log rows: ${audit_f_via_list:-<none>}"
+
+if echo "${audit_f_via_list}" | grep -qx "wa-bot"; then
+  pass "Scenario F: audit_log row with via=wa-bot found after RETURN+YES"
+else
+  fail "Scenario F: audit_log via=wa-bot" \
+    "no audit_log row with via='wa-bot' found for DEMO-KIT-003 return (got: ${audit_f_via_list:-<none>})"
 fi
 
 # ---------------------------------------------------------------------------

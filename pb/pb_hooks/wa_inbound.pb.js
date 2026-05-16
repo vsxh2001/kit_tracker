@@ -540,6 +540,27 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
             created_by: user.id
           });
           $app.dao().saveRecord(txRec);
+          // T13: explicit audit_log row — $app.dao().saveRecord() bypasses
+          // onRecordAfterCreate hooks, so ai_chat's hook-based audit writer
+          // never fires for this path. Write the row directly here so that
+          // admin filter "via=wa-bot" works as advertised.
+          try {
+            var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+            var auditRec = new Record(auditCol);
+            auditRec.set("collection_name", "transactions");
+            auditRec.set("record_id", txRec.id);
+            auditRec.set("actor", user.id);
+            auditRec.set("action", "create");
+            auditRec.set("changes", JSON.stringify({
+              via: "wa-bot",
+              tool: "move_kit",
+              original_prompt: "return " + deArgs.kit_serial
+            }));
+            $app.dao().saveRecord(auditRec);
+            console.log("[wa_inbound] audit_log written for tx=" + txRec.id + " via=wa-bot");
+          } catch (auditErr) {
+            console.log("[wa_inbound] audit_log write error: " + auditErr);
+          }
         } catch (e) {
           console.log("[wa_inbound] direct-exec saveRecord error: " + e);
           return replyViaTwilio(phone, "Failed to record return: " + String(e && e.message ? e.message : e));
