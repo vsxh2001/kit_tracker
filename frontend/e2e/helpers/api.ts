@@ -414,8 +414,12 @@ export async function createTestComponent(opts: {
       const originRes = await fetch(`${PB_URL}/api/collections/entities/records`, {
         method: "POST",
         headers: { Authorization: token, "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `__origin_${Date.now()}`, type: "storage", is_active: false }),
+        body: JSON.stringify({ name: `__origin_${Date.now()}`, type: "storage", category: "storage", is_active: false }),
       });
+      if (!originRes.ok) {
+        const body = await originRes.json();
+        throw new Error(`createTestComponent origin entity create failed: ${JSON.stringify(body)}`);
+      }
       const origin = await originRes.json();
       txBody.from_entity = origin.id;
       txBody.to_entity = opts.initialEntity;
