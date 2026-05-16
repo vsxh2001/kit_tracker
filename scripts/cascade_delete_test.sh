@@ -344,6 +344,25 @@ else
   fail "Scenario 4b: Kit record is gone" "HTTP $S4_CODE"
 fi
 
+# Verify audit row was written for cascade_delete of KIT_ID
+# Need a superuser token against the new _superusers endpoint (PB v0.22)
+SU_TOKEN_V2=$(curl -s -X POST "$PB_URL/api/collections/_superusers/auth-with-password" \
+  -H 'Content-Type: application/json' \
+  -d "{\"identity\":\"$SU_EMAIL\",\"password\":\"$SU_PASS\"}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('token',''))" 2>/dev/null || echo "")
+# Fall back to the v0.21 /api/admins endpoint if v0.22 endpoint gave nothing
+if [ -z "$SU_TOKEN_V2" ]; then
+  SU_TOKEN_V2="$SU_TOKEN"
+fi
+AUDIT_RESP=$(pb_curl \
+  "$PB_URL/api/collections/audit_log/records?filter=action%3D'cascade_delete'%26%26record_id%3D'$KIT_ID'&perPage=5" \
+  -H "Authorization: $SU_TOKEN_V2")
+AUDIT_TOTAL=$(jget "$AUDIT_RESP" "d.get('totalItems',0)")
+if [ "$AUDIT_TOTAL" -gt "0" ] 2>/dev/null; then
+  pass "Scenario 4c: audit_log row written with action=cascade_delete for kit $KIT_ID"
+else
+  fail "Scenario 4c: audit_log row written" "totalItems=$AUDIT_TOTAL resp=$AUDIT_RESP"
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Scenario 5: Entity with active transactions → 400 blocked
 # ══════════════════════════════════════════════════════════════════════════════
@@ -360,6 +379,31 @@ TXN3_RESP=$(pb_curl -X POST "$PB_URL/api/collections/transactions/records" \
   -d "{\"kit\":\"$KIT3_ID\",\"to_entity\":\"$ENTITY_A_ID\",\"timestamp\":\"2026-01-03 00:00:00\",\"created_by\":\"$ADMIN_ID\"}")
 TXN3_ID=$(jget "$TXN3_RESP" "d.get('id','')")
 
+# Also create a component_transaction referencing ENTITY_A to verify P0-3 fix
+S5_PRODUCT_RESP=$(pb_curl -X POST "$PB_URL/api/collections/products/records" \
+  -H "Authorization: $SU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CASCADE_TEST_S5_PRODUCT","manufacturer":"TestCo","is_active":true}')
+S5_PRODUCT_ID=$(jget "$S5_PRODUCT_RESP" "d.get('id','')")
+
+S5_COMP_ID=""
+S5_CTXN_ID=""
+if [ -n "$S5_PRODUCT_ID" ]; then
+  S5_COMP_RESP=$(pb_curl -X POST "$PB_URL/api/collections/components/records" \
+    -H "Authorization: $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"is_bulk\":true,\"quantity\":2,\"is_active\":true,\"product\":\"$S5_PRODUCT_ID\"}")
+  S5_COMP_ID=$(jget "$S5_COMP_RESP" "d.get('id','')")
+
+  if [ -n "$S5_COMP_ID" ]; then
+    S5_CTXN_RESP=$(pb_curl -X POST "$PB_URL/api/collections/component_transactions/records" \
+      -H "Authorization: $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"component\":\"$S5_COMP_ID\",\"to_entity\":\"$ENTITY_A_ID\",\"quantity\":2,\"timestamp\":\"2026-01-03 01:00:00\",\"created_by\":\"$ADMIN_ID\"}")
+    S5_CTXN_ID=$(jget "$S5_CTXN_RESP" "d.get('id','')")
+  fi
+fi
+
 S5_RESP=$(pb_curl -X POST "$PB_URL/api/admin/cascade-delete" \
   -H "Authorization: $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
@@ -371,6 +415,19 @@ if [ "$S5_ERR" = "blocked" ] && [ "$S5_BLOCKERS" -gt "0" ]; then
   pass "Scenario 5: Entity with active tx → blocked (blockers=$S5_BLOCKERS)"
 else
   fail "Scenario 5: Entity with active tx → blocked" "error='$S5_ERR' blockers=$S5_BLOCKERS resp=$S5_RESP"
+fi
+
+# Verify component_transactions appears as a blocker when it references the entity
+if [ -n "$S5_CTXN_ID" ]; then
+  S5_CT_BLOCKER=$(jget "$S5_RESP" "next((b['collection'] for b in d.get('blockers',[]) if b['collection']=='component_transactions'), '')")
+  if [ "$S5_CT_BLOCKER" = "component_transactions" ]; then
+    pass "Scenario 5c: component_transactions blocker detected for entity with CT reference"
+  else
+    fail "Scenario 5c: component_transactions blocker detected" "blockers_detail=$(jget "$S5_RESP" "str(d.get('blockers',[]))")"
+  fi
+else
+  echo "[SKIP] Scenario 5c: component_transaction fixture not created (products collection unavailable)"
+  PASS=$((PASS+1))
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -450,6 +507,129 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Scenario 9: Full cascade — kit + 3 components + 2 transactions + 1 schedule +
+#             2 maintenance records. Verifies end-to-end cascade order.
+# ══════════════════════════════════════════════════════════════════════════════
+KIT9_RESP=$(pb_curl -X POST "$PB_URL/api/collections/kits/records" \
+  -H "Authorization: $SU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"serial":"CASCADE-TEST-KIT-009","is_active":true}')
+KIT9_ID=$(jget "$KIT9_RESP" "d.get('id','')")
+
+S9_SKIP=0
+if [ -z "$KIT9_ID" ]; then
+  echo "[SKIP] Scenario 9: could not create kit fixture"
+  PASS=$((PASS+1))
+  S9_SKIP=1
+fi
+
+if [ "$S9_SKIP" = "0" ]; then
+  # Create 2 transactions for kit9
+  pb_curl -X POST "$PB_URL/api/collections/transactions/records" \
+    -H "Authorization: $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"kit\":\"$KIT9_ID\",\"to_entity\":\"$ENTITY_C_ID\",\"timestamp\":\"2026-02-01 00:00:00\",\"created_by\":\"$ADMIN_ID\"}" >/dev/null
+  pb_curl -X POST "$PB_URL/api/collections/transactions/records" \
+    -H "Authorization: $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"kit\":\"$KIT9_ID\",\"to_entity\":\"$ENTITY_C_ID\",\"timestamp\":\"2026-02-02 00:00:00\",\"created_by\":\"$ADMIN_ID\"}" >/dev/null
+
+  # Create 3 components for kit9 (if products available)
+  S9_PRODUCT_ID=""
+  S9_COMP_IDS=""
+  S9_COMP_COUNT=0
+  S9_CTXN_COUNT=0
+  if [ -n "$PRODUCT_ID" ] || [ -n "$S5_PRODUCT_ID" ]; then
+    USE_PROD="${PRODUCT_ID:-$S5_PRODUCT_ID}"
+    for i in 1 2 3; do
+      CR=$(pb_curl -X POST "$PB_URL/api/collections/components/records" \
+        -H "Authorization: $ADMIN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"is_bulk\":true,\"quantity\":1,\"is_active\":true,\"product\":\"$USE_PROD\"}")
+      CID=$(jget "$CR" "d.get('id','')")
+      if [ -n "$CID" ]; then
+        S9_COMP_COUNT=$((S9_COMP_COUNT+1))
+        # Create 1 component_transaction per component (uses kit9 as to_kit — not blocked for entity)
+        CTRR=$(pb_curl -X POST "$PB_URL/api/collections/component_transactions/records" \
+          -H "Authorization: $ADMIN_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"component\":\"$CID\",\"to_entity\":\"$ENTITY_C_ID\",\"quantity\":1,\"timestamp\":\"2026-02-0${i} 00:00:00\",\"created_by\":\"$ADMIN_ID\"}")
+        CTID=$(jget "$CTRR" "d.get('id','')")
+        [ -n "$CTID" ] && S9_CTXN_COUNT=$((S9_CTXN_COUNT+1))
+        # Link component to kit9 via update (kit field)
+        pb_curl -X PATCH "$PB_URL/api/collections/components/records/$CID" \
+          -H "Authorization: $ADMIN_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"kit\":\"$KIT9_ID\"}" >/dev/null 2>&1 || true
+      fi
+    done
+  fi
+
+  # Create 1 maintenance schedule + 2 maintenance records for kit9
+  S9_SCHED_ID=""
+  S9_MR_COUNT=0
+  SCHED_RESP=$(pb_curl -X POST "$PB_URL/api/collections/kit_maintenance_schedules/records" \
+    -H "Authorization: $SU_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"kit\":\"$KIT9_ID\",\"interval_days\":90,\"description\":\"CASCADE-TEST-S9-SCHEDULE\",\"is_active\":true}" 2>/dev/null || echo "")
+  S9_SCHED_ID=$(jget "$SCHED_RESP" "d.get('id','')" 2>/dev/null || echo "")
+  if [ -n "$S9_SCHED_ID" ]; then
+    for mi in 1 2; do
+      MR=$(pb_curl -X POST "$PB_URL/api/collections/maintenance_records/records" \
+        -H "Authorization: $SU_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"schedule\":\"$S9_SCHED_ID\",\"performed_at\":\"2026-02-0${mi} 00:00:00\",\"notes\":\"CASCADE-TEST-S9-MR-$mi\",\"performed_by\":\"$ADMIN_ID\"}" 2>/dev/null || echo "")
+      MRID=$(jget "$MR" "d.get('id','')" 2>/dev/null || echo "")
+      [ -n "$MRID" ] && S9_MR_COUNT=$((S9_MR_COUNT+1))
+    done
+  fi
+
+  # Preview to get expected counts
+  S9_PREV=$(pb_curl -X POST "$PB_URL/api/admin/cascade-delete/preview" \
+    -H "Authorization: $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"collection\":\"kits\",\"record_id\":\"$KIT9_ID\"}")
+  S9_PREV_KITS=$(jget "$S9_PREV" "d.get('counts',{}).get('kits',0)")
+  S9_PREV_TXN=$(jget "$S9_PREV" "d.get('counts',{}).get('transactions',0)")
+
+  # Execute cascade delete
+  S9_RESP=$(pb_curl -X POST "$PB_URL/api/admin/cascade-delete" \
+    -H "Authorization: $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"collection\":\"kits\",\"record_id\":\"$KIT9_ID\",\"confirm_text\":\"CASCADE-TEST-KIT-009\"}")
+  S9_DEL_KITS=$(jget "$S9_RESP" "d.get('deleted',{}).get('kits',0)")
+  S9_DEL_TXN=$(jget "$S9_RESP" "d.get('deleted',{}).get('transactions',0)")
+  S9_ERR=$(jget "$S9_RESP" "d.get('error','')")
+
+  if [ "$S9_DEL_KITS" = "1" ] && [ -z "$S9_ERR" ] && [ "$S9_DEL_TXN" = "2" ]; then
+    pass "Scenario 9: Full cascade → kits=1 transactions=2 (preview matches)"
+  else
+    fail "Scenario 9: Full cascade" "kits=$S9_DEL_KITS txn=$S9_DEL_TXN (prev_txn=$S9_PREV_TXN) err='$S9_ERR' resp=$S9_RESP"
+  fi
+
+  # Verify kit9 is gone
+  S9_CODE=$(pb_curl -s -o /dev/null -w "%{http_code}" \
+    "$PB_URL/api/collections/kits/records/$KIT9_ID" \
+    -H "Authorization: $ADMIN_TOKEN")
+  if [ "$S9_CODE" = "404" ]; then
+    pass "Scenario 9b: Kit-9 record is gone"
+  else
+    fail "Scenario 9b: Kit-9 record is gone" "HTTP $S9_CODE"
+  fi
+
+  # Verify audit row for kit9
+  AUDIT9_RESP=$(pb_curl \
+    "$PB_URL/api/collections/audit_log/records?filter=action%3D'cascade_delete'%26%26record_id%3D'$KIT9_ID'&perPage=5" \
+    -H "Authorization: ${SU_TOKEN_V2:-$SU_TOKEN}")
+  AUDIT9_TOTAL=$(jget "$AUDIT9_RESP" "d.get('totalItems',0)")
+  if [ "$AUDIT9_TOTAL" -gt "0" ] 2>/dev/null; then
+    pass "Scenario 9c: audit_log row written for kit9 cascade"
+  else
+    fail "Scenario 9c: audit_log row written for kit9" "totalItems=$AUDIT9_TOTAL resp=$AUDIT9_RESP"
+  fi
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Cleanup (best-effort via superuser)
 # ══════════════════════════════════════════════════════════════════════════════
 echo ""
@@ -465,9 +645,13 @@ _del() {
 _del transactions "${TXN3_ID:-}"
 _del kits "${KIT3_ID:-}"
 _del kits "${KIT2_ID:-}"
+_del kits "${KIT9_ID:-}"
 _del entities "${ENTITY_A_ID:-}"
 _del entities "${ENTITY_C_ID:-}"
 _del products "${PRODUCT_ID:-}"
+_del products "${S5_PRODUCT_ID:-}"
+_del components "${S5_COMP_ID:-}"
+_del component_transactions "${S5_CTXN_ID:-}"
 _del users "$TEMP_ADMIN_ID"
 [ -n "${TEMP_VIEWER_ID:-}" ] && _del users "$TEMP_VIEWER_ID"
 

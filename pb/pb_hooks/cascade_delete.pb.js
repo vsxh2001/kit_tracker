@@ -103,6 +103,23 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       }
     } catch(_) {}
 
+    // component_transactions FROM or TO this entity
+    try {
+      var ctFromRows = dao.findRecordsByFilter(
+        "component_transactions",
+        "from_entity = {:eid} || to_entity = {:eid}",
+        "", 10, 0, { eid: recordId }
+      );
+      if (ctFromRows.length > 0) {
+        blocked = true;
+        var sampleCt = [];
+        for (var cti = 0; cti < Math.min(3, ctFromRows.length); cti++) {
+          sampleCt.push(ctFromRows[cti].id);
+        }
+        blockers.push({ collection: "component_transactions", count: ctFromRows.length, sample_ids: sampleCt });
+      }
+    } catch(_) {}
+
     // users with entity field pointing here (optional field — may not exist)
     try {
       var userRows = dao.findRecordsByFilter(
@@ -309,6 +326,22 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     } catch(_) {}
 
     try {
+      var ctFromRows2 = dao.findRecordsByFilter(
+        "component_transactions",
+        "from_entity = {:eid} || to_entity = {:eid}",
+        "", 10, 0, { eid: recordId }
+      );
+      if (ctFromRows2.length > 0) {
+        blocked2 = true;
+        var sampleCt2 = [];
+        for (var cti2 = 0; cti2 < Math.min(3, ctFromRows2.length); cti2++) {
+          sampleCt2.push(ctFromRows2[cti2].id);
+        }
+        blockers2.push({ collection: "component_transactions", count: ctFromRows2.length, sample_ids: sampleCt2 });
+      }
+    } catch(_) {}
+
+    try {
       var userRows2 = dao.findRecordsByFilter(
         "users",
         "entity = {:eid}",
@@ -413,8 +446,8 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     });
     dao.saveRecord(auditRecord);
   } catch(auditErr) {
-    console.log("[cascade_delete] audit row write failed:", auditErr);
-    // Continue anyway — the audit failure should not block the admin delete
+    console.log("[cascade_delete] AUDIT WRITE FAILED — aborting cascade:", auditErr);
+    return c.json(500, { error: "audit_write_failed", detail: String(auditErr && auditErr.message ? auditErr.message : auditErr) });
   }
 
   // ---- actual cascade delete ----
