@@ -506,6 +506,7 @@ export async function createOnCallShift(data: {
       end_at: data.endAt,
       notes: data.notes ?? "",
       created_by: adminId,
+      is_active: true,
     }),
   });
   if (!res.ok) {
@@ -518,8 +519,9 @@ export async function createOnCallShift(data: {
 export async function deleteOnCallShift(id: string): Promise<void> {
   const token = await getAdminToken();
   await fetch(`${PB_URL}/api/collections/on_call_shifts/records/${id}`, {
-    method: "DELETE",
-    headers: { Authorization: token },
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ is_active: false }),
   });
 }
 

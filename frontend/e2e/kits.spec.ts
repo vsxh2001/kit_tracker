@@ -195,7 +195,7 @@ test.describe("Kit detail page", () => {
     await page.goto(`/kits/${kitId}`);
     await expect(page.getByRole("button", { name: /move kit/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /^delete$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^deactivate$/i })).toBeVisible();
   });
 
   test("viewer does not see action buttons on kit detail", async ({ page }) => {
@@ -390,14 +390,14 @@ test.describe("Kit delete via detail page", () => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
-    await page.getByRole("button", { name: /^delete$/i }).click();
+    await page.getByRole("button", { name: /^deactivate$/i }).click();
 
     // AlertDialog should appear
     await expect(page.getByRole("alertdialog")).toBeVisible();
-    await expect(page.getByRole("alertdialog").getByText(/delete kit/i)).toBeVisible();
+    await expect(page.getByRole("alertdialog").getByText(/deactivate kit/i)).toBeVisible();
 
     // Confirm
-    await page.getByRole("alertdialog").getByRole("button", { name: /^delete$/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /^deactivate$/i }).click();
 
     // Redirects to /kits
     await page.waitForURL("**/kits", { timeout: 5000 });
@@ -437,14 +437,14 @@ test.describe("Kit delete via kits list row", () => {
     await page.getByPlaceholder(/search by serial/i).fill(DELETE_ROW_SERIAL);
     await expect(page.getByRole("cell", { name: DELETE_ROW_SERIAL })).toBeVisible();
 
-    // Click the Delete button in that row
-    await page.getByRole("button", { name: /^delete$/i }).first().click();
+    // Click the Deactivate button in that row
+    await page.getByRole("button", { name: /^deactivate$/i }).first().click();
 
     // AlertDialog appears
     await expect(page.getByRole("alertdialog")).toBeVisible();
 
     // Confirm
-    await page.getByRole("alertdialog").getByRole("button", { name: /^delete$/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /^deactivate$/i }).click();
 
     // Kit row disappears from the list
     await expect(page.getByRole("cell", { name: DELETE_ROW_SERIAL })).not.toBeVisible({
