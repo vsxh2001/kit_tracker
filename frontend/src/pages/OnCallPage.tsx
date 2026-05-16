@@ -15,7 +15,7 @@ import {
   AlertDialogAction,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
-import { listShifts, deleteShift } from "../services/oncall";
+import { listShifts, softDeleteShift } from "../services/oncall";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatTelHref } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
@@ -85,13 +85,13 @@ export function OnCallPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await deleteShift(deleteTarget.id);
-      toast({ title: "Shift deleted", variant: "success" });
+      await softDeleteShift(deleteTarget.id);
+      toast({ title: "Shift deactivated", variant: "success" });
       setDeleteTarget(null);
       startTransition(() => load());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      toast({ title: "Failed to delete", description: e?.message, variant: "destructive" });
+      toast({ title: "Failed to deactivate", description: e?.message, variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -179,7 +179,7 @@ export function OnCallPage() {
                                   size="sm"
                                   className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                                   onClick={() => setDeleteTarget(s)}
-                                  aria-label="Delete shift"
+                                  aria-label="Deactivate shift"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -231,7 +231,7 @@ export function OnCallPage() {
                           className="h-7 gap-1 text-destructive hover:text-destructive"
                           onClick={() => setDeleteTarget(s)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                          <Trash2 className="h-3.5 w-3.5" /> Deactivate
                         </Button>
                       </div>
                     )}
@@ -259,15 +259,15 @@ export function OnCallPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete shift?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate shift?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the on-call shift. This cannot be undone.
+              The shift will be hidden from the schedule. Historical records remain intact.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? "Deactivating…" : "Deactivate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

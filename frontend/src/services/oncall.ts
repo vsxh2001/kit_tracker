@@ -4,13 +4,16 @@ import type { OnCallShift, PBUser } from "../types";
 export async function listShifts({
   limit = 50,
   sort = "-start_at",
-}: { limit?: number; sort?: string } = {}): Promise<OnCallShift[]> {
-  return pb.collection("on_call_shifts").getFullList<OnCallShift>({
+  includeInactive = false,
+}: { limit?: number; sort?: string; includeInactive?: boolean } = {}): Promise<OnCallShift[]> {
+  const params: Record<string, unknown> = {
     sort,
     perPage: limit,
     expand: "user,created_by",
-    requestKey: "oncall-list",
-  });
+    requestKey: includeInactive ? "oncall-list-all" : "oncall-list-active",
+  };
+  if (!includeInactive) params.filter = "is_active = true";
+  return pb.collection("on_call_shifts").getFullList<OnCallShift>(params);
 }
 
 export async function getCurrentOnCallUsers(): Promise<PBUser[]> {
@@ -61,8 +64,8 @@ export async function updateShift(
   });
 }
 
-export async function deleteShift(id: string): Promise<void> {
-  await pb.collection("on_call_shifts").delete(id, {
-    requestKey: `oncall-delete-${id}`,
+export async function softDeleteShift(id: string): Promise<OnCallShift> {
+  return pb.collection("on_call_shifts").update<OnCallShift>(id, { is_active: false }, {
+    requestKey: `oncall-soft-delete-${id}`,
   });
 }

@@ -50,6 +50,3 @@ export async function getUser(id: string): Promise<PBUser> {
   });
 }
 
-export async function deleteUser(id: string): Promise<void> {
-  await pb.collection("users").delete(id, { requestKey: `delete-user-${id}` });
-}

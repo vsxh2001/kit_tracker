@@ -56,10 +56,6 @@ export async function updateRequest(
 }
 
 
-export async function deleteRequest(id: string): Promise<void> {
-  await pb.collection("requests").delete(id);
-}
-
 export async function fulfillRequest(request: KitRequest) {
   if (!request.designated_kit || !request.target_entity) {
     throw new Error("Request must have designated kit and target entity to fulfill.");

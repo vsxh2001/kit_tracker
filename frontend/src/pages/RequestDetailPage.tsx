@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { getRequest, updateRequestStatus, fulfillRequest, deleteRequest } from "../services/requests";
+import { getRequest, updateRequestStatus, fulfillRequest } from "../services/requests";
 import { listKits } from "../services/kits";
 import { listEntities } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
@@ -27,12 +27,12 @@ import {
 } from "../components/ui/alert-dialog";
 import type { KitRequest, Kit, Entity } from "../types";
 
-type ConfirmKind = "delete" | "cancel";
+type ConfirmKind = "cancel";
 
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, canDecideRequests, user } = useAuth();
+  const { canDecideRequests, user } = useAuth();
   const [request, setRequest] = useState<KitRequest | null>(null);
   const [kits, setKits] = useState<Kit[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -140,23 +140,6 @@ export function RequestDetailPage() {
       }),
       "Assignment saved"
     );
-  }
-
-  async function handleDelete() {
-    setConfirmKind(null);
-    setError("");
-    setActionLoading(true);
-    try {
-      await deleteRequest(id!);
-      toast({ title: "Request deleted", variant: "success" });
-      navigate("/requests");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      const msg = e?.message ?? "Delete failed.";
-      setError(msg);
-      toast({ title: "Delete failed", description: msg, variant: "destructive" });
-      setActionLoading(false);
-    }
   }
 
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
@@ -280,26 +263,7 @@ export function RequestDetailPage() {
                 <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
                   Edit request
                 </Button>
-                {isAdmin && (
-                  <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
-                    Delete request
-                  </Button>
-                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Admin delete — shown for fulfilled/cancelled/rejected where admin actions card is hidden */}
-        {isAdmin && (request.status === "fulfilled" || request.status === "cancelled" || request.status === "rejected") && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Danger zone</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 flex flex-wrap gap-2">
-              <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
-                Delete request
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -316,9 +280,6 @@ export function RequestDetailPage() {
               </Button>
               <Button size="sm" variant="destructive" onClick={() => setConfirmKind("cancel")} disabled={actionLoading}>
                 Cancel request
-              </Button>
-              <Button size="sm" variant="destructive" onClick={() => setConfirmKind("delete")} disabled={actionLoading}>
-                Delete request
               </Button>
             </CardContent>
           </Card>
@@ -338,22 +299,15 @@ export function RequestDetailPage() {
       <AlertDialog open={confirmKind !== null} onOpenChange={(o) => !o && setConfirmKind(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmKind === "delete" ? "Delete this request?" : "Cancel this request?"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmKind === "delete"
-                ? "This permanently removes the request. Cannot be undone."
-                : "Mark this request as cancelled. You can no longer fulfill it."}
+              Mark this request as cancelled. You can no longer fulfill it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Back</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={confirmKind === "delete" ? handleDelete : handleCancel}
-            >
-              {confirmKind === "delete" ? "Delete" : "Cancel request"}
+            <AlertDialogAction variant="destructive" onClick={handleCancel}>
+              Cancel request
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
