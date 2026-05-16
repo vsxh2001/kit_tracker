@@ -7,14 +7,16 @@
 // active kits the serial must still be unique. Retired kits may share a
 // serial with each other and with one active kit.
 //
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+//
 // All logic inlined inside each callback — PB v0.22 Goja runs each hook
 // invocation in an isolated runtime; module-level function declarations
 // are NOT visible inside callbacks.
 
-onRecordBeforeCreateRequest((e) => {
-  if (!e.collection || e.collection.name !== "kits") return;
-  if (!e.record.getBool("is_active")) return;
-  const serial = e.record.getString("serial");
+onModelBeforeCreate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  const serial = e.model.getString("serial");
   if (!serial) return;
   const matches = $app.dao().findRecordsByFilter(
     "kits",
@@ -31,10 +33,9 @@ onRecordBeforeCreateRequest((e) => {
   }
 }, "kits");
 
-onRecordBeforeUpdateRequest((e) => {
-  if (!e.collection || e.collection.name !== "kits") return;
-  if (!e.record.getBool("is_active")) return;
-  const serial = e.record.getString("serial");
+onModelBeforeUpdate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  const serial = e.model.getString("serial");
   if (!serial) return;
   const matches = $app.dao().findRecordsByFilter(
     "kits",
@@ -42,7 +43,7 @@ onRecordBeforeUpdateRequest((e) => {
     "",
     1,
     0,
-    { serial: serial, id: e.record.id }
+    { serial: serial, id: e.model.id }
   );
   if (matches.length > 0) {
     throw new BadRequestError(

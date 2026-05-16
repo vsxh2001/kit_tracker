@@ -2,11 +2,13 @@
 // Enforce: at most one ACTIVE entity per name. Mirrors the kits pattern.
 // Soft-deleted (is_active=false) entities may share a name with each other
 // and with one active entity.
+//
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
 
-onRecordBeforeCreateRequest((e) => {
-  if (!e.collection || e.collection.name !== "entities") return;
-  if (!e.record.getBool("is_active")) return;
-  const name = e.record.getString("name");
+onModelBeforeCreate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  const name = e.model.getString("name");
   if (!name) return;
   const matches = $app.dao().findRecordsByFilter(
     "entities",
@@ -23,10 +25,9 @@ onRecordBeforeCreateRequest((e) => {
   }
 }, "entities");
 
-onRecordBeforeUpdateRequest((e) => {
-  if (!e.collection || e.collection.name !== "entities") return;
-  if (!e.record.getBool("is_active")) return;
-  const name = e.record.getString("name");
+onModelBeforeUpdate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  const name = e.model.getString("name");
   if (!name) return;
   const matches = $app.dao().findRecordsByFilter(
     "entities",
@@ -34,7 +35,7 @@ onRecordBeforeUpdateRequest((e) => {
     "",
     1,
     0,
-    { name: name, id: e.record.id }
+    { name: name, id: e.model.id }
   );
   if (matches.length > 0) {
     throw new BadRequestError(

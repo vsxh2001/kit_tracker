@@ -3,12 +3,14 @@
 // Bulk components (is_bulk=true) and components with empty serial are
 // exempt — they can share. Only serialized components with a non-empty
 // serial conflict.
+//
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
 
-onRecordBeforeCreateRequest((e) => {
-  if (!e.collection || e.collection.name !== "components") return;
-  if (!e.record.getBool("is_active")) return;
-  if (e.record.getBool("is_bulk")) return;
-  const serial = e.record.getString("serial");
+onModelBeforeCreate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  if (e.model.getBool("is_bulk")) return;
+  const serial = e.model.getString("serial");
   if (!serial || serial.trim() === "") return;
   const matches = $app.dao().findRecordsByFilter(
     "components",
@@ -25,11 +27,10 @@ onRecordBeforeCreateRequest((e) => {
   }
 }, "components");
 
-onRecordBeforeUpdateRequest((e) => {
-  if (!e.collection || e.collection.name !== "components") return;
-  if (!e.record.getBool("is_active")) return;
-  if (e.record.getBool("is_bulk")) return;
-  const serial = e.record.getString("serial");
+onModelBeforeUpdate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  if (e.model.getBool("is_bulk")) return;
+  const serial = e.model.getString("serial");
   if (!serial || serial.trim() === "") return;
   const matches = $app.dao().findRecordsByFilter(
     "components",
@@ -37,7 +38,7 @@ onRecordBeforeUpdateRequest((e) => {
     "",
     1,
     0,
-    { serial: serial, id: e.record.id }
+    { serial: serial, id: e.model.id }
   );
   if (matches.length > 0) {
     throw new BadRequestError(

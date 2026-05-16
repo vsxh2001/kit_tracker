@@ -5,6 +5,9 @@
 //   1. end_at > start_at  (lexicographic compare; PB stores dates as "YYYY-MM-DD HH:MM:SS.sssZ")
 //   2. assigned user has role = "admin" or "technician"
 //
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+//
 // NOTE: $app is a Goja global and is NOT accessible inside named helper functions
 // in PB v0.22 — the runtime isolates globals to the top-level script scope.
 // Both checks are therefore inlined directly in each event callback.
@@ -38,13 +41,13 @@
 // }
 // ============================================================
 
-onRecordBeforeCreateRequest((e) => {
-  const startStr = e.record.getString("start_at");
-  const endStr = e.record.getString("end_at");
+onModelBeforeCreate((e) => {
+  const startStr = e.model.getString("start_at");
+  const endStr = e.model.getString("end_at");
   if (endStr <= startStr) {
     throw new BadRequestError("end_at must be after start_at");
   }
-  const userId = e.record.getString("user");
+  const userId = e.model.getString("user");
   const user = $app.dao().findRecordById("users", userId);
   const role = user.getString("role");
   if (role !== "admin" && role !== "technician") {
@@ -52,13 +55,13 @@ onRecordBeforeCreateRequest((e) => {
   }
 }, "on_call_shifts");
 
-onRecordBeforeUpdateRequest((e) => {
-  const startStr = e.record.getString("start_at");
-  const endStr = e.record.getString("end_at");
+onModelBeforeUpdate((e) => {
+  const startStr = e.model.getString("start_at");
+  const endStr = e.model.getString("end_at");
   if (endStr <= startStr) {
     throw new BadRequestError("end_at must be after start_at");
   }
-  const userId = e.record.getString("user");
+  const userId = e.model.getString("user");
   const user = $app.dao().findRecordById("users", userId);
   const role = user.getString("role");
   if (role !== "admin" && role !== "technician") {

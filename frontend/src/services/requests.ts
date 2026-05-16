@@ -64,7 +64,7 @@ export async function fulfillRequest(request: KitRequest) {
   const latest = await getLatestTransaction(request.designated_kit);
   const fromEntityId = latest?.to_entity || undefined;
 
-  const tx = await createTransaction({
+  await createTransaction({
     kitId: request.designated_kit,
     fromEntityId,
     toEntityId: request.target_entity,
@@ -78,10 +78,20 @@ export async function fulfillRequest(request: KitRequest) {
       delivery_date: request.delivery_date,
     });
   } catch (err) {
+    // Transactions are append-only (deleteRule: null) — compensate via reverse transaction
     try {
-      await pb.collection("transactions").delete(tx.id);
+      await pb.collection("transactions").create({
+        kit: request.designated_kit,
+        from_entity: request.target_entity,  // reverse: undo the forward move
+        to_entity: fromEntityId,
+        timestamp: new Date().toISOString(),
+        notes: "Reverse: fulfillment compensation (request status update failed)",
+        created_by: pb.authStore.model?.id ?? "",
+        request: request.id,
+      });
     } catch {
-      // best-effort compensation; surface original error regardless
+      // reverse tx also failed; kit is in partial-fulfillment state — admin must intervene
+      console.error("fulfillRequest: forward tx created but status update AND reverse tx both failed. Request", request.id, "is in partial-fulfillment state.");
     }
     throw err;
   }

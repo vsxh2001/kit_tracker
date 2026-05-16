@@ -4,6 +4,13 @@
 // This hook blocks owners from changing the `status` field — only admin/technician
 // may transition status (open → approved/rejected/fulfilled/cancelled).
 //
+// DEFENSE-IN-DEPTH NOTE: This hook remains onRecordBeforeUpdateRequest (REST-only)
+// because it requires HTTP context ($apis.requestInfo) to identify the caller's role.
+// There is no HTTP context at the onModelBefore* layer (dao.save() path).
+//
+// The ai_chat / ai_mcp write handlers enforce their own role gate before calling
+// dao.save(), so the dao.save() path is covered at the handler level.
+//
 // Per Goja runtime isolation: all PB API calls inside callback scope.
 
 onRecordBeforeUpdateRequest(function(e) {

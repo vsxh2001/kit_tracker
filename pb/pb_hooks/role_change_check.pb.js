@@ -1,6 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Block non-admin users from changing any user's role field (prevents self-promotion).
-// Fires before any user record update.
+// Fires before any user record update via REST.
+//
+// DEFENSE-IN-DEPTH NOTE: This hook remains onRecordBeforeUpdateRequest (REST-only)
+// because it requires HTTP context ($apis.requestInfo) to identify the caller's role.
+// There is no HTTP context at the onModelBefore* layer (dao.save() path).
+//
+// The ai_chat / ai_mcp write handlers enforce their own role gate before calling
+// dao.save(), so the dao.save() path is covered at the handler level.
+// last_admin_check.pb.js covers the structural invariant (last admin cannot be
+// demoted/deleted) at the model level, regardless of caller.
 
 onRecordBeforeUpdateRequest((e) => {
   if (!e.collection || e.collection.name !== "users") {

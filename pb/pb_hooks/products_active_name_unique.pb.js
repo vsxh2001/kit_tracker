@@ -1,10 +1,12 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Enforce: at most one ACTIVE product per name.
+//
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
 
-onRecordBeforeCreateRequest((e) => {
-  if (!e.collection || e.collection.name !== "products") return;
-  if (!e.record.getBool("is_active")) return;
-  const name = e.record.getString("name");
+onModelBeforeCreate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  const name = e.model.getString("name");
   if (!name) return;
   const matches = $app.dao().findRecordsByFilter(
     "products",
@@ -21,10 +23,9 @@ onRecordBeforeCreateRequest((e) => {
   }
 }, "products");
 
-onRecordBeforeUpdateRequest((e) => {
-  if (!e.collection || e.collection.name !== "products") return;
-  if (!e.record.getBool("is_active")) return;
-  const name = e.record.getString("name");
+onModelBeforeUpdate((e) => {
+  if (!e.model.getBool("is_active")) return;
+  const name = e.model.getString("name");
   if (!name) return;
   const matches = $app.dao().findRecordsByFilter(
     "products",
@@ -32,7 +33,7 @@ onRecordBeforeUpdateRequest((e) => {
     "",
     1,
     0,
-    { name: name, id: e.record.id }
+    { name: name, id: e.model.id }
   );
   if (matches.length > 0) {
     throw new BadRequestError(

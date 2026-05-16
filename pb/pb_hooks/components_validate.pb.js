@@ -4,7 +4,10 @@
 // components rules:
 //   - Serialized (is_bulk=false): serial must be non-empty.
 //   - Bulk (is_bulk=true): quantity must be >= 1.
-//   - Non-admin updates: only quantity field may change.
+//   - Non-admin field guard (only quantity may change for non-admins) is
+//     enforced at REST layer via onRecordBeforeUpdateRequest (needs HTTP
+//     context for caller role). The model-event hook covers structural
+//     invariants reachable via dao.save() (ai_chat / ai_mcp path).
 //
 // component_transactions rules:
 //   - Exactly one of to_kit / to_entity must be set (XOR).
@@ -13,13 +16,16 @@
 //     first transaction for the component (initial placement).
 //   - quantity must not exceed the component's current quantity.
 //   - Source kit (if any) must be active.
+//
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
 
 // ---- components: before create ----
-onRecordBeforeCreateRequest((e) => {
-  const isBulk = e.record.getBool("is_bulk");
-  const serial = e.record.getString("serial");
-  const quantity = e.record.getInt("quantity");
-  const product = e.record.getString("product");
+onModelBeforeCreate((e) => {
+  const isBulk = e.model.getBool("is_bulk");
+  const serial = e.model.getString("serial");
+  const quantity = e.model.getInt("quantity");
+  const product = e.model.getString("product");
 
   if (!product || product.trim() === "") {
     throw new BadRequestError("Component must have a product");
@@ -35,11 +41,11 @@ onRecordBeforeCreateRequest((e) => {
 }, "components");
 
 // ---- components: before update ----
-onRecordBeforeUpdateRequest((e) => {
-  const isBulk = e.record.getBool("is_bulk");
-  const serial = e.record.getString("serial");
-  const quantity = e.record.getInt("quantity");
-  const product = e.record.getString("product");
+onModelBeforeUpdate((e) => {
+  const isBulk = e.model.getBool("is_bulk");
+  const serial = e.model.getString("serial");
+  const quantity = e.model.getInt("quantity");
+  const product = e.model.getString("product");
 
   if (!product || product.trim() === "") {
     throw new BadRequestError("Component must have a product");
@@ -53,7 +59,17 @@ onRecordBeforeUpdateRequest((e) => {
     throw new BadRequestError("Bulk component quantity must be >= 1");
   }
 
-  // Non-admins (and non-technicians) may only change quantity
+  // NOTE: Non-admin field guard (protecting serial, notes, is_active, is_bulk)
+  // is NOT enforced here — no HTTP context at model layer. That check remains
+  // on the REST onRecordBeforeUpdateRequest path (see below). The ai_mcp / ai_chat
+  // handlers enforce caller role before calling dao.save().
+}, "components");
+
+// ---- components: non-admin field guard (REST-only, needs HTTP context) ----
+onRecordBeforeUpdateRequest((e) => {
+  // Only care about the components collection
+  if (!e.collection || e.collection.name !== "components") return;
+
   const info = $apis.requestInfo(e.httpContext);
   const role = info.authRecord ? info.authRecord.getString("role") : "";
   if (role !== "admin" && role !== "technician") {
@@ -68,11 +84,11 @@ onRecordBeforeUpdateRequest((e) => {
 }, "components");
 
 // ---- component_transactions: before create ----
-onRecordBeforeCreateRequest((e) => {
-  const fromKit    = e.record.getString("from_kit");
-  const fromEntity = e.record.getString("from_entity");
-  const toKit      = e.record.getString("to_kit");
-  const toEntity   = e.record.getString("to_entity");
+onModelBeforeCreate((e) => {
+  const fromKit    = e.model.getString("from_kit");
+  const fromEntity = e.model.getString("from_entity");
+  const toKit      = e.model.getString("to_kit");
+  const toEntity   = e.model.getString("to_entity");
 
   const hasFromKit    = fromKit    !== "";
   const hasFromEntity = fromEntity !== "";
@@ -90,7 +106,7 @@ onRecordBeforeCreateRequest((e) => {
   if (hasFromKit === hasFromEntity) {
     if (!hasFromKit && !hasFromEntity) {
       // Both empty: only allowed if this is the FIRST transaction for this component
-      const componentId = e.record.getString("component");
+      const componentId = e.model.getString("component");
       const existing = $app.dao().findRecordsByFilter(
         "component_transactions",
         "component = {:cid}",
@@ -114,8 +130,8 @@ onRecordBeforeCreateRequest((e) => {
   }
 
   // quantity vs component available
-  const componentId = e.record.getString("component");
-  const txnQty = e.record.getInt("quantity");
+  const componentId = e.model.getString("component");
+  const txnQty = e.model.getInt("quantity");
   if (txnQty < 1) {
     throw new BadRequestError("Transaction quantity must be >= 1");
   }

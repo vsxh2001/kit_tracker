@@ -1,18 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
-// Prevent demotion of the last admin user.
-// Fires before any user record update; if the update would remove the last admin, reject with 400.
+// Prevent demotion or deletion of the last admin user.
+//
+// Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
+// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
 
-onRecordBeforeUpdateRequest((e) => {
-  // Only care about the users collection
-  if (!e.collection || e.collection.name !== "users") {
-    return;
-  }
-
-  // e.record holds the new (pending) state.
+onModelBeforeUpdate((e) => {
+  // e.model holds the new (pending) state.
   // Fetch current persisted state to read old role.
-  const oldRecord = $app.dao().findRecordById("users", e.record.id);
+  const oldRecord = $app.dao().findRecordById("users", e.model.id);
   const oldRole = oldRecord.getString("role");
-  const newRole = e.record.getString("role");
+  const newRole = e.model.getString("role");
 
   // Only act if this update demotes an admin.
   if (oldRole !== "admin" || newRole === "admin") {
@@ -29,7 +26,7 @@ onRecordBeforeUpdateRequest((e) => {
     "",
     2,
     0,
-    { id: e.record.id }
+    { id: e.model.id }
   );
 
   if (otherAdmins.length === 0) {
@@ -37,9 +34,9 @@ onRecordBeforeUpdateRequest((e) => {
   }
 }, "users");
 
-// H4: Prevent deletion of the last admin user.
-onRecordBeforeDeleteRequest((e) => {
-  if (e.record.getString("role") !== "admin") return;
+// Prevent deletion of the last admin user.
+onModelBeforeDelete((e) => {
+  if (e.model.getString("role") !== "admin") return;
 
   const otherAdmins = $app.dao().findRecordsByFilter(
     "users",
@@ -47,7 +44,7 @@ onRecordBeforeDeleteRequest((e) => {
     "",
     2,
     0,
-    { id: e.record.id }
+    { id: e.model.id }
   );
 
   if (otherAdmins.length === 0) {
