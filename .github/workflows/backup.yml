@@ -16,15 +16,61 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
 
-      - name: Run pocketbase backup via Fly SSH
+      - name: Trigger PB backup via HTTP API
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PB_SUPERUSER_EMAIL: ${{ secrets.PB_SUPERUSER_EMAIL }}
+          PB_SUPERUSER_PASSWORD: ${{ secrets.PB_SUPERUSER_PASSWORD }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+        run: |
+          set -euo pipefail
+          SNAPSHOT="pb-snapshot-$(date -u +%Y%m%d-%H%M%S).zip"
+          echo "SNAPSHOT=$SNAPSHOT" >> "$GITHUB_ENV"
+
+          # Auth as superuser (v0.22 endpoint)
+          TOKEN=$(curl -sf -X POST "$APP_BASE_URL/api/collections/_superusers/auth-with-password" \
+            -H 'Content-Type: application/json' \
+            -d "{\"identity\":\"$PB_SUPERUSER_EMAIL\",\"password\":\"$PB_SUPERUSER_PASSWORD\"}" \
+            | jq -r '.token // empty')
+          if [ -z "$TOKEN" ]; then
+            echo "::error::superuser auth failed"
+            exit 1
+          fi
+
+          # Trigger backup
+          HTTP=$(curl -s -o /tmp/backup-resp.json -w '%{http_code}' -X POST "$APP_BASE_URL/api/backups" \
+            -H "Authorization: $TOKEN" -H 'Content-Type: application/json' \
+            -d "{\"name\":\"$SNAPSHOT\"}")
+          if [ "$HTTP" != "204" ] && [ "$HTTP" != "200" ]; then
+            echo "::error::backup HTTP failed (status $HTTP)"
+            cat /tmp/backup-resp.json
+            exit 1
+          fi
+          echo "Backup creation accepted (HTTP $HTTP)"
+
+          # Poll until the backup appears in listing (creation is async-ish)
+          for i in 1 2 3 4 5 6; do
+            sleep 5
+            LIST=$(curl -sf "$APP_BASE_URL/api/backups" -H "Authorization: $TOKEN")
+            if echo "$LIST" | jq -e ".[] | select(.key == \"$SNAPSHOT\")" > /dev/null; then
+              echo "Backup $SNAPSHOT present in listing"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "::error::backup never appeared in listing after 30s"
+              echo "$LIST" | jq
+              exit 1
+            fi
+          done
+
+      - name: SFTP pull backup ZIP
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          set -euo pipefail
           mkdir -p backups
-          SNAPSHOT="pb-snapshot-$(date -u +%Y%m%d-%H%M%S).zip"
-          flyctl ssh console -a kit-tracker -C "/app/pocketbase backup '$SNAPSHOT' --dir=/app/pb_data"
-          echo "Downloading: $SNAPSHOT"
           flyctl ssh sftp get -a kit-tracker "/app/pb_data/backups/$SNAPSHOT" "backups/$SNAPSHOT"
+          ls -lah "backups/$SNAPSHOT"
 
       - name: Validate snapshot size
         run: |
