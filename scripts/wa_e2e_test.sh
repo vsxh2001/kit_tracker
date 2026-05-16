@@ -230,7 +230,7 @@ check_kit() {
   fi
 }
 
-check_entity "DEMO-Entity-002"
+check_entity "DEMO-Customer-Alpha"
 check_kit "DEMO-KIT-003"
 check_kit "DEMO-KIT-005"
 check_kit "DEMO-KIT-006"
@@ -282,14 +282,14 @@ fi
 # Scenario A: Move + YES → expect transaction
 # ---------------------------------------------------------------------------
 log ""
-log "=== Scenario A: move DEMO-KIT-005 to DEMO-Entity-002 + YES ==="
+log "=== Scenario A: move DEMO-KIT-005 to DEMO-Customer-Alpha + YES ==="
 
 SID_A1="SM-${RUN_ID}-A1"
 SID_A2="SM-${RUN_ID}-A2"
 BEFORE_A_MS="$(date +%s%3N)"
 
 log "A1: sending move command ..."
-resp_a1="$(send_wa "${SID_A1}" "${TECH_PHONE}" "move DEMO-KIT-005 to DEMO-Entity-002")"
+resp_a1="$(send_wa "${SID_A1}" "${TECH_PHONE}" "move DEMO-KIT-005 to DEMO-Customer-Alpha")"
 log "A1 response: ${resp_a1:0:200}"
 
 # The hook should have stored a pending confirmation and replied with "Confirm: ..."
@@ -303,7 +303,7 @@ log "A: waiting for transaction to appear (up to 30s) ..."
 found_a=0
 for i in $(seq 1 15); do
   sleep 2
-  tx_count_a="$(count_transactions_after "${BEFORE_A_MS}" "DEMO-KIT-005" "DEMO-Entity-002")"
+  tx_count_a="$(count_transactions_after "${BEFORE_A_MS}" "DEMO-KIT-005" "DEMO-Customer-Alpha")"
   if [[ "${tx_count_a}" -gt 0 ]]; then
     found_a=1
     break
@@ -315,27 +315,27 @@ log "A: transactions found after run start: ${tx_count_a}"
 if [[ "${found_a}" -eq 1 ]]; then
   pass "Scenario A: Move + YES created transaction (found ${tx_count_a}, after $((i*2))s)"
 else
-  fail "Scenario A: Move + YES" "no transaction found for DEMO-KIT-005 → DEMO-Entity-002 after 30s"
+  fail "Scenario A: Move + YES" "no transaction found for DEMO-KIT-005 → DEMO-Customer-Alpha after 30s"
 fi
 
 # ---------------------------------------------------------------------------
 # Scenario B: Move without YES (timeout)
 # ---------------------------------------------------------------------------
 log ""
-log "=== Scenario B: move DEMO-KIT-006 to DEMO-Entity-002 (no YES, wait for 30s timeout) ==="
+log "=== Scenario B: move DEMO-KIT-006 to DEMO-Customer-Alpha (no YES, wait for 30s timeout) ==="
 
 SID_B1="SM-${RUN_ID}-B1"
 BEFORE_B_MS="$(date +%s%3N)"
 
 log "B1: sending move command (will NOT send YES) ..."
-resp_b1="$(send_wa "${SID_B1}" "${TECH_PHONE}" "move DEMO-KIT-006 to DEMO-Entity-002")"
+resp_b1="$(send_wa "${SID_B1}" "${TECH_PHONE}" "move DEMO-KIT-006 to DEMO-Customer-Alpha")"
 log "B1 response: ${resp_b1:0:200}"
 
 log "B: waiting 35s for pending confirmation to expire ..."
 sleep 35
 
 log "B: verifying NO transaction was created ..."
-tx_count_b="$(count_transactions_after "${BEFORE_B_MS}" "DEMO-KIT-006" "DEMO-Entity-002")"
+tx_count_b="$(count_transactions_after "${BEFORE_B_MS}" "DEMO-KIT-006" "DEMO-Customer-Alpha")"
 log "B: transactions found: ${tx_count_b}"
 
 if [[ "${tx_count_b}" -eq 0 ]]; then
@@ -348,14 +348,14 @@ fi
 # Scenario C: Move + non-YES reply (cancel)
 # ---------------------------------------------------------------------------
 log ""
-log "=== Scenario C: move DEMO-KIT-007 to DEMO-Entity-002 + 'no' (cancel) ==="
+log "=== Scenario C: move DEMO-KIT-007 to DEMO-Customer-Alpha + 'no' (cancel) ==="
 
 SID_C1="SM-${RUN_ID}-C1"
 SID_C2="SM-${RUN_ID}-C2"
 BEFORE_C_MS="$(date +%s%3N)"
 
 log "C1: sending move command ..."
-resp_c1="$(send_wa "${SID_C1}" "${TECH_PHONE}" "move DEMO-KIT-007 to DEMO-Entity-002")"
+resp_c1="$(send_wa "${SID_C1}" "${TECH_PHONE}" "move DEMO-KIT-007 to DEMO-Customer-Alpha")"
 log "C1 response: ${resp_c1:0:200}"
 
 log "C2: sending 'no' to cancel ..."
@@ -365,7 +365,7 @@ log "C2 response: ${resp_c2:0:200}"
 sleep 3
 
 log "C: verifying NO transaction was created ..."
-tx_count_c="$(count_transactions_after "${BEFORE_C_MS}" "DEMO-KIT-007" "DEMO-Entity-002")"
+tx_count_c="$(count_transactions_after "${BEFORE_C_MS}" "DEMO-KIT-007" "DEMO-Customer-Alpha")"
 log "C: transactions found: ${tx_count_c}"
 
 # Note: "no" itself contains no write-verb match so it falls through to /api/ai/chat.
@@ -390,7 +390,7 @@ http_code_d="$(curl -s -o /dev/null -w "%{http_code}" -X POST "${PB_URL}/api/wa/
   --data-urlencode "AccountSid=${TWILIO_ACCOUNT_SID}" \
   --data-urlencode "From=whatsapp:${TECH_PHONE}" \
   --data-urlencode "To=whatsapp:+14155238886" \
-  --data-urlencode "Body=move DEMO-KIT-005 to DEMO-Entity-002" \
+  --data-urlencode "Body=move DEMO-KIT-005 to DEMO-Customer-Alpha" \
   --data-urlencode "NumMedia=0" \
   --data-urlencode "SmsStatus=received")"
 
@@ -400,7 +400,7 @@ log "D: HTTP response code from duplicate POST: ${http_code_d}"
 # We can't intercept Twilio outbound to count replies — rely on PB log + best-effort check.
 # Verification: no additional transaction for DEMO-KIT-005 created AFTER scenario D started.
 sleep 2
-tx_count_d_new="$(count_transactions_after "${BEFORE_D_MS}" "DEMO-KIT-005" "DEMO-Entity-002")"
+tx_count_d_new="$(count_transactions_after "${BEFORE_D_MS}" "DEMO-KIT-005" "DEMO-Customer-Alpha")"
 log "D: new transactions after duplicate POST: ${tx_count_d_new} (expected 0)"
 
 if [[ "${http_code_d}" == "200" ]]; then
