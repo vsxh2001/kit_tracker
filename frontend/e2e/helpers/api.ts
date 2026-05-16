@@ -13,6 +13,23 @@ const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 // test suites, but within a single suite run it's safe and efficient.
 let _adminToken: string | null = null;
 let _adminUserId: string | null = null;
+let _superToken: string | null = null;
+
+async function getSuperToken(): Promise<string> {
+  if (_superToken) return _superToken;
+  const res = await fetch(`${PB_URL}/api/admins/auth-with-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      identity: process.env.PB_SUPERUSER_EMAIL ?? "admin@example.com",
+      password: process.env.PB_SUPERUSER_PASSWORD ?? "changeme123",
+    }),
+  });
+  if (!res.ok) throw new Error(`Super auth failed: ${res.status}`);
+  const data = await res.json();
+  _superToken = data.token;
+  return _superToken!;
+}
 
 export async function getAdminToken(): Promise<string> {
   if (_adminToken) return _adminToken;
@@ -691,4 +708,28 @@ export async function seedAuditRows(rows: Array<{ via: string; action?: string; 
       throw new Error(`seedAuditRows failed: ${JSON.stringify(body)}`);
     }
   }
+}
+
+export async function seedTransactionAuditRow(
+  transactionId: string,
+  via: string
+): Promise<{ id: string }> {
+  const token = await getSuperToken();
+  const actorId = await getAdminUserId();
+  const res = await fetch(`${PB_URL}/api/collections/audit_log/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      collection_name: "transactions",
+      record_id: transactionId,
+      actor: actorId,
+      action: "create",
+      changes: JSON.stringify({ via, after: { kit: transactionId } }),
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`seedTransactionAuditRow failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
 }
