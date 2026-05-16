@@ -337,6 +337,7 @@ export async function createTestComponent(opts: {
         name: `Test Product: ${type} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         category: type,
         is_active: true,
+        is_serialized: !isBulk,
       }),
     });
     if (!prodRes.ok) {
@@ -601,6 +602,7 @@ export interface ProductRecord {
   model?: string;
   description?: string;
   specs?: string;
+  is_serialized?: boolean;
   is_active: boolean;
 }
 
@@ -611,12 +613,13 @@ export async function createTestProduct(data: {
   model?: string;
   description?: string;
   specs?: string;
+  is_serialized?: boolean;
 }): Promise<ProductRecord> {
   const token = await getAdminToken();
   const res = await fetch(`${PB_URL}/api/collections/products/records`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
-    body: JSON.stringify({ ...data, is_active: true }),
+    body: JSON.stringify({ is_serialized: true, ...data, is_active: true }),
   });
   if (!res.ok) {
     const body = await res.json();

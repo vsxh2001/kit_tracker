@@ -92,6 +92,7 @@ export interface Product {
   description?: string;
   specs?: string; // JSON string
   url?: string;
+  is_serialized: boolean;
   is_active: boolean;
   created: string;
   updated: string;

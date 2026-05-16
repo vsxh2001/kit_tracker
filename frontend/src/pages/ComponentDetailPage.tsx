@@ -172,6 +172,9 @@ export function ComponentDetailPage() {
                   {[component.expand.product.manufacturer, component.expand.product.model].filter(Boolean).join(" · ")}
                 </p>
               )}
+              <p className="text-xs text-muted-foreground">
+                {component.expand.product.is_serialized ? "Serialized component" : "Bulk component"}
+              </p>
               {productInstanceCount !== null && (
                 <Link
                   to={`/products/${component.expand.product.id}`}
