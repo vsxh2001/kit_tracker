@@ -1,6 +1,6 @@
 # PocketBase JS SDK Upgrade — Spec
 
-Status: **APPROVED — ready for implementation**
+Status: **BLOCKED — premise invalidated 2026-05-17. SDK v0.22+ requires server v0.23+; bump is coupled to a server migration. See "Investigation outcome" at bottom.**
 Date: 2026-05-17
 Owner: hadassi
 
@@ -107,3 +107,25 @@ This sprint bumps the SDK alongside any server-side compatibility shim needed. S
 - [ ] E2E full suite green
 - [ ] CLAUDE.md updated
 - [ ] PR opened with merge-ready status
+
+## 8. Investigation outcome (2026-05-17)
+
+The SDK upgrade was attempted on branch `worktree-pb-sdk-upgrade` and was **rejected** after empirical testing.
+
+### Findings
+
+1. **SDK v0.22.0+ is incompatible with PB server v0.22.x by design.** The upstream changelog states explicitly: "This release introduces some breaking changes and works only with PocketBase v0.23.0+."
+2. SDK v0.21.5 is the latest v0.21.x patch — no later v0.21.x exists.
+3. Empirical runtime test (SDK v0.22.1 → server v0.22.22):
+   - `authWithPassword` — OK
+   - `getList` — OK
+   - `listAuthMethods()` — returns `{}` (oauth2/authProviders both undefined)
+   - `authWithOAuth2({provider: "google"})` — **crashes** with `TypeError: Cannot read properties of undefined (reading 'providers')` because the SDK's internal pre-flight `listAuthMethods()` reads `response.oauth2.providers`. The crash is inside the SDK, not in our call site, so a defensive reader does NOT help.
+4. Build + lint pass with v0.22.1 — TS types do not catch this (response shape change is a runtime concern).
+5. `authStore.model`, `files.getUrl`, etc. are soft-deprecated in v0.22 (still work).
+
+### Conclusion
+
+The bump cannot be done in isolation. SDK and server must move together to v0.23+ — a separate migration sprint with backend changes (admins → `_superusers`, schema → fields, hook rewrites). CLAUDE.md was updated to make this constraint loud and unambiguous.
+
+This spec stays open as a placeholder for the coupled SDK+server upgrade.
