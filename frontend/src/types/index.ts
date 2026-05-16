@@ -24,7 +24,7 @@ export interface Entity {
   id: string;
   name: string;
   description?: string;
-  category?: EntityCategory;
+  category: EntityCategory;
   is_active: boolean;
   created: string;
   updated: string;
