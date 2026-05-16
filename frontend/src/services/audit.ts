@@ -2,7 +2,11 @@ import { pb } from "../lib/pocketbase";
 import type { AuditLog } from "../types";
 
 function csvCell(v: string | null | undefined): string {
-  const s = String(v ?? "");
+  let s = String(v ?? "");
+  // CSV injection guard — neutralize formula-leading characters per OWASP recommendation.
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = "'" + s;
+  }
   return `"${s.replace(/"/g, '""')}"`;
 }
 
@@ -22,7 +26,10 @@ export function exportAuditLogCsv(rows: AuditLog[]): void {
         .join(",")
     );
   }
-  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  // RFC4180 line ending — Excel on Windows expects CRLF.
+  const csv = lines.join("\r\n");
+  // UTF-8 BOM so Excel recognizes encoding for non-ASCII.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const ts = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "");
