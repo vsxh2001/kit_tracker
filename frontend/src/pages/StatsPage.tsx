@@ -69,7 +69,7 @@ export function StatsPage() {
   if (!canDecideRequests) return <Navigate to="/dashboard" replace />;
 
   const utilizationPct = stats && stats.totalKits > 0
-    ? Math.round((stats.kitsOut / stats.totalKits) * 100)
+    ? Math.round((stats.kitsAssigned / stats.totalKits) * 100)
     : 0;
 
   const totalRequests = stats
@@ -116,8 +116,8 @@ export function StatsPage() {
                 />
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span><span className="font-semibold text-foreground">{stats?.kitsOut ?? 0}</span> out</span>
-                <span><span className="font-semibold text-foreground">{stats?.kitsInStorage ?? 0}</span> in storage</span>
+                <span><span className="font-semibold text-foreground">{stats?.kitsAssigned ?? 0}</span> assigned</span>
+                <span><span className="font-semibold text-foreground">{stats?.kitsUnassigned ?? 0}</span> unassigned</span>
               </div>
             </CardContent>
           </Card>
