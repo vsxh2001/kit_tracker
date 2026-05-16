@@ -46,6 +46,10 @@ onModelBeforeCreate((e) => {
         "This product is serialized — component must have a non-empty serial."
       );
     }
+    // Force in-memory quantity to null so POST response doesn't echo client-sent value.
+    // Goja serializes null to 0 in REST, but 0 is closer to "no quantity" than client's stale value.
+    // After hook still corrects DB to true NULL.
+    try { e.model.set("quantity", null); } catch (_) {}
     // Force is_bulk=false; quantity will be nulled in onModelAfterCreate
     e.model.set("is_bulk", false);
   } else {
@@ -85,7 +89,7 @@ onModelAfterCreate((e) => {
   // Serialized component: set quantity=NULL via raw SQL
   // (record.set(null) converts to 0 in Goja for NUMERIC fields)
   var id = e.model.getString("id");
-  $app.dao().db().newQuery("UPDATE `components` SET `quantity` = NULL WHERE `id` = '" + id + "'").execute();
+  $app.dao().db().newQuery("UPDATE `components` SET `quantity` = NULL WHERE `id` = {:id}").bind({ id: id }).execute();
 }, "components");
 
 onModelBeforeUpdate((e) => {
@@ -111,6 +115,10 @@ onModelBeforeUpdate((e) => {
         "This product is serialized — component must have a non-empty serial."
       );
     }
+    // Force in-memory quantity to null so response doesn't echo client-sent value.
+    // Goja serializes null to 0 in REST, but 0 is closer to "no quantity" than client's stale value.
+    // After hook still corrects DB to true NULL.
+    try { e.model.set("quantity", null); } catch (_) {}
     // Force is_bulk=false; quantity will be nulled in onModelAfterUpdate
     e.model.set("is_bulk", false);
   } else {
@@ -149,5 +157,5 @@ onModelAfterUpdate((e) => {
 
   // Serialized component: set quantity=NULL via raw SQL
   var id = e.model.getString("id");
-  $app.dao().db().newQuery("UPDATE `components` SET `quantity` = NULL WHERE `id` = '" + id + "'").execute();
+  $app.dao().db().newQuery("UPDATE `components` SET `quantity` = NULL WHERE `id` = {:id}").bind({ id: id }).execute();
 }, "components");
