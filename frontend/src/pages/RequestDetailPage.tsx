@@ -252,14 +252,19 @@ export function RequestDetailPage() {
                   <Button size="sm" variant="outline" onClick={handleReject} disabled={actionLoading}>Reject</Button>
                 )}
                 {request.status === "approved" && (
-                  <Button
-                    size="sm"
-                    onClick={handleFulfill}
-                    disabled={actionLoading}
-                    title={assignmentDirty ? "Saves assignment, then fulfills" : undefined}
-                  >
-                    {assignmentDirty ? "Save & Fulfill →" : "Fulfill →"}
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      size="sm"
+                      onClick={handleFulfill}
+                      disabled={actionLoading || assignKit === "none" || assignEntity === "none"}
+                      title={assignmentDirty ? "Saves assignment, then fulfills" : undefined}
+                    >
+                      {assignmentDirty ? "Save & Fulfill →" : "Fulfill →"}
+                    </Button>
+                    {(assignKit === "none" || assignEntity === "none") && (
+                      <p className="text-xs text-muted-foreground">Assign a kit and target entity first</p>
+                    )}
+                  </div>
                 )}
                 <Button
                   size="sm"

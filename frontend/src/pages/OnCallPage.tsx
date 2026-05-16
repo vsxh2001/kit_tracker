@@ -70,7 +70,7 @@ export function OnCallPage() {
   async function load() {
     setLoading(true);
     try {
-      setShifts(await listShifts({ sort: "-start_at" }));
+      setShifts(await listShifts({ sort: "start_at" }));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
