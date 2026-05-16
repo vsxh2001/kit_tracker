@@ -1,10 +1,9 @@
 import { useEffect, useState, startTransition } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Skeleton } from "../components/ui/skeleton";
-import { Button } from "../components/ui/button";
-import { AddShiftDialog } from "../components/AddShiftDialog";
+import { Skeleton } from "./ui/skeleton";
+import { Button } from "./ui/button";
+import { AddShiftDialog } from "./AddShiftDialog";
 import { listShifts } from "../services/oncall";
-import { useAuth } from "../context/AuthContext";
 import type { OnCallShift } from "../types";
 
 // 8-color palette hashed by user id
@@ -72,8 +71,11 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-export function OnCallCalendarPage() {
-  const { canDecideRequests } = useAuth();
+interface Props {
+  canDecideRequests: boolean;
+}
+
+export function OnCallCalendar({ canDecideRequests }: Props) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -115,20 +117,7 @@ export function OnCallCalendarPage() {
   const todayStr = isoDate(now);
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">On-Call</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Shift Calendar</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Monthly view of on-call shifts</p>
-        </div>
-        {canDecideRequests && (
-          <Button onClick={() => setAddOpen(true)} className="shrink-0">
-            New shift
-          </Button>
-        )}
-      </div>
-
+    <div className="space-y-4">
       {/* Month navigation */}
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={prevMonth} aria-label="Previous month">

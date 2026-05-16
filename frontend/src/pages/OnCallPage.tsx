@@ -15,6 +15,7 @@ import {
   AlertDialogAction,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
+import { OnCallCalendar } from "../components/OnCallCalendar";
 import { listShifts, softDeleteShift } from "../services/oncall";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatTelHref } from "../lib/utils";
@@ -66,6 +67,7 @@ export function OnCallPage() {
   const [editShift, setEditShift] = useState<OnCallShift | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OnCallShift | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   async function load() {
     setLoading(true);
@@ -112,7 +114,27 @@ export function OnCallPage() {
         )}
       </div>
 
-      {loading ? (
+      {/* View toggle */}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={view === "list" ? "default" : "outline"}
+          onClick={() => setView("list")}
+        >
+          List
+        </Button>
+        <Button
+          size="sm"
+          variant={view === "calendar" ? "default" : "outline"}
+          onClick={() => setView("calendar")}
+        >
+          Calendar
+        </Button>
+      </div>
+
+      {view === "calendar" ? (
+        <OnCallCalendar canDecideRequests={canDecideRequests} />
+      ) : loading ? (
         <div className="space-y-2">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
         </div>

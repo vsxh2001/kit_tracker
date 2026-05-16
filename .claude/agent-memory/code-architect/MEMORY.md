@@ -1,0 +1,6 @@
+- [PB v0.22 rate limiting absent](project_pb_rate_limiting.md) — PB v0.22 has NO built-in rate limiter; auth endpoints expose unauthenticated brute-force surface
+- [PB filter injection pattern](project_pb_filter_injection.md) — string-concatenated filters in hooks are a recurring anti-pattern; use {:name} placeholders
+- [Kit attachments XSS surface](project_kit_attachments_xss.md) — kit attachments file field has empty mimeTypes + protected:false; admin-only upload but stored same-origin
+- [PB SDK localStorage auth](project_pb_sdk_authstore.md) — PB SDK stores auth token in localStorage key "pocketbase_auth"; same-origin XSS = full account takeover
+- [Goja isolation is per-file](project_goja_isolation_per_file.md) — file-scope named functions CAN use $app; "must inline everything" comments in some hooks are wrong
+- [setup_collections.sh schema drift](project_schema_drift_setup_vs_migrations.md) — missing components/audit_log; migrations are the only complete bootstrap now

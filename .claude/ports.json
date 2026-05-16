@@ -34,9 +34,10 @@
     "feat-tech-expand": 31,
     "feat-user-signup-notify": 32,
     "feat-deny-users": 33,
-    "feat-user-profile": 34
+    "feat-user-profile": 34,
+    "agent-aea00f8651f458f28": 35
   },
-  "next_offset": 35,
+  "next_offset": 36,
   "port_base": {
     "PB_HOST_PORT": 8090,
     "VITE_PORT": 5173,

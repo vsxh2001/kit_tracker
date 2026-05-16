@@ -124,6 +124,15 @@ Suggests read tools (list_kits, get_kit, list_requests) are failing at the hook 
 Could be tool output too large, rate limit, or hook execution error in `ai_chat.pb.js`.
 Stories G1, G2 in PUPPET_SHOW_V2.
 
+## BUG-V01 — Low: AI chat G4 gives generic error on session context loss (found 2026-05-16 viewer puppet)
+After a viewer asks to move a kit and AI correctly refuses, a follow-up "Yes, proceed" in same session
+returns "I'm sorry, I wasn't able to complete that action" (generic) instead of repeating the permission-denial.
+Not a security issue — no move is executed. Just poor UX. The session context is lost between turns.
+
+## BUG-V02 — Low: AI chat G6 misleads viewer with "I'll resolve and move" before checking permissions
+When viewer sends an ambiguous "Move the kit to the lab", AI asks for clarification without noting viewer's
+role restriction. After clarification, AI correctly refuses. One extra round-trip with false expectation.
+
 ## SELECTOR PATTERN FOUND — mobile nav `role=dialog` clash (found 2026-05-16 admin puppet)
 The mobile navigation `<aside>` has `role="dialog" aria-label="Navigation menu"`.
 In desktop Playwright tests, `page.waitForSelector('[role="dialog"]')` resolves to the
