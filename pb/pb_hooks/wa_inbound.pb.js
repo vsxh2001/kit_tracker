@@ -483,6 +483,28 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // =====================================================================
   // Normal flow — mint token + call /api/ai/chat
   // =====================================================================
+  // --- Pre-flight write-intent detection (Phase B confirmation flow) ---
+  // We can't rely on POST-hoc detection because by then the AI has already
+  // executed the write. Use lexical keyword match on the inbound body: if it
+  // looks like a write command, stash pending + send confirmation prompt
+  // WITHOUT calling /api/ai/chat. The actual execution happens on the YES
+  // reply (re-entry via the pendingKey branch above).
+  var writeVerbs = /^\s*(move|create|add|new|make|delete|deactivate|remove|update|change|set|edit|approve|reject|fulfill|rename|reassign|transfer|put|send|cancel)\b/i;
+  if (writeVerbs.test(body)) {
+    var pendingEntry0 = JSON.stringify({
+      messageText: body,
+      expiresAtMs: Date.now() + 30000
+    });
+    try {
+      $app.store().set(pendingKey, pendingEntry0);
+    } catch (e) {
+      console.log("[wa_inbound] failed to set pending store (pre-flight): " + e);
+    }
+    var confirmMsg0 = "Confirm: " + body.slice(0, 120) + "\n\nReply YES within 30s to execute, or anything else to cancel.";
+    console.log("[wa_inbound] write-intent detected pre-flight — sending confirmation");
+    return replyViaTwilio(phone, confirmMsg0);
+  }
+
   var token = "";
   try {
     token = $tokens.recordAuthToken($app, user);
