@@ -419,6 +419,46 @@ test.describe("Kit delete via detail page", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Kit deactivate regression — B-B6-1
+// ---------------------------------------------------------------------------
+
+test.describe("Kit deactivate via detail page — regression B-B6-1", () => {
+  const DEACT_SERIAL = `${TS}-DEACT-B6`;
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(DEACT_SERIAL);
+    kitId = kit.id;
+  });
+
+  // No afterAll — kit is already soft-deleted by the test; deleteKit would be a no-op.
+
+  test("admin deactivates a kit from detail page @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+
+    // First Deactivate button — in the Actions card (not inside the AlertDialog)
+    await page.getByRole("button", { name: /^Deactivate$/i }).first().click();
+
+    // AlertDialog opens — click the Deactivate button inside it
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: /^Deactivate$/i })
+      .click();
+
+    // handleDelete navigates to /kits after soft-delete
+    await page.waitForURL("**/kits", { timeout: 5000 });
+
+    // Navigate back to the kit detail page — Retired badge must appear
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByText(/^Retired$/i)).toBeVisible({
+      message: "Retired badge should appear after deactivation",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Kit delete — via /kits row action
 // ---------------------------------------------------------------------------
 
