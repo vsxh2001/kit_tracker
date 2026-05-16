@@ -235,6 +235,8 @@ check_kit "DEMO-KIT-003"
 check_kit "DEMO-KIT-005"
 check_kit "DEMO-KIT-006"
 check_kit "DEMO-KIT-007"
+check_kit "DEMO-KIT-008"
+check_kit "DEMO-KIT-009"
 
 if [[ "${#MISSING_FIXTURES[@]}" -gt 0 ]]; then
   echo "ERROR: Required demo fixtures not found (active):"
@@ -517,6 +519,89 @@ if echo "${audit_f_via_list}" | grep -qx "wa-bot"; then
 else
   fail "Scenario F: audit_log via=wa-bot" \
     "no audit_log row with via='wa-bot' found for DEMO-KIT-003 return (got: ${audit_f_via_list:-<none>})"
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario G: "send back X" phrasing → RETURN variant
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario G: 'send back DEMO-KIT-008' phrasing → move to warehouse ==="
+
+# DEMO-KIT-008 is at DEMO-Customer-Alpha (indices 5-8 in seed, kit 8 = index 7).
+# Send "send back DEMO-KIT-008" → expect confirm prompt, then YES → warehouse tx.
+SID_G1="SM-${RUN_ID}-G1"
+SID_G2="SM-${RUN_ID}-G2"
+BEFORE_G_MS="$(date +%s%3N)"
+
+log "G1: sending 'send back DEMO-KIT-008' ..."
+resp_g1="$(send_wa "${SID_G1}" "${TECH_PHONE}" "send back DEMO-KIT-008")"
+log "G1 response: ${resp_g1:0:200}"
+
+sleep 2
+
+log "G2: sending YES ..."
+resp_g2="$(send_wa "${SID_G2}" "${TECH_PHONE}" "YES")"
+log "G2 response: ${resp_g2:0:200}"
+
+log "G: waiting for transaction to appear (up to 30s) ..."
+found_g=0
+for i in $(seq 1 15); do
+  sleep 2
+  tx_count_g="$(count_transactions_after "${BEFORE_G_MS}" "DEMO-KIT-008" "DEMO-Warehouse")"
+  if [[ "${tx_count_g}" -gt 0 ]]; then
+    found_g=1
+    break
+  fi
+done
+
+log "G: transactions found after run start: ${tx_count_g}"
+
+if [[ "${found_g}" -eq 1 ]]; then
+  pass "Scenario G: send back <serial> moved kit to warehouse (found ${tx_count_g}, after $((i*2))s)"
+else
+  fail "Scenario G: send back <serial> moved kit to warehouse" \
+    "no transaction found for DEMO-KIT-008 → DEMO-Warehouse after 30s (response: ${resp_g2:0:200})"
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario H: "X is back" phrasing → RETURN variant
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario H: 'DEMO-KIT-009 is back' phrasing → move to warehouse ==="
+
+# DEMO-KIT-009 is at DEMO-Customer-Alpha (index 8 in seed, kit 9).
+SID_H1="SM-${RUN_ID}-H1"
+SID_H2="SM-${RUN_ID}-H2"
+BEFORE_H_MS="$(date +%s%3N)"
+
+log "H1: sending 'DEMO-KIT-009 is back' ..."
+resp_h1="$(send_wa "${SID_H1}" "${TECH_PHONE}" "DEMO-KIT-009 is back")"
+log "H1 response: ${resp_h1:0:200}"
+
+sleep 2
+
+log "H2: sending YES ..."
+resp_h2="$(send_wa "${SID_H2}" "${TECH_PHONE}" "YES")"
+log "H2 response: ${resp_h2:0:200}"
+
+log "H: waiting for transaction to appear (up to 30s) ..."
+found_h=0
+for i in $(seq 1 15); do
+  sleep 2
+  tx_count_h="$(count_transactions_after "${BEFORE_H_MS}" "DEMO-KIT-009" "DEMO-Warehouse")"
+  if [[ "${tx_count_h}" -gt 0 ]]; then
+    found_h=1
+    break
+  fi
+done
+
+log "H: transactions found after run start: ${tx_count_h}"
+
+if [[ "${found_h}" -eq 1 ]]; then
+  pass "Scenario H: <serial> is back moved kit to warehouse (found ${tx_count_h}, after $((i*2))s)"
+else
+  fail "Scenario H: <serial> is back moved kit to warehouse" \
+    "no transaction found for DEMO-KIT-009 → DEMO-Warehouse after 30s (response: ${resp_h2:0:200})"
 fi
 
 # ---------------------------------------------------------------------------
