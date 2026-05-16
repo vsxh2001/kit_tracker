@@ -17,14 +17,23 @@ let _superToken: string | null = null;
 
 async function getSuperToken(): Promise<string> {
   if (_superToken) return _superToken;
-  const res = await fetch(`${PB_URL}/api/admins/auth-with-password`, {
+  // PB v0.22 path. Fallback to v0.21 path if newer endpoint returns 404 (older PB).
+  const body = JSON.stringify({
+    identity: process.env.PB_SUPERUSER_EMAIL ?? "admin@example.com",
+    password: process.env.PB_SUPERUSER_PASSWORD ?? "changeme123",
+  });
+  let res = await fetch(`${PB_URL}/api/collections/_superusers/auth-with-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      identity: process.env.PB_SUPERUSER_EMAIL ?? "admin@example.com",
-      password: process.env.PB_SUPERUSER_PASSWORD ?? "changeme123",
-    }),
+    body,
   });
+  if (res.status === 404) {
+    res = await fetch(`${PB_URL}/api/admins/auth-with-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+  }
   if (!res.ok) throw new Error(`Super auth failed: ${res.status}`);
   const data = await res.json();
   _superToken = data.token;
