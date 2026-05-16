@@ -2123,7 +2123,7 @@ function getAiTools() {
         session.messages = session.messages.slice(session.messages.length - SESSION_MAX_MESSAGES);
       }
       $app.store().set(sKey, JSON.stringify(session));
-      return c.json(200, { reply: fallbackReply, sessionId: sessionId, done: true });
+      return c.json(200, { reply: fallbackReply, sessionId: sessionId, done: true, toolsUsed: [] });
     }
 
     // --- Build system prompt ---
@@ -2197,6 +2197,7 @@ function getAiTools() {
     var roundMessages = historyMessages.slice(); // working copy
     // Track the last write tool result for inclusion in response
     var lastWriteResult = null;
+    var toolsUsed = [];
     var totalToolCallsThisTurn = 0;
 
     for (var round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -2283,6 +2284,7 @@ function getAiTools() {
         var toolName = tu.name;
         var toolArgs = tu.input || {};
         totalToolCallsThisTurn++;
+        toolsUsed.push(toolName);
         console.log("[ai_chat] tool call [round=" + round + " n=" + totalToolCallsThisTurn + "]: " + toolName + " args=" + JSON.stringify(toolArgs));
 
         var toolResult = aiTools.execute(toolName, toolArgs, dao, userId, userRole, message);
@@ -2366,7 +2368,8 @@ function getAiTools() {
     var responseObj = {
       reply: finalReply,
       sessionId: sessionId,
-      done: true
+      done: true,
+      toolsUsed: toolsUsed
     };
 
     if (lastWriteResult) {
