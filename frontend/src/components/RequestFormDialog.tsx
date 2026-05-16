@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
   const [deliveryDate, setDeliveryDate] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -56,11 +57,15 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
   }, [open]);
 
   async function handleSubmit() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     setError("");
     if (!deliveryDate) {
       setError("Delivery date is required");
       return;
     }
+    submittingRef.current = true;
     setLoading(true);
     try {
       if (isEdit && request) {
@@ -85,6 +90,7 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
     } catch (e: any) {
       setError(e?.message ?? (isEdit ? "Failed to update request." : "Failed to create request."));
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
