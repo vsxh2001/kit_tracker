@@ -102,9 +102,7 @@ test.describe("Maintenance — add schedule", () => {
     await deleteKit(kitId);
   });
 
-  // FIXME: Form submission fails silently (AddScheduleDialog issue with kms_type persistence).
-  // Re-test after app fix.
-  test.skip("admin can add schedule on kit detail page @smoke", async ({ page }) => {
+  test("admin can add schedule on kit detail page @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
@@ -292,9 +290,7 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await deleteKit(kitId);
   });
 
-  // FIXME: Form submission fails silently (AddScheduleDialog issue with kms_type persistence).
-  // Re-test after app fix.
-  test.skip("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves", async ({ page }) => {
+  test("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 

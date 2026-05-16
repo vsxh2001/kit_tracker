@@ -75,16 +75,16 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
     setError("");
     setLoading(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         kit: resolvedKitId,
-        kms_type: type.trim(),
+        type: type.trim(),
         description: description.trim(),
         interval_days: interval,
-        last_done_at: lastDoneAt || "",
         next_due_at: computeNextDue(),
         is_active: true,
         notes: notes.trim(),
       };
+      if (lastDoneAt) payload.last_done_at = lastDoneAt;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await createSchedule(payload as any);
       toast({ title: "Schedule created", description: type.trim(), variant: "success" });

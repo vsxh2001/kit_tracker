@@ -47,6 +47,7 @@ export async function createShift(data: {
     end_at: data.endAt,
     notes: data.notes ?? "",
     created_by: pb.authStore.model?.id ?? "",
+    is_active: true,
   }, { requestKey: `oncall-create-${Date.now()}` });
 }
 

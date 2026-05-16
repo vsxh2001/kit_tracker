@@ -24,9 +24,7 @@ const TS = `oncall-${Date.now()}`;
 
 test.describe("OnCall — admin add shift @smoke", () => {
   // We'll clean up any shift created by the test by tracking the page
-  // FIXME: Form submission fails silently (AddShiftDialog issue with is_active=false field).
-  // Re-test after app fix.
-  test.skip("admin can add shift via UI @smoke", async ({ page }) => {
+  test("admin can add shift via UI @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/oncall");
 
