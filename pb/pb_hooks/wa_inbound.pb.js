@@ -15,10 +15,12 @@
 //   TWILIO_WA_FROM       — "whatsapp:+14155238886" sandbox sender
 //   APP_BASE_URL         — canonical HTTPS URL (e.g. "https://kit-tracker.fly.dev")
 //                          If unset, falls back to host header (for ngrok/local dev).
-//   WA_SKIP_SIGNATURE_CHECK=1 — bypass HMAC verification (ngrok sessions change URL).
+//   WA_SKIP_SIGNATURE_CHECK=1 — bypass HMAC verification via ENV VAR ONLY (ngrok/local dev).
+//                               Header-based bypass was removed (security: any caller could set it).
 //
 // $app.store() keys:
-//   wa_pending:<phone> — JSON { messageText, expiresAtMs } (30s TTL, cleared on YES/cancel)
+//   wa_pending:<phone>  — JSON { messageText, expiresAtMs } (30s TTL, cleared on YES/cancel)
+//   wa_rate:<phone>     — JSON { count, windowStartMs } (1h sliding window, max 30 msgs/hr)
 //
 // All logic inlined per PB v0.22 Goja runtime isolation (no cross-function scope).
 
@@ -274,10 +276,9 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // =====================================================================
   // ENHANCEMENT 4 — HMAC-SHA1 signature verification
   // =====================================================================
+  // Bypass only via env var — header bypass removed (P0 security fix: any external
+  // caller could set WA_SKIP_SIGNATURE_CHECK: 1 header to skip verification entirely).
   var skipSig = $os.getenv("WA_SKIP_SIGNATURE_CHECK") === "1";
-  // Also allow via header (convenient for curl testing)
-  var skipSigHeader = c.request().header.get("WA_SKIP_SIGNATURE_CHECK") || "";
-  if (!skipSig && skipSigHeader === "1") skipSig = true;
 
   if (!skipSig) {
     var authToken = $os.getenv("TWILIO_AUTH_TOKEN") || "";
@@ -331,7 +332,8 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
       }
       var computed = hmacSha1Base64(authToken, sigBase);
       if (!safeEqual(computed, twilioSig)) {
-        console.log("[wa_inbound] signature mismatch — computed=" + computed + " got=" + twilioSig);
+        // P1: do NOT log computed value (would help attacker verify forgery attempts)
+        console.log("[wa_inbound] signature mismatch from " + (c.request().header.get("X-Forwarded-For") || "unknown"));
         return c.string(401, "");
       }
       console.log("[wa_inbound] signature OK");
@@ -381,6 +383,34 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // Strip "whatsapp:" prefix
   var phone = from;
   if (phone.indexOf("whatsapp:") === 0) phone = phone.substring("whatsapp:".length);
+
+  // =====================================================================
+  // P0: Per-phone rate limit — max 30 messages per phone per hour
+  // Uses $app.store() (Go-side concurrent-safe). Window resets after 1h.
+  // Silent 200 on excess — don't reveal limit to attacker.
+  // =====================================================================
+  var RATE_WINDOW_MS = 3600000; // 1 hour
+  var RATE_MAX = 30;
+  var rateKey = "wa_rate:" + phone;
+  var rateRaw = null;
+  try { rateRaw = $app.store().get(rateKey); } catch (e) {}
+  var rateEntry = { count: 0, windowStartMs: Date.now() };
+  if (rateRaw) {
+    try {
+      var rp = JSON.parse(rateRaw);
+      if (rp && rp.windowStartMs && (Date.now() - rp.windowStartMs) <= RATE_WINDOW_MS) {
+        rateEntry = rp;
+      }
+      // else: window expired — reset (rateEntry already defaulted above)
+    } catch (e) { /* corrupt entry — reset */ }
+  }
+  rateEntry.count = (rateEntry.count || 0) + 1;
+  if (rateEntry.count > RATE_MAX) {
+    console.log("[wa_inbound] rate limit hit for " + phone + " (" + rateEntry.count + " msgs in window)");
+    try { $app.store().set(rateKey, JSON.stringify(rateEntry)); } catch (e) {}
+    return c.string(200, ""); // silent — don't reveal limit
+  }
+  try { $app.store().set(rateKey, JSON.stringify(rateEntry)); } catch (e) {}
 
   // =====================================================================
   // Look up user by phone
@@ -504,7 +534,11 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // looks like a write command, stash pending + send confirmation prompt
   // WITHOUT calling /api/ai/chat. The actual execution happens on the YES
   // reply (re-entry via the pendingKey branch above).
-  var writeVerbs = /^\s*(move|create|add|new|make|delete|deactivate|remove|update|change|set|edit|approve|reject|fulfill|rename|reassign|transfer|put|send|cancel)\b/i;
+  //
+  // P1 fix: dropped ^\s* anchor — now matches write verbs ANYWHERE in body so
+  // Hebrew/Arabic/emoji prefixes (e.g. "🔄 move kit X", "תעביר...") are caught.
+  // Trade-off: "tell me where it moved" triggers confirm — acceptable false positive.
+  var writeVerbs = /\b(move|create|add|new|make|delete|deactivate|remove|update|change|set|edit|approve|reject|fulfill|rename|reassign|transfer|put|send|cancel)\b/i;
   if (writeVerbs.test(body)) {
     var pendingEntry0 = JSON.stringify({
       messageText: body,
@@ -562,6 +596,11 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // =====================================================================
   // ENHANCEMENT 1 (continued) — check if response needs confirmation
   // =====================================================================
+  // Note: detectWriteTool checks parsedAi.toolsUsed but ai_chat.pb.js does NOT
+  // include that field in its response — so this branch is effectively dead code.
+  // The pre-flight writeVerbs regex above is now the primary (and more aggressive)
+  // guard, making this post-call check redundant. Kept for defence-in-depth but
+  // will rarely/never fire in practice.
   var writeTool = detectWriteTool(parsedAi);
   if (writeTool) {
     // Stash pending confirmation
