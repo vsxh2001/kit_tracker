@@ -32,6 +32,7 @@ import {
   deactivateEntity,
   getKitBySerial,
   getAdminToken,
+  seedTransactionAuditRow,
 } from "./helpers/api";
 
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
@@ -545,5 +546,84 @@ test.describe("Kit delete — API escape hatch", () => {
     expect(data.is_active).toBe(true);
     // Cleanup
     await deleteKit(kitId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Origin badge — via WhatsApp appears in KitTimeline
+// ---------------------------------------------------------------------------
+
+test.describe("KitTimeline origin badge — via WhatsApp", () => {
+  let kitId: string;
+  let entityId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-VIA-WA`);
+    kitId = kit.id;
+    const entity = await createTestEntity(`${TS}-ViaEnt`);
+    entityId = entity.id;
+    const tx = await createTestTransaction({ kitId, toEntityId: entityId });
+    // Seed audit_log row for this transaction with via=wa-bot
+    await seedTransactionAuditRow(tx.id, "wa-bot");
+  });
+
+  test.afterAll(async () => {
+    await deleteKit(kitId);
+    await deactivateEntity(entityId);
+  });
+
+  test("via WhatsApp badge appears in location history for wa-bot transaction", async ({
+    page,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+
+    // Wait for Location history card
+    await expect(page.getByText("Location history")).toBeVisible({ timeout: 10_000 });
+
+    // The origin badge with "via WhatsApp" text should be visible
+    await expect(page.getByText("via WhatsApp")).toBeVisible({
+      timeout: 10_000,
+      message: "Origin badge 'via WhatsApp' should appear in the timeline for a wa-bot transaction",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CSV export — single kit timeline
+// ---------------------------------------------------------------------------
+
+test.describe("CSV export — single kit timeline", () => {
+  let kitId: string;
+  let kitSerial: string;
+  let entityId: string;
+
+  test.beforeAll(async () => {
+    kitSerial = `${TS}-CSV`;
+    const kit = await createTestKit(kitSerial);
+    kitId = kit.id;
+    const entity = await createTestEntity(`${TS}-CsvEnt`);
+    entityId = entity.id;
+    await createTestTransaction({ kitId, toEntityId: entityId });
+  });
+
+  test.afterAll(async () => {
+    await deleteKit(kitId);
+    await deactivateEntity(entityId);
+  });
+
+  test("admin exports kit timeline as CSV @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+
+    // Wait for page to load
+    await expect(page.getByRole("heading", { name: kitSerial })).toBeVisible({ timeout: 10_000 });
+
+    // Start waiting for download before clicking
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /export timeline/i }).click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toBe(`${kitSerial}-timeline.csv`);
   });
 });
