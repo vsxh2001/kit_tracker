@@ -139,8 +139,10 @@ onModelBeforeCreate((e) => {
   }
 
   const component = $app.dao().findRecordById("components", componentId);
-  const compIsBulk = component.getBool("is_bulk");
-  if (compIsBulk) {
+  // Serialized components store quantity=NULL (getInt returns 0). Skip overflow
+  // check for them — each serialized unit is its own record, so qty=1 is always valid.
+  const isBulk = component.getBool("is_bulk");
+  if (isBulk) {
     const availableQty = component.getInt("quantity");
     if (txnQty > availableQty) {
       throw new BadRequestError(
