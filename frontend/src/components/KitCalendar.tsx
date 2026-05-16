@@ -1,9 +1,9 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition, useMemo } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { pb } from "../lib/pocketbase";
-import type { Transaction, KitRequest } from "../types";
+import type { Transaction, KitRequest, Entity } from "../types";
 import { formatDate, formatDateOnly } from "../lib/utils";
 
 const MONTH_NAMES = [
@@ -26,6 +26,75 @@ function monthDays(year: number, month: number): (Date | null)[] {
   }
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
+}
+
+// ── Entity color hash (same algorithm as OnCallCalendar user-hash) ────────────
+
+const ENTITY_BAND_CLASSES = [
+  { bg: "bg-indigo-50",  ring: "ring-indigo-200",  dot: "bg-indigo-400" },
+  { bg: "bg-teal-50",    ring: "ring-teal-200",    dot: "bg-teal-400" },
+  { bg: "bg-amber-50",   ring: "ring-amber-200",   dot: "bg-amber-400" },
+  { bg: "bg-rose-50",    ring: "ring-rose-200",    dot: "bg-rose-400" },
+  { bg: "bg-violet-50",  ring: "ring-violet-200",  dot: "bg-violet-400" },
+  { bg: "bg-sky-50",     ring: "ring-sky-200",     dot: "bg-sky-400" },
+  { bg: "bg-emerald-50", ring: "ring-emerald-200", dot: "bg-emerald-400" },
+  { bg: "bg-orange-50",  ring: "ring-orange-200",  dot: "bg-orange-400" },
+];
+
+const RETIRED_BAND = { bg: "bg-slate-100", ring: "ring-slate-200", dot: "bg-slate-400" };
+
+function hashEntityId(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % ENTITY_BAND_CLASSES.length;
+}
+
+function entityBand(entityId: string) {
+  return ENTITY_BAND_CLASSES[hashEntityId(entityId)];
+}
+
+// ── Location computation ──────────────────────────────────────────────────────
+
+// Returns entity (or null/"retired") for a given day (end-of-day).
+// Transactions must be sorted ascending by timestamp.
+type DayLocation =
+  | { kind: "entity"; entity: Entity }
+  | { kind: "retired" }
+  | { kind: "none" };
+
+function locationOnDay(
+  dayStr: string,
+  txsSorted: Transaction[], // ascending by timestamp
+  todayStr: string,
+  kitIsActive: boolean,
+): DayLocation {
+  // Future days: no band
+  if (dayStr > todayStr) return { kind: "none" };
+
+  // Find the latest tx with timestamp <= end-of-day
+  const endOfDay = `${dayStr} 23:59:59`;
+  let latest: Transaction | null = null;
+  for (const tx of txsSorted) {
+    const ts = tx.timestamp || tx.created;
+    if (ts <= endOfDay) {
+      latest = tx;
+    } else {
+      break; // ascending order, no point continuing
+    }
+  }
+
+  if (!latest) return { kind: "none" };
+
+  // If kit is not active and this is the last known transaction, show retired
+  if (!kitIsActive) {
+    // Check if there's any tx after this day — if not, we're after retirement
+    const hasLaterTx = txsSorted.some((tx) => (tx.timestamp || tx.created) > endOfDay);
+    if (!hasLaterTx) return { kind: "retired" };
+  }
+
+  const entity = latest.expand?.to_entity;
+  if (!entity) return { kind: "none" };
+  return { kind: "entity", entity };
 }
 
 // ── Event types ──────────────────────────────────────────────────────────────
@@ -175,13 +244,17 @@ function EventDetail({ ev, onClose }: { ev: CalEvent; onClose: () => void }) {
 
 interface KitCalendarProps {
   kitId: string;
+  kitIsActive?: boolean;
 }
 
-export function KitCalendar({ kitId }: KitCalendarProps) {
+const TX_CAP = 1000;
+
+export function KitCalendar({ kitId, kitIsActive = true }: KitCalendarProps) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // All transactions for this kit (ascending), fetched once
+  const [allTxs, setAllTxs] = useState<Transaction[]>([]);
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
@@ -189,25 +262,27 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
 
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
 
-  async function load(y: number, m: number) {
+  async function load() {
     setLoading(true);
-    const mk = `${y}-${String(m + 1).padStart(2, "0")}`;
     try {
       const [txs, reqs] = await Promise.all([
         pb.collection("transactions").getFullList<Transaction>({
           filter: pb.filter("kit = {:kit}", { kit: kitId }),
-          sort: "-timestamp,-created",
+          sort: "timestamp,created",
           expand: "from_entity,to_entity,created_by",
-          requestKey: `kit-cal-tx-${kitId}-${mk}`,
+          requestKey: `kit-cal-all-tx-${kitId}`,
         }),
         pb.collection("requests").getFullList<KitRequest>({
           filter: pb.filter("designated_kit = {:kit}", { kit: kitId }),
           sort: "-delivery_date",
           expand: "requester,target_entity",
-          requestKey: `kit-cal-req-${kitId}-${mk}`,
+          requestKey: `kit-cal-req-${kitId}`,
         }),
       ]);
-      setTransactions(txs);
+      if (txs.length >= TX_CAP) {
+        console.warn(`KitCalendar: kit ${kitId} has ${txs.length}+ transactions (cap ${TX_CAP}). Location bands may be incomplete.`);
+      }
+      setAllTxs(txs);
       setRequests(reqs);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -217,7 +292,7 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
     }
   }
 
-  useEffect(() => { startTransition(() => load(year, month)); }, [kitId, year, month]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { startTransition(() => load()); }, [kitId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
@@ -239,7 +314,7 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
 
   const events: CalEvent[] = [];
 
-  for (const tx of transactions) {
+  for (const tx of allTxs) {
     const dateStr = (tx.timestamp || tx.created).slice(0, 10);
     if (dateStr >= monthStart && dateStr <= monthEnd) {
       events.push({ kind: "tx", id: `tx-${tx.id}`, date: dateStr, tx });
@@ -267,6 +342,36 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
   const bucket = bucketEvents(events);
   const cells = monthDays(year, month);
 
+  // ── Location bands ──────────────────────────────────────────────────────────
+  // allTxs is sorted ascending; compute per-day location for all cells in the month.
+  const dayLocations = useMemo<Map<string, DayLocation>>(() => {
+    const map = new Map<string, DayLocation>();
+    for (const cell of cells) {
+      if (!cell) continue;
+      const ds = isoDate(cell);
+      map.set(ds, locationOnDay(ds, allTxs, todayStr, kitIsActive));
+    }
+    return map;
+  }, [cells, allTxs, todayStr, kitIsActive]);
+
+  // Build legend: unique entities seen in current month view
+  const legendEntities = useMemo<Entity[]>(() => {
+    const seen = new Map<string, Entity>();
+    for (const loc of dayLocations.values()) {
+      if (loc.kind === "entity" && !seen.has(loc.entity.id)) {
+        seen.set(loc.entity.id, loc.entity);
+      }
+    }
+    return Array.from(seen.values());
+  }, [dayLocations]);
+
+  const hasRetiredDays = useMemo(
+    () => Array.from(dayLocations.values()).some((l) => l.kind === "retired"),
+    [dayLocations],
+  );
+
+  const LEGEND_MAX = 5;
+
   const MAX_PILLS = 3;
 
   return (
@@ -287,6 +392,31 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
           <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-200" />Return</span>
         </div>
       </div>
+
+      {/* Location legend */}
+      {!loading && (legendEntities.length > 0 || hasRetiredDays) && (
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="font-medium text-foreground">Location:</span>
+          {legendEntities.slice(0, LEGEND_MAX).map((e) => {
+            const band = entityBand(e.id);
+            return (
+              <span key={e.id} className="flex items-center gap-1">
+                <span className={`inline-block w-2.5 h-2.5 rounded-sm ${band.bg} ring-1 ${band.ring}`} />
+                <span className="truncate max-w-[120px]">{e.name}</span>
+              </span>
+            );
+          })}
+          {legendEntities.length > LEGEND_MAX && (
+            <span className="text-muted-foreground">+{legendEntities.length - LEGEND_MAX} more</span>
+          )}
+          {hasRetiredDays && (
+            <span className="flex items-center gap-1">
+              <span className={`inline-block w-2.5 h-2.5 rounded-sm ${RETIRED_BAND.bg} ring-1 ${RETIRED_BAND.ring}`} />
+              <span>(retired)</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">
@@ -318,6 +448,25 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
                 const dayEvents = bucket.get(dayStr) ?? [];
                 const visible = dayEvents.slice(0, MAX_PILLS);
                 const overflow = dayEvents.length - MAX_PILLS;
+                const loc = dayLocations.get(dayStr) ?? { kind: "none" };
+
+                // Determine band bg class
+                let bandBg = "";
+                if (!isSelected && !isToday) {
+                  if (loc.kind === "entity") {
+                    bandBg = entityBand(loc.entity.id).bg;
+                  } else if (loc.kind === "retired") {
+                    bandBg = RETIRED_BAND.bg;
+                  }
+                }
+
+                const entityLabel: string | null =
+                  loc.kind === "entity" && dayEvents.length < MAX_PILLS
+                    ? loc.entity.name
+                    : loc.kind === "retired" && dayEvents.length < MAX_PILLS
+                    ? "(retired)"
+                    : null;
+
                 return (
                   <div
                     key={dayStr}
@@ -326,11 +475,13 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
                       setSelectedEvent(null);
                     }}
                     className={[
-                      "min-h-[80px] border-r border-b last:border-r-0 p-1 flex flex-col gap-0.5 cursor-pointer transition-colors",
+                      "min-h-[80px] border-r border-b last:border-r-0 p-1 flex flex-col gap-0.5 cursor-pointer transition-colors relative",
                       isSelected
                         ? "bg-indigo-50 ring-1 ring-inset ring-indigo-300"
                         : isToday
                         ? "bg-indigo-50/70 hover:bg-indigo-100/50"
+                        : bandBg
+                        ? `${bandBg} hover:brightness-95`
                         : "bg-white hover:bg-slate-50",
                     ].join(" ")}
                   >
@@ -351,6 +502,11 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
                     {overflow > 0 && (
                       <span className="text-[9px] text-muted-foreground pl-1">+{overflow} more</span>
                     )}
+                    {entityLabel && (
+                      <span className="mt-auto truncate text-[8px] text-muted-foreground leading-tight pt-0.5">
+                        {entityLabel}
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -370,6 +526,12 @@ export function KitCalendar({ kitId }: KitCalendarProps) {
                       <p className="text-xs text-muted-foreground">
                         {(bucket.get(selectedDay) ?? []).length} event{(bucket.get(selectedDay) ?? []).length !== 1 ? "s" : ""}
                       </p>
+                      {(() => {
+                        const loc = dayLocations.get(selectedDay);
+                        if (loc?.kind === "entity") return <p className="text-xs text-muted-foreground">At: {loc.entity.name}</p>;
+                        if (loc?.kind === "retired") return <p className="text-xs text-muted-foreground italic">(retired)</p>;
+                        return null;
+                      })()}
                     </div>
                     <button onClick={() => { setSelectedDay(null); setSelectedEvent(null); }} className="text-muted-foreground hover:text-foreground" aria-label="Close">
                       <X className="h-4 w-4" />

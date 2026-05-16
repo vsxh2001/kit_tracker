@@ -208,7 +208,7 @@ export function KitDetailPage() {
         </div>
 
         {historyTab === "calendar" ? (
-          <KitCalendar kitId={kit.id} />
+          <KitCalendar kitId={kit.id} kitIsActive={kit.is_active} />
         ) : (
           <>
             {history.length === 0 ? (
