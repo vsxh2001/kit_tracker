@@ -855,6 +855,22 @@ routerAdd("POST", "/api/mcp", function(c) {
 
       var currentEntity = kitCurrentEntity(dao, kitId);
 
+      // No-op if kit is already at the requested destination (B-G3-1)
+      if (currentEntity.id === toEntityId) {
+        var kitSerial0 = "";
+        try { kitSerial0 = kit.getString ? kit.getString("serial") : ""; } catch (_) {}
+        var toEntityName0 = "";
+        try {
+          var toEnt0 = dao.findRecordById("entities", toEntityId);
+          toEntityName0 = toEnt0.getString ? toEnt0.getString("name") : toEntityId;
+        } catch (_) { toEntityName0 = toEntityId; }
+        return {
+          ok: true,
+          no_op: true,
+          message: "Kit " + kitSerial0 + " already at " + toEntityName0 + " — no transaction created."
+        };
+      }
+
       try {
         var txCollection = dao.findCollectionByNameOrId("transactions");
         var txRecord = new Record(txCollection);

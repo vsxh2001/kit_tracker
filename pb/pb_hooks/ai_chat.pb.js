@@ -899,8 +899,24 @@ function getAiTools() {
       return { error: "not_found", detail: "entity not found: " + toEntityId };
     }
 
-    // Find current entity (for from_entity)
+    // Find current entity (for from_entity) + idempotency check (B-G3-1)
     var currentEntity = kitCurrentEntity(dao, kitId);
+
+    // No-op if kit is already at the requested destination
+    if (currentEntity.id === toEntityId) {
+      var kitSerial0 = "";
+      try { kitSerial0 = kit.getString ? kit.getString("serial") : ""; } catch (_) {}
+      var toEntityName0 = "";
+      try {
+        var toEnt0 = dao.findRecordById("entities", toEntityId);
+        toEntityName0 = toEnt0.getString ? toEnt0.getString("name") : toEntityId;
+      } catch (_) { toEntityName0 = toEntityId; }
+      return {
+        ok: true,
+        no_op: true,
+        message: "Kit " + kitSerial0 + " already at " + toEntityName0 + " — no transaction created."
+      };
+    }
 
     try {
       var txCollection = dao.findCollectionByNameOrId("transactions");
@@ -1981,11 +1997,17 @@ function getAiTools() {
     console.log("[ai_chat] turn summary: totalToolCalls=" + totalToolCallsThisTurn + " writeToolRan=" + (lastWriteResult !== null));
 
     // --- Fix C: honest-reply enforcement ---
-    // If the reply claims success but no write tool ran this turn, replace with an error.
+    // If the reply claims success but NO tool ran at all this turn, the model
+    // fabricated the result without consulting any data source — replace with error.
+    // IMPORTANT: only suppress when totalToolCallsThisTurn === 0. If read tools ran
+    // (resolve_kit, list_kits, etc.) the model may legitimately use words like "moved"
+    // or "successfully" to describe what it found in the data (e.g. "the kit was last
+    // moved to Entity X"). Checking !writeToolRan was wrong — it wiped real read
+    // results that happened to contain those words (B-G1-1).
     var claimsSuccess = /\b(created|added|moved|successfully)\b/i.test(finalReply);
-    var writeToolRan = lastWriteResult !== null;
-    if (claimsSuccess && !writeToolRan) {
-      console.log("[ai_chat] WARN: fabricated success detected — replacing reply. original=" + finalReply.slice(0, 120));
+    var noToolRan = totalToolCallsThisTurn === 0;
+    if (claimsSuccess && noToolRan) {
+      console.log("[ai_chat] WARN: fabricated success detected (no tool ran) — replacing reply. original=" + finalReply.slice(0, 120));
       finalReply = "I'm sorry, I wasn't able to complete that action. Please try again or rephrase your request.";
     }
 
