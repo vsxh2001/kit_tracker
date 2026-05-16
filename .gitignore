@@ -21,3 +21,11 @@ node_modules/
 
 # Frontend build
 frontend/dist/
+
+# Agent worktrees + memory + scratchpads (never commit)
+.claude/worktrees/
+.claude/agent-memory/
+.claude/auto-ci-handled.txt
+.claude/scheduled_tasks.lock
+.claire/
+ROADMAP.md
