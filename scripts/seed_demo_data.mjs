@@ -244,17 +244,43 @@ async function seedRequests(kitIds, entityIds, userIds) {
   return ids;
 }
 
-async function seedComponents(kitIds, entityIds) {
+async function seedProducts() {
+  console.log("→ Products (required FK for components)...");
+  const catalog = [
+    { name: "DEMO-PROD-Card",    category: "Card",    manufacturer: "DemoCo", model: "C-100" },
+    { name: "DEMO-PROD-SSD",     category: "SSD",     manufacturer: "DemoCo", model: "S-200" },
+    { name: "DEMO-PROD-Battery", category: "Battery", manufacturer: "DemoCo", model: "B-300" },
+    { name: "DEMO-PROD-Cable",   category: "Cable",   manufacturer: "DemoCo", model: "K-400" },
+    { name: "DEMO-PROD-Lens",    category: "Lens",    manufacturer: "DemoCo", model: "L-500" },
+  ];
+  const products = [];
+  for (const p of catalog) {
+    const rec = await pb.collection("products").create({
+      name: p.name,
+      category: p.category,
+      manufacturer: p.manufacturer,
+      model: p.model,
+      description: `Demo product ${p.name}`,
+      specs: "{}",
+      is_active: true,
+    });
+    products.push(rec);
+  }
+  console.log(`   created ${products.length} products`);
+  return products;
+}
+
+async function seedComponents(kitIds, entityIds, products) {
   console.log("→ Components...");
-  const types = ["Card", "SSD", "Battery", "Cable", "Lens"];
   const ids = [];
   for (let i = 1; i <= 40; i++) {
     const isBulk = i > 30; // last 10 are bulk
     const inKit = !isBulk && i <= 20; // first 20 serialized go into kits
+    const product = pick(products);
     const rec = await pb.collection("components").create({
       serial: isBulk ? "" : `DEMO-COMP-${pad(i)}`,
-      type: pick(types),
-      notes: `Demo component ${pad(i)}`,
+      product: product.id,
+      notes: `Demo component ${pad(i)} (${product.name})`,
       is_active: true,
       is_bulk: isBulk,
       quantity: isBulk ? randInt(2, 10) : 1,
@@ -301,7 +327,7 @@ async function seedMaintenanceSchedules(kitIds) {
       kit: pick(kitIds),
       type: pick(types),
       interval_days: pick(intervals),
-      next_due: daysFromNow(randInt(1, 180)),
+      next_due_at: daysFromNow(randInt(1, 180)),
       notes: `Demo maintenance schedule ${pad(i + 1)}`,
     });
     ids.push(rec.id);
@@ -322,21 +348,24 @@ async function seedOnCallShifts(userIds) {
   const shifts = [
     {
       user: tech1Id,
-      start: daysAgo(1),
-      end: daysFromNow(1),
+      start_at: daysAgo(1),
+      end_at: daysFromNow(1),
       notes: "DEMO current shift",
+      created_by: adminId,
     },
     {
       user: tech2Id,
-      start: daysAgo(10),
-      end: daysAgo(7),
+      start_at: daysAgo(10),
+      end_at: daysAgo(7),
       notes: "DEMO past shift",
+      created_by: adminId,
     },
     {
       user: adminId,
-      start: daysFromNow(7),
-      end: daysFromNow(14),
+      start_at: daysFromNow(7),
+      end_at: daysFromNow(14),
       notes: "DEMO future shift",
+      created_by: adminId,
     },
   ];
   const ids = [];
@@ -365,7 +394,8 @@ async function seed() {
   const kitIds = await seedKits();
   await seedTransactions(kitIds, entityIds, userIds);
   await seedRequests(kitIds, entityIds, userIds);
-  const components = await seedComponents(kitIds, entityIds);
+  const products = await seedProducts();
+  const components = await seedComponents(kitIds, entityIds, products);
   await seedComponentTransactions(components, userIds);
   await seedMaintenanceSchedules(kitIds);
   await seedOnCallShifts(userIds);
