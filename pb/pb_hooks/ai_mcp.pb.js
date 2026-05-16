@@ -306,6 +306,18 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       },
       {
+        name: "update_user_phone",
+        description: "Set the phone number for a user (E.164 format). Used to bind a WhatsApp account to a user record. Admin can update any user; non-admin can only update self. Undo not available via MCP — issue a reverse update_user_phone. Only admin/technician+ can call this.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "Target user email (required)" },
+            phone: { type: "string", description: "Phone in E.164 format. Empty string clears." }
+          },
+          required: ["email", "phone"]
+        }
+      },
+      {
         name: "report_kits_by_entity",
         description: "Report how many active kits are currently at each entity, sorted by count descending. Use when user asks 'where are kits located', 'how many kits at each site', 'kit distribution'.",
         inputSchema: {
@@ -1529,6 +1541,48 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeUpdateUserPhone(dao, args, userId, userRole) {
+      var email = String(args.email || "").trim();
+      if (!email) {
+        return { error: "missing_required", detail: "email is required" };
+      }
+      var newPhone = String(args.phone === undefined ? "" : args.phone).trim();
+      var target;
+      try {
+        var matches = dao.findRecordsByFilter("users", "email = {:e}", "", 1, 0, { e: email });
+        if (matches && matches.length > 0) target = matches[0];
+      } catch (_) {}
+      if (!target) {
+        return { error: "not_found", detail: "no user with email: " + email };
+      }
+      if (userRole !== "admin" && target.id !== userId) {
+        return { error: "permission_denied", detail: "Only admin can update another user's phone." };
+      }
+      var before = { phone: target.getString ? target.getString("phone") : "" };
+      target.set("phone", newPhone);
+      try {
+        dao.save(target);
+        saveMcpAuditLog(dao, {
+          collection_name: "users",
+          record_id: target.id,
+          actor: userId,
+          action: "update",
+          tool: "update_user_phone",
+          changes: { before: before, after: { phone: newPhone } }
+        });
+        return {
+          success: true,
+          record_id: target.id,
+          email: email,
+          before: before,
+          after: { phone: newPhone },
+          description: "Updated phone for " + email + ". Note: undo is not available via MCP — issue a reverse update_user_phone."
+        };
+      } catch (err) {
+        return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function executeReportKitsByEntity(dao) {
       try {
         var kits = dao.findRecordsByFilter("kits", "is_active = true", "serial", 500, 0, {});
@@ -1764,6 +1818,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "update_entity") return executeUpdateEntity(dao, args, userId, userRole);
         if (toolName === "update_kit") return executeUpdateKit(dao, args, userId, userRole);
         if (toolName === "update_product") return executeUpdateProduct(dao, args, userId, userRole);
+        if (toolName === "update_user_phone") return executeUpdateUserPhone(dao, args, userId, userRole);
         if (toolName === "report_kits_by_entity") return executeReportKitsByEntity(dao);
         if (toolName === "report_recent_activity") return executeReportRecentActivity(dao, args);
         if (toolName === "report_open_requests") return executeReportOpenRequests(dao, args);
