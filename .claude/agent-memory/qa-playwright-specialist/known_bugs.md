@@ -1,6 +1,6 @@
 ---
 name: Confirmed Bugs from Live Session
-description: Bugs found during Playwright live sessions (2026-05-09, 2026-05-12, viewer puppet 2026-05-12, tech puppet 2026-05-16)
+description: Bugs found during Playwright live sessions (2026-05-09, 2026-05-12, viewer puppet 2026-05-12, tech puppet 2026-05-16, admin puppet 2026-05-16)
 type: project
 ---
 
@@ -98,3 +98,40 @@ Fix: add `role !== "denied"` checks to RequireRole, hasRole, listRules — or fo
 When multiple users are simultaneously on-call, PB returns rows in internal/row-id order.
 The sidebar always shows `onCallUsers[0]` — which user appears first is unpredictable.
 Fix: add `sort: "-start_at"` (most recently started = current) or `sort: "start_at"` (longest running = primary).
+
+## BUG-A01 — P1: No kit deactivation UI on kit detail page (found 2026-05-16 admin puppet)
+Kit detail page Actions card shows: Move kit, Edit, Delete. No "Deactivate" button.
+PB `kits.deleteRule = null` so hard-delete fails with 403. The soft-delete path (`is_active=false`)
+is not exposed via any UI element. Admins cannot retire a kit from the frontend.
+Story B6 in PUPPET_SHOW_V2.
+
+## BUG-A02 — P1: Double-click on request submit creates duplicate requests (found 2026-05-16 admin puppet)
+The "Create" / submit button in the New Request dialog has no debounce/loading guard.
+Two rapid clicks within 500ms create two separate open requests (confirmed: diff=2 in L3 story).
+Fix: disable button on first click, re-enable on response (success or error).
+Story L3 in PUPPET_SHOW_V2.
+
+## BUG-A03 — P1: Maintenance schedule `kms_type` not persisted via UI (found 2026-05-16 admin puppet)
+AddScheduleDialog "Type" input does not save to `kms_type` DB field — `kms_type=null` on all
+UI-created schedules. Silent data loss. The field may be named differently in the dialog
+form state vs the PB field name. DB-created schedules (seed) also show `kms_type=null`
+confirming the seeder also doesn't set it. Story E1 in PUPPET_SHOW_V2.
+
+## BUG-A04 — P1: AI chat read tools broken — "kit location" query returns generic error (found 2026-05-16)
+G1 "Where is kit DEMO-KIT-005?" and G2 "What requests are currently open?" both return
+"I'm sorry, I wasn't able to complete that action." Write tools (G3 move_kit) work fine.
+Suggests read tools (list_kits, get_kit, list_requests) are failing at the hook level.
+Could be tool output too large, rate limit, or hook execution error in `ai_chat.pb.js`.
+Stories G1, G2 in PUPPET_SHOW_V2.
+
+## SELECTOR PATTERN FOUND — mobile nav `role=dialog` clash (found 2026-05-16 admin puppet)
+The mobile navigation `<aside>` has `role="dialog" aria-label="Navigation menu"`.
+In desktop Playwright tests, `page.waitForSelector('[role="dialog"]')` resolves to the
+mobile nav aside before the actual modal dialog. Use:
+`page.locator('[role="dialog"]:not([aria-label="Navigation menu"])')` for all modal waits.
+Also: dialogs use specific submit button labels (not generic "Save"):
+- New Kit dialog → "Save"
+- Move Kit dialog → "Move kit"  
+- Add Maintenance Schedule dialog → "Add schedule"
+- Add On-Call Shift dialog → "Add shift"
+- Add Component dialog → "Create"
