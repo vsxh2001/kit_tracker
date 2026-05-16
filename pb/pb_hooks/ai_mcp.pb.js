@@ -852,6 +852,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "entities"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "entities", record_id: "", actor: userId, action: "create_failed", tool: "create_entity", changes: { error_detail: String(err) } });
         return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -890,6 +891,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "kits"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "kits", record_id: "", actor: userId, action: "create_failed", tool: "create_kit", changes: { error_detail: String(err) } });
         return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -975,6 +977,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "transactions"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "transactions", record_id: "", actor: userId, action: "create_failed", tool: "move_kit", changes: { error_detail: String(err) } });
         return { error: "move_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1059,6 +1062,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "products"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "products", record_id: "", actor: userId, action: "create_failed", tool: "create_product", changes: { error_detail: String(err) } });
         return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1117,6 +1121,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "components"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "components", record_id: "", actor: userId, action: "create_failed", tool: "create_component", changes: { error_detail: String(err) } });
         return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1225,6 +1230,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "component_transactions"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "component_transactions", record_id: "", actor: userId, action: "create_failed", tool: "move_component", changes: { error_detail: String(err) } });
         return { error: "move_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1274,6 +1280,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "requests"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "requests", record_id: requestId, actor: userId, action: "update_failed", tool: "decide_request", changes: { error_detail: String(err) } });
         return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1325,6 +1332,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "components"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "components", record_id: componentId, actor: userId, action: "update_failed", tool: "link_component_to_product", changes: { error_detail: String(err) } });
         return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1399,6 +1407,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "entities"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "entities", record_id: id, actor: userId, action: "update_failed", tool: "update_entity", changes: { error_detail: String(err) } });
         return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1471,6 +1480,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "kits"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "kits", record_id: id, actor: userId, action: "update_failed", tool: "update_kit", changes: { error_detail: String(err) } });
         return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1537,6 +1547,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           collection: "products"
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "products", record_id: id, actor: userId, action: "update_failed", tool: "update_product", changes: { error_detail: String(err) } });
         return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
       }
     }
@@ -1579,6 +1590,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           description: "Updated phone for " + email + ". Note: undo is not available via MCP — issue a reverse update_user_phone."
         };
       } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "users", record_id: target.id, actor: userId, action: "update_failed", tool: "update_user_phone", changes: { error_detail: String(err) } });
         return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
       }
     }

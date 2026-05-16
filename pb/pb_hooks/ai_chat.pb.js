@@ -883,6 +883,7 @@ function getAiTools() {
         collection: "entities"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "entities", record_id: "", actor: userId, action: "create_failed", tool: "create_entity", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -935,6 +936,7 @@ function getAiTools() {
         collection: "kits"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "kits", record_id: "", actor: userId, action: "create_failed", tool: "create_kit", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1042,6 +1044,7 @@ function getAiTools() {
         collection: "transactions"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "transactions", record_id: "", actor: userId, action: "create_failed", tool: "move_kit", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "move_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1140,6 +1143,7 @@ function getAiTools() {
         collection: "products"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "products", record_id: "", actor: userId, action: "create_failed", tool: "create_product", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1213,6 +1217,7 @@ function getAiTools() {
         collection: "components"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "components", record_id: "", actor: userId, action: "create_failed", tool: "create_component", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "create_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1344,6 +1349,7 @@ function getAiTools() {
         collection: "component_transactions"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "component_transactions", record_id: "", actor: userId, action: "create_failed", tool: "move_component", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "move_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1410,6 +1416,7 @@ function getAiTools() {
         collection: "requests"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "requests", record_id: requestId, actor: userId, action: "update_failed", tool: "decide_request", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1479,6 +1486,7 @@ function getAiTools() {
         collection: "components"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "components", record_id: componentId, actor: userId, action: "update_failed", tool: "link_component_to_product", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1568,6 +1576,7 @@ function getAiTools() {
         collection: "entities"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "entities", record_id: id, actor: userId, action: "update_failed", tool: "update_entity", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1655,6 +1664,7 @@ function getAiTools() {
         collection: "kits"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "kits", record_id: id, actor: userId, action: "update_failed", tool: "update_kit", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1736,6 +1746,7 @@ function getAiTools() {
         collection: "products"
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "products", record_id: id, actor: userId, action: "update_failed", tool: "update_product", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -1781,6 +1792,7 @@ function getAiTools() {
         description: "Updated phone for " + email
       };
     } catch (err) {
+      saveAuditLog(dao, { collection_name: "users", record_id: target.id, actor: userId, action: "update_failed", tool: "update_user_phone", original_prompt: originalPrompt, changes: { error_detail: String(err) } });
       return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
     }
   }
@@ -2517,7 +2529,7 @@ routerAdd("POST", "/api/ai/undo", function(c) {
         var entityToRestore = dao.findRecordById("entities", undoData.result_record_id);
         var restore = undoData.restore || {};
         if (restore.name !== undefined) entityToRestore.set("name", restore.name);
-        if (restore.type !== undefined) entityToRestore.set("type", restore.type);
+        if (restore.category !== undefined) entityToRestore.set("category", restore.category);
         if (restore.description !== undefined) entityToRestore.set("description", restore.description);
         if (restore.is_active !== undefined) entityToRestore.set("is_active", restore.is_active);
         dao.save(entityToRestore);
