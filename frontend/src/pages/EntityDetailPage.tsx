@@ -3,20 +3,22 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Card, CardContent } from "../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { getEntity, getEntityTransactions } from "../services/entities";
 import { listComponentsAtEntity } from "../services/componentTransactions";
 import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { AddComponentDialog } from "../components/AddComponentDialog";
+import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
+import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
 
 export function EntityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canTransferKits, canDecideRequests } = useAuth();
+  const { canTransferKits, canDecideRequests, isAdmin } = useAuth();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [currentKits, setCurrentKits] = useState<Kit[]>([]);
@@ -25,6 +27,7 @@ export function EntityDetailPage() {
   const [standaloneComponents, setStandaloneComponents] = useState<Component[]>([]);
   const [showAddComp, setShowAddComp] = useState(false);
   const [movingComponent, setMovingComponent] = useState<Component | null>(null);
+  const [showCascadeDelete, setShowCascadeDelete] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -325,6 +328,37 @@ export function EntityDetailPage() {
           onSuccess={() => { setMovingComponent(null); load(); }}
         />
       )}
+
+      {isAdmin && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-destructive">Danger zone</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-sm text-muted-foreground mb-3">
+              Hard-delete this entity and all dependent rows. Last-resort tool to fix history.
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowCascadeDelete(true)}
+            >
+              Cascade Hard Delete
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <CascadeDeleteDialog
+        open={showCascadeDelete}
+        onOpenChange={setShowCascadeDelete}
+        collection="entities"
+        recordId={entity.id}
+        onDeleted={() => {
+          navigate("/entities");
+          toast({ title: "Entity deleted with cascade", variant: "success" });
+        }}
+      />
     </div>
   );
 }

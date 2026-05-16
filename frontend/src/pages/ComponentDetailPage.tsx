@@ -15,6 +15,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "../components/ui/alert-dialog";
+import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { getComponent, updateComponent } from "../services/components";
 import { listTransactionsForComponent } from "../services/componentTransactions";
 import { countComponentsForProduct } from "../services/products";
@@ -26,13 +27,14 @@ import type { Component, ComponentTransaction } from "../types";
 export function ComponentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canTransferKits, canDecideRequests } = useAuth();
+  const { canTransferKits, canDecideRequests, isAdmin } = useAuth();
   const [component, setComponent] = useState<Component | null>(null);
   const [history, setHistory] = useState<ComponentTransaction[]>([]);
   const [productInstanceCount, setProductInstanceCount] = useState<number | null>(null);
   const [showMove, setShowMove] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showCascadeDelete, setShowCascadeDelete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editSerial, setEditSerial] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -153,7 +155,9 @@ export function ComponentDetailPage() {
           <CardContent className="space-y-0 text-sm pt-0">
             <Row label="Serial" value={component.serial || "—"} mono />
             <Row label="Notes" value={component.notes || "—"} />
-            <Row label="Quantity" value={String(component.quantity)} />
+            {component.quantity != null && (
+              <Row label="Quantity" value={String(component.quantity)} />
+            )}
             <Row label="Bulk" value={component.is_bulk ? "Yes" : "No"} />
             {latest && <Row label="Current location" value={locationLabel(latest)} />}
           </CardContent>
@@ -364,6 +368,37 @@ export function ComponentDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {isAdmin && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-destructive">Danger zone</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-sm text-muted-foreground mb-3">
+              Hard-delete this component and all dependent rows. Last-resort tool to fix history.
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowCascadeDelete(true)}
+            >
+              Cascade Hard Delete
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <CascadeDeleteDialog
+        open={showCascadeDelete}
+        onOpenChange={setShowCascadeDelete}
+        collection="components"
+        recordId={component.id}
+        onDeleted={() => {
+          navigate("/components");
+          toast({ title: "Component deleted with cascade", variant: "success" });
+        }}
+      />
     </div>
   );
 }
