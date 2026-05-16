@@ -669,3 +669,25 @@ export async function linkComponentToProduct(componentId: string, productId: str
     throw new Error(`linkComponentToProduct failed: ${JSON.stringify(body)}`);
   }
 }
+
+export async function seedAuditRows(rows: Array<{ via: string; action?: string; collection_name?: string }>): Promise<void> {
+  const token = await getAdminToken();
+  const actorId = await getAdminUserId();
+  for (const r of rows) {
+    const res = await fetch(`${PB_URL}/api/collections/audit_log/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collection_name: r.collection_name ?? "kits",
+        record_id: "test-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+        actor: actorId,
+        action: r.action ?? "create",
+        changes: JSON.stringify({ via: r.via, after: { test: true } }),
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json();
+      throw new Error(`seedAuditRows failed: ${JSON.stringify(body)}`);
+    }
+  }
+}

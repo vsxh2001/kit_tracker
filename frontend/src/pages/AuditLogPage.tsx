@@ -8,17 +8,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { EmptyState } from "../components/EmptyState";
 import { listAuditLog } from "../services/audit";
 import { formatDate } from "../lib/utils";
 import { cn } from "../lib/utils";
-import type { AuditLog } from "../types";
+import type { AuditLog, AuditVia } from "../types";
 
 const COLLECTIONS = ["All", "kits", "entities", "users"] as const;
 type CollectionFilter = (typeof COLLECTIONS)[number];
 
 const ACTIONS = ["All", "create", "update"] as const;
 type ActionFilter = (typeof ACTIONS)[number];
+
+const VIA_LABELS: Record<AuditVia, string> = {
+  web: "Web",
+  "wa-bot": "WhatsApp",
+  "ai-agent": "AI chat",
+  mcp: "MCP",
+};
+
+function viaLabel(via: string | undefined): string {
+  if (!via) return "—";
+  return VIA_LABELS[via as AuditVia] ?? via;
+}
+
+function parseVia(changesJson: string): string | undefined {
+  try {
+    return JSON.parse(changesJson)?.via;
+  } catch {
+    return undefined;
+  }
+}
 
 function summarizeChanges(changesJson: string): string {
   try {
@@ -68,6 +95,7 @@ export function AuditLogPage() {
   const [loading, setLoading] = useState(true);
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>("All");
   const [actionFilter, setActionFilter] = useState<ActionFilter>("All");
+  const [viaFilter, setViaFilter] = useState<string>("");
   const [selected, setSelected] = useState<AuditLog | null>(null);
 
   useEffect(() => {
@@ -83,8 +111,9 @@ export function AuditLogPage() {
   }, [collectionFilter]);
 
   const filtered = entries.filter((e) => {
-    if (actionFilter === "All") return true;
-    return e.action === actionFilter;
+    if (actionFilter !== "All" && e.action !== actionFilter) return false;
+    if (viaFilter !== "" && parseVia(e.changes) !== viaFilter) return false;
+    return true;
   });
 
   const actorLabel = (e: AuditLog) => {
@@ -108,7 +137,7 @@ export function AuditLogPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-4 items-end">
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground font-medium">Collection</p>
           <ChipGroup
@@ -124,6 +153,21 @@ export function AuditLogPage() {
             value={actionFilter}
             onChange={setActionFilter}
           />
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground font-medium">Source</p>
+          <Select value={viaFilter} onValueChange={setViaFilter}>
+            <SelectTrigger className="w-36 h-8 text-xs">
+              <SelectValue placeholder="All sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All sources</SelectItem>
+              <SelectItem value="web">Web</SelectItem>
+              <SelectItem value="wa-bot">WhatsApp</SelectItem>
+              <SelectItem value="ai-agent">AI chat</SelectItem>
+              <SelectItem value="mcp">MCP</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -186,6 +230,7 @@ export function AuditLogPage() {
                     <th className="text-left p-3 font-medium text-muted-foreground">Collection</th>
                     <th className="text-left p-3 font-medium text-muted-foreground">Record ID</th>
                     <th className="text-left p-3 font-medium text-muted-foreground">Action</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">Source</th>
                     <th className="text-left p-3 font-medium text-muted-foreground">Changes</th>
                   </tr>
                 </thead>
@@ -209,6 +254,9 @@ export function AuditLogPage() {
                         )}>
                           {e.action}
                         </span>
+                      </td>
+                      <td className="p-3 text-xs text-muted-foreground">
+                        {viaLabel(parseVia(e.changes))}
                       </td>
                       <td className="p-3">
                         <button className="text-xs text-indigo-600 hover:text-indigo-800 underline underline-offset-2">
