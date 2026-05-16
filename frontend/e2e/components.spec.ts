@@ -55,7 +55,14 @@ const TS = `comp-${Date.now()}`;
 // Wait for the components page list/table to finish loading.
 async function waitForComponentsPage(page: Page) {
   await expect(page.getByRole("heading", { name: "Components" })).toBeVisible({ timeout: 8000 });
-  await expect(page.getByText(/loading…/i)).not.toBeVisible({ timeout: 8000 });
+  // Wait for skeletons to disappear — loading=false.
+  await expect(page.locator(".animate-pulse").first()).not.toBeVisible({ timeout: 8000 });
+  // React StrictMode double-mount causes first load to abort (rows=[]) then second load completes.
+  // After skeletons disappear there is a brief gap before sections appear. Wait for the post-load
+  // UI: either section headings (data present) or the "No components yet" empty state.
+  await expect(
+    page.locator("h2").or(page.getByText("No components yet")).first()
+  ).toBeVisible({ timeout: 10000 });
 }
 
 // Wait for the kit detail page to finish loading.
@@ -904,6 +911,9 @@ test.describe("T23b: Serialized vs Bulk sections and product/active filters @smo
   let serCompId: string;
   let bulkCompId: string;
   let kitId: string;
+  // Exact product name for T23b-3 — needed to avoid strict-mode match when many
+  // previous test runs leave SplitSerial products in the DB.
+  let serProductName: string;
 
   test.beforeAll(async () => {
     entityId = (await createTestEntity(`${TS}-SplitEntity`, "", "storage")).id;
@@ -911,11 +921,20 @@ test.describe("T23b: Serialized vs Bulk sections and product/active filters @smo
     await createTestTransaction({ kitId, toEntityId: entityId });
 
     // Serialized component
-    serCompId = (await createTestComponent({
+    const serComp = await createTestComponent({
       serial: `${TS}-SPLIT-SER`,
       type: "SplitSerial",
       initialEntity: entityId,
-    })).id;
+    });
+    serCompId = serComp.id;
+
+    // Fetch the auto-created product name so T23b-3 can do an exact match
+    const token = await getAdminToken();
+    const prodRes = await fetch(`${PB_URL}/api/collections/products/records/${serComp.product}`, {
+      headers: { Authorization: token },
+    });
+    const prod = await prodRes.json();
+    serProductName = prod.name as string;
 
     // Bulk component
     bulkCompId = (await createTestComponent({
@@ -969,8 +988,9 @@ test.describe("T23b: Serialized vs Bulk sections and product/active filters @smo
     const productSelect = page.getByRole("combobox").nth(0);
     await productSelect.click();
 
-    // Find the SplitSerial product option
-    const productOption = page.getByRole("option", { name: /SplitSerial/i });
+    // Find the SplitSerial product option — use exact name to avoid strict-mode match
+    // when previous test runs left other SplitSerial products in the DB.
+    const productOption = page.getByRole("option", { name: serProductName, exact: true });
     await expect(productOption).toBeVisible({ timeout: 5000 });
     await productOption.click();
 

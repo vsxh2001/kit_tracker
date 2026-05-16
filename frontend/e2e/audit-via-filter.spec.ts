@@ -46,7 +46,7 @@ test.describe("Audit log — CSV export @smoke", () => {
     await download.saveAs(savePath);
     const content = readFileSync(savePath, "utf-8");
     expect(content.startsWith("﻿")).toBe(true); // UTF-8 BOM
-    expect(content).toContain("Created,Collection"); // header row
+    expect(content).toContain('"Created","Collection"'); // header row (csvCell wraps each column in quotes)
     expect(content.split("\r\n").length).toBeGreaterThan(1); // at least header + one data row
   });
 });
