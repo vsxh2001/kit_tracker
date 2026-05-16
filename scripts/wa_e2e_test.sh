@@ -12,10 +12,10 @@
 #   bash scripts/wa_e2e_test.sh
 #
 # Prereqs:
-#   - PocketBase running at $PB_URL
+#   - PocketBase running at $PB_URL WITH WA_SKIP_SIGNATURE_CHECK=1 in its environment
 #   - Demo seed loaded: node scripts/seed_demo_data.mjs
 #   - $TECH_PHONE linked to a user with role admin or technician
-#   - WA_SKIP_SIGNATURE_CHECK=1 (HMAC check bypassed for local dev)
+#   - WA_SKIP_SIGNATURE_CHECK=1 exported to the script (triggers pre-flight probe)
 #
 # Env vars:
 #   PB_URL                  PocketBase base URL (default: http://127.0.0.1:8090)
@@ -46,6 +46,12 @@ if [[ "${WA_SKIP_SIGNATURE_CHECK}" != "1" ]]; then
 fi
 export WA_SKIP_SIGNATURE_CHECK
 
+# ---------------------------------------------------------------------------
+# Pre-flight: tool requirements
+# ---------------------------------------------------------------------------
+command -v jq >/dev/null || { echo "ERROR: jq is required"; exit 1; }
+command -v python3 >/dev/null || { echo "ERROR: python3 is required for safe URL encoding"; exit 1; }
+
 # Unique MessageSid prefix per run (epoch + random)
 RUN_ID="$(date +%s)-${RANDOM}"
 
@@ -72,6 +78,11 @@ fail() {
   log "[FAIL] ${label}${reason:+ — ${reason}}"
   RESULTS+=("FAIL: ${label}${reason:+ — ${reason}}")
   (( FAIL_COUNT++ )) || true
+}
+
+# URL-encode a string using python3.
+url_encode() {
+  python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"
 }
 
 # POST a Twilio-shaped webhook payload.
@@ -106,16 +117,14 @@ count_transactions_after() {
 
   local filter="kit.serial='${kit_serial}' && to_entity.name='${entity_name}' && created>='${after_iso}'"
   local encoded_filter
-  encoded_filter="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${filter}" 2>/dev/null \
-    || python -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${filter}" 2>/dev/null \
-    || printf '%s' "${filter}" | sed 's/ /%20/g; s/=/%3D/g; s/'"'"'/%27/g; s/>/%3E/g; s/</%3C/g')"
+  encoded_filter="$(url_encode "${filter}")"
 
   local resp
   resp="$(curl -s \
     -H "Authorization: ${ADMIN_TOKEN}" \
     "${PB_URL}/api/collections/transactions/records?filter=${encoded_filter}&sort=-timestamp&perPage=1&expand=kit,to_entity")"
 
-  echo "${resp}" | grep -o '"totalItems":[0-9]*' | grep -o '[0-9]*' || echo "0"
+  echo "${resp}" | jq -r '.totalItems // 0'
 }
 
 # ---------------------------------------------------------------------------
@@ -137,14 +146,14 @@ auth_resp="$(curl -s -X POST "${PB_URL}/api/admins/auth-with-password" \
   -H "Content-Type: application/json" \
   -d "{\"identity\":\"${PB_ADMIN_EMAIL}\",\"password\":\"${PB_ADMIN_PASSWORD}\"}")"
 
-ADMIN_TOKEN="$(echo "${auth_resp}" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)"
+ADMIN_TOKEN="$(echo "${auth_resp}" | jq -r '.token // empty')"
 
 if [[ -z "${ADMIN_TOKEN}" ]]; then
   # Try newer PB endpoint
   auth_resp="$(curl -s -X POST "${PB_URL}/api/collections/_superusers/auth-with-password" \
     -H "Content-Type: application/json" \
     -d "{\"identity\":\"${PB_ADMIN_EMAIL}\",\"password\":\"${PB_ADMIN_PASSWORD}\"}")"
-  ADMIN_TOKEN="$(echo "${auth_resp}" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)"
+  ADMIN_TOKEN="$(echo "${auth_resp}" | jq -r '.token // empty')"
 fi
 
 if [[ -z "${ADMIN_TOKEN}" ]]; then
@@ -158,14 +167,13 @@ log "Admin auth OK (token length: ${#ADMIN_TOKEN})"
 # Pre-flight: Verify tech user exists with correct phone and role
 # ---------------------------------------------------------------------------
 log "Pre-flight: looking up tech user with phone=${TECH_PHONE} ..."
-phone_encoded="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${TECH_PHONE}" 2>/dev/null \
-  || printf '%s' "${TECH_PHONE}" | sed 's/+/%2B/g')"
+phone_encoded="$(url_encode "${TECH_PHONE}")"
 
 user_resp="$(curl -s \
   -H "Authorization: ${ADMIN_TOKEN}" \
   "${PB_URL}/api/collections/users/records?filter=phone%3D%27${phone_encoded}%27&perPage=1")"
 
-user_total="$(echo "${user_resp}" | grep -o '"totalItems":[0-9]*' | grep -o '[0-9]*' || echo "0")"
+user_total="$(echo "${user_resp}" | jq -r '.totalItems // 0')"
 if [[ "${user_total}" -eq 0 ]]; then
   echo "ERROR: No user found with phone='${TECH_PHONE}'."
   echo "  Set the tech user's phone via the Users page in the app, or:"
@@ -176,7 +184,7 @@ if [[ "${user_total}" -eq 0 ]]; then
   exit 1
 fi
 
-user_role="$(echo "${user_resp}" | grep -o '"role":"[^"]*"' | head -1 | cut -d'"' -f4)"
+user_role="$(echo "${user_resp}" | jq -r '.items[0].role // empty')"
 if [[ "${user_role}" != "admin" && "${user_role}" != "technician" ]]; then
   echo "ERROR: User with phone='${TECH_PHONE}' has role='${user_role}'."
   echo "  Must be 'admin' or 'technician' to use WhatsApp bot."
@@ -197,13 +205,12 @@ MISSING_FIXTURES=()
 check_entity() {
   local name="$1"
   local name_enc
-  name_enc="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${name}" 2>/dev/null \
-    || printf '%s' "${name}" | sed 's/-/%2D/g')"
+  name_enc="$(url_encode "${name}")"
   local resp total
   resp="$(curl -s \
     -H "Authorization: ${ADMIN_TOKEN}" \
     "${PB_URL}/api/collections/entities/records?filter=name%3D%27${name_enc}%27%26%26is_active%3Dtrue&perPage=1")"
-  total="$(echo "${resp}" | grep -o '"totalItems":[0-9]*' | grep -o '[0-9]*' || echo "0")"
+  total="$(echo "${resp}" | jq -r '.totalItems // 0')"
   if [[ "${total}" -eq 0 ]]; then
     MISSING_FIXTURES+=("entity:${name}")
   fi
@@ -212,13 +219,12 @@ check_entity() {
 check_kit() {
   local serial="$1"
   local serial_enc
-  serial_enc="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${serial}" 2>/dev/null \
-    || printf '%s' "${serial}" | sed 's/-/%2D/g')"
+  serial_enc="$(url_encode "${serial}")"
   local resp total
   resp="$(curl -s \
     -H "Authorization: ${ADMIN_TOKEN}" \
     "${PB_URL}/api/collections/kits/records?filter=serial%3D%27${serial_enc}%27%26%26is_active%3Dtrue&perPage=1")"
-  total="$(echo "${resp}" | grep -o '"totalItems":[0-9]*' | grep -o '[0-9]*' || echo "0")"
+  total="$(echo "${resp}" | jq -r '.totalItems // 0')"
   if [[ "${total}" -eq 0 ]]; then
     MISSING_FIXTURES+=("kit:${serial}")
   fi
@@ -243,6 +249,35 @@ fi
 log "Demo fixtures OK"
 
 # ---------------------------------------------------------------------------
+# Pre-flight: WA signature-check probe
+# ---------------------------------------------------------------------------
+log "Pre-flight: probing webhook signature-check bypass (WA_SKIP_SIGNATURE_CHECK in PB env) ..."
+PROBE_SID="SM-probe-$(date +%s)"
+probe_http_code="$(curl -s -o /tmp/wa_probe_body.txt -w "%{http_code}" -X POST "${PB_URL}/api/wa/webhook" \
+  --data-urlencode "MessageSid=${PROBE_SID}" \
+  --data-urlencode "AccountSid=${TWILIO_ACCOUNT_SID}" \
+  --data-urlencode "From=whatsapp:${TECH_PHONE}" \
+  --data-urlencode "To=whatsapp:+14155238886" \
+  --data-urlencode "Body=hello" \
+  --data-urlencode "NumMedia=0" \
+  --data-urlencode "SmsStatus=received")"
+
+if [[ "${probe_http_code}" == "401" ]]; then
+  echo "ERROR: PB rejected the unsigned webhook POST (HTTP 401)."
+  echo "  PB itself must be started with WA_SKIP_SIGNATURE_CHECK=1 in its environment."
+  echo "  Restart PB with:"
+  echo "    WA_SKIP_SIGNATURE_CHECK=1 ./pb/pocketbase serve --http=127.0.0.1:8090 ..."
+  echo "  (or include WA_SKIP_SIGNATURE_CHECK=1 in your Fly secrets / docker-compose env)"
+  exit 1
+elif [[ "${probe_http_code}" == "200" ]]; then
+  log "Signature-check probe OK (HTTP 200)"
+else
+  echo "ERROR: Unexpected HTTP ${probe_http_code} from webhook probe."
+  cat /tmp/wa_probe_body.txt
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Scenario A: Move + YES → expect transaction
 # ---------------------------------------------------------------------------
 log ""
@@ -262,17 +297,24 @@ log "A2: sending YES ..."
 resp_a2="$(send_wa "${SID_A2}" "${TECH_PHONE}" "YES")"
 log "A2 response: ${resp_a2:0:200}"
 
-# Wait briefly for the AI call to complete and transaction to be committed
-sleep 5
+# Poll up to 30s for the transaction to appear (Anthropic calls can exceed 5s on cold start)
+log "A: waiting for transaction to appear (up to 30s) ..."
+found_a=0
+for i in $(seq 1 15); do
+  sleep 2
+  tx_count_a="$(count_transactions_after "${BEFORE_A_MS}" "DEMO-KIT-005" "DEMO-Entity-002")"
+  if [[ "${tx_count_a}" -gt 0 ]]; then
+    found_a=1
+    break
+  fi
+done
 
-log "A: verifying transaction in DB ..."
-tx_count_a="$(count_transactions_after "${BEFORE_A_MS}" "DEMO-KIT-005" "DEMO-Entity-002")"
 log "A: transactions found after run start: ${tx_count_a}"
 
-if [[ "${tx_count_a}" -ge 1 ]]; then
-  pass "Scenario A: Move + YES created transaction (found ${tx_count_a})"
+if [[ "${found_a}" -eq 1 ]]; then
+  pass "Scenario A: Move + YES created transaction (found ${tx_count_a}, after $((i*2))s)"
 else
-  fail "Scenario A: Move + YES" "no transaction found for DEMO-KIT-005 → DEMO-Entity-002 after YES"
+  fail "Scenario A: Move + YES" "no transaction found for DEMO-KIT-005 → DEMO-Entity-002 after 30s"
 fi
 
 # ---------------------------------------------------------------------------
