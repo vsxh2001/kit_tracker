@@ -97,11 +97,11 @@ export function KitDetailPage() {
     if (!kit) return;
     try {
       await softDeleteKit(kit.id);
-      toast({ title: "Kit deleted", description: kit.serial, variant: "success" });
+      toast({ title: "Kit deactivated", description: kit.serial, variant: "success" });
       navigate("/kits");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      toast({ title: "Failed to delete kit", description: err?.message, variant: "destructive" });
+      toast({ title: "Failed to deactivate kit", description: err?.message, variant: "destructive" });
     }
   }
 
@@ -161,7 +161,7 @@ export function KitDetailPage() {
               )}
               {isAdmin && (
                 <Button size="sm" variant="destructive" onClick={() => setShowDelete(true)}>
-                  Delete
+                  Deactivate
                 </Button>
               )}
             </CardContent>
@@ -539,14 +539,14 @@ export function KitDetailPage() {
       <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete kit?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate kit?</AlertDialogTitle>
             <AlertDialogDescription>
-              Kit <strong>{kit.serial}</strong> will be hidden from the catalog. Historical transactions referencing it will show as deleted. This cannot be undone from the UI.
+              Kit <strong>{kit.serial}</strong> will be hidden from the catalog. Historical transactions remain intact.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>Deactivate</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

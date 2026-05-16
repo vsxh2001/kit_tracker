@@ -117,10 +117,10 @@ export function KitsPage() {
     try {
       await softDeleteKit(deleteTarget.id);
       setRows((prev) => prev.filter((r) => r.kit.id !== deleteTarget.id));
-      toast({ title: "Kit deleted", description: deleteTarget.serial, variant: "success" });
+      toast({ title: "Kit deactivated", description: deleteTarget.serial, variant: "success" });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      toast({ title: "Failed to delete kit", description: err?.message, variant: "destructive" });
+      toast({ title: "Failed to deactivate kit", description: err?.message, variant: "destructive" });
     } finally {
       setDeleteTarget(null);
     }
@@ -293,7 +293,7 @@ export function KitsPage() {
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(kit); }}
                             className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                           >
-                            Delete
+                            Deactivate
                           </button>
                         </div>
                       )}
@@ -394,7 +394,7 @@ export function KitsPage() {
                                 onClick={() => setDeleteTarget(kit)}
                                 className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                               >
-                                Delete
+                                Deactivate
                               </button>
                             </td>
                           )}
@@ -424,14 +424,14 @@ export function KitsPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete kit?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate kit?</AlertDialogTitle>
             <AlertDialogDescription>
-              Kit <strong>{deleteTarget?.serial}</strong> will be hidden from the catalog. Historical transactions referencing it will show as deleted. This cannot be undone from the UI.
+              Kit <strong>{deleteTarget?.serial}</strong> will be hidden from the catalog. Historical transactions remain intact.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDeleteKit}>Delete</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={handleDeleteKit}>Deactivate</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
