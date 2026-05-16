@@ -105,8 +105,9 @@ export async function splitAndMoveBulk(
   const source = await pb.collection("components").getOne<Component>(componentId, {
     requestKey: `split-source-${componentId}`,
   });
-  if (qty >= source.quantity) {
-    throw new Error(`Split quantity (${qty}) must be less than source quantity (${source.quantity}).`);
+  const sourceQty = source.quantity ?? 0;
+  if (qty >= sourceQty) {
+    throw new Error(`Split quantity (${qty}) must be less than source quantity (${sourceQty}).`);
   }
 
   // 2. Create new component record with split qty
@@ -121,7 +122,7 @@ export async function splitAndMoveBulk(
 
   // 3. Decrement source quantity
   const updatedSource = await updateComponent(source.id, {
-    quantity: source.quantity - qty,
+    quantity: sourceQty - qty,
   });
 
   // 4. Create transaction for the new split component
