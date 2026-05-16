@@ -134,12 +134,12 @@ function getAiTools() {
     },
     {
       name: "create_entity",
-      description: "Create a new entity (location/site). ALWAYS call this directly when the user asks to create an entity — do NOT call resolve_entity first. Duplicate names are allowed. Returns the new entity record ID and an undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Create a new entity (location/site). ALWAYS call this directly when the user asks to create an entity — do NOT call resolve_entity first. Returns the new entity record ID and an undo_token valid for 30s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
           name: { type: "string", description: "Entity name (required)" },
-          type: { type: "string", description: "Entity type (e.g. storage, lab, site)" },
+          category: { type: "string", enum: ["storage", "field"], description: "Entity category. 'field' = in-use unit/site (default). 'storage' = warehouse/depot." },
           description: { type: "string", description: "Optional description" }
         },
         required: ["name"]
@@ -262,7 +262,7 @@ function getAiTools() {
         properties: {
           id: { type: "string", description: "Entity record ID (required)" },
           name: { type: "string", description: "New entity name" },
-          type: { type: "string", description: "New entity type" },
+          category: { type: "string", enum: ["storage", "field"], description: "New category. 'field' = in-use; 'storage' = warehouse/depot." },
           description: { type: "string", description: "New description" },
           is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
         },
@@ -835,7 +835,8 @@ function getAiTools() {
       var collection = dao.findCollectionByNameOrId("entities");
       var record = new Record(collection);
       record.set("name", name);
-      record.set("type", args.type ? String(args.type) : "storage");
+      var cat = String(args.category || "").toLowerCase();
+      record.set("category", cat === "storage" ? "storage" : "field");
       record.set("description", args.description ? String(args.description) : "");
       record.set("is_active", true);
       dao.save(record);
@@ -1478,7 +1479,7 @@ function getAiTools() {
     if (!id) {
       return { error: "missing_required", detail: "id is required" };
     }
-    var mutableFields = ["name", "type", "description", "is_active"];
+    var mutableFields = ["name", "category", "description", "is_active"];
     var hasUpdate = false;
     for (var fi = 0; fi < mutableFields.length; fi++) {
       if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
@@ -1501,10 +1502,12 @@ function getAiTools() {
       record.set("name", String(args.name));
       after.name = String(args.name);
     }
-    if (args.type !== undefined) {
-      before.type = safeStr(record, "type");
-      record.set("type", String(args.type));
-      after.type = String(args.type);
+    if (args.category !== undefined) {
+      before.category = safeStr(record, "category");
+      var newCat = String(args.category).toLowerCase();
+      var safeCat = newCat === "storage" ? "storage" : "field";
+      record.set("category", safeCat);
+      after.category = safeCat;
     }
     if (args.description !== undefined) {
       before.description = safeStr(record, "description");

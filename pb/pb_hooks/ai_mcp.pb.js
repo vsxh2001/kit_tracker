@@ -141,7 +141,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           type: "object",
           properties: {
             name: { type: "string", description: "Entity name (required)" },
-            type: { type: "string", description: "Entity type (e.g. storage, lab, site)" },
+            category: { type: "string", enum: ["storage", "field"], description: "'field' = in-use unit/site (default). 'storage' = warehouse/depot." },
             description: { type: "string", description: "Optional description" }
           },
           required: ["name"]
@@ -264,7 +264,7 @@ routerAdd("POST", "/api/mcp", function(c) {
           properties: {
             id: { type: "string", description: "Entity record ID (required)" },
             name: { type: "string", description: "New entity name" },
-            type: { type: "string", description: "New entity type" },
+            category: { type: "string", enum: ["storage", "field"], description: "New category. 'field' = in-use; 'storage' = warehouse/depot." },
             description: { type: "string", description: "New description" },
             is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
           },
@@ -818,7 +818,8 @@ routerAdd("POST", "/api/mcp", function(c) {
         var collection = dao.findCollectionByNameOrId("entities");
         var record = new Record(collection);
         record.set("name", name);
-        record.set("type", args.type ? String(args.type) : "storage");
+        var cat = String(args.category || "").toLowerCase();
+        record.set("category", cat === "storage" ? "storage" : "field");
         record.set("description", args.description ? String(args.description) : "");
         record.set("is_active", true);
         dao.save(record);
@@ -1324,7 +1325,7 @@ routerAdd("POST", "/api/mcp", function(c) {
       if (!id) {
         return { error: "missing_required", detail: "id is required" };
       }
-      var mutableFields = ["name", "type", "description", "is_active"];
+      var mutableFields = ["name", "category", "description", "is_active"];
       var hasUpdate = false;
       for (var fi = 0; fi < mutableFields.length; fi++) {
         if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
@@ -1347,10 +1348,12 @@ routerAdd("POST", "/api/mcp", function(c) {
         record.set("name", String(args.name));
         after.name = String(args.name);
       }
-      if (args.type !== undefined) {
-        before.type = safeStr(record, "type");
-        record.set("type", String(args.type));
-        after.type = String(args.type);
+      if (args.category !== undefined) {
+        before.category = safeStr(record, "category");
+        var newCat = String(args.category).toLowerCase();
+        var safeCat = newCat === "storage" ? "storage" : "field";
+        record.set("category", safeCat);
+        after.category = safeCat;
       }
       if (args.description !== undefined) {
         before.description = safeStr(record, "description");

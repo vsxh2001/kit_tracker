@@ -11,8 +11,9 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { createEntity, updateEntity } from "../services/entities";
-import type { Entity } from "../types";
+import type { Entity, EntityCategory } from "../types";
 
 interface Props {
   entity?: Entity;
@@ -24,6 +25,7 @@ interface Props {
 export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<EntityCategory>("field");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +34,7 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
       startTransition(() => {
         setName(entity?.name ?? "");
         setDescription(entity?.description ?? "");
+        setCategory(entity?.category ?? "field");
         setError("");
       });
     }
@@ -43,10 +46,10 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
     setLoading(true);
     try {
       if (entity) {
-        await updateEntity(entity.id, { name: name.trim(), description: description.trim() });
+        await updateEntity(entity.id, { name: name.trim(), description: description.trim(), category });
         toast({ title: "Entity updated", variant: "success" });
       } else {
-        await createEntity({ name: name.trim(), description: description.trim() });
+        await createEntity({ name: name.trim(), description: description.trim(), category });
         toast({ title: "Entity created", variant: "success" });
       }
       onSaved();
@@ -72,6 +75,18 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
           <div className="space-y-1.5">
             <Label htmlFor="entity-name">Name</Label>
             <Input id="entity-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Logistics" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="entity-category">Category</Label>
+            <Select value={category} onValueChange={(v) => setCategory(v as EntityCategory)}>
+              <SelectTrigger id="entity-category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="field">Field</SelectItem>
+                <SelectItem value="storage">Storage</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="entity-description">Description</Label>

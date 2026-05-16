@@ -18,10 +18,13 @@ export interface Kit {
   updated: string;
 }
 
+export type EntityCategory = "storage" | "field";
+
 export interface Entity {
   id: string;
   name: string;
   description?: string;
+  category?: EntityCategory;
   is_active: boolean;
   created: string;
   updated: string;

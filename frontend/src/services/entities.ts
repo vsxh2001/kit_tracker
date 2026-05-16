@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 import { pb } from "../lib/pocketbase";
-import type { Entity, Transaction } from "../types";
+import type { Entity, EntityCategory, Transaction } from "../types";
 
 export async function listEntities(includeInactive = false) {
   const filter = includeInactive ? "" : "is_active = true";
@@ -14,13 +14,18 @@ export async function getEntity(id: string) {
 export async function createEntity(data: {
   name: string;
   description?: string;
+  category?: EntityCategory;
 }) {
-  return pb.collection("entities").create<Entity>({ ...data, type: "storage", is_active: true });
+  return pb.collection("entities").create<Entity>({
+    ...data,
+    category: data.category ?? "field",
+    is_active: true,
+  });
 }
 
 export async function updateEntity(
   id: string,
-  data: Partial<{ name: string; description: string; is_active: boolean }>
+  data: Partial<{ name: string; description: string; category: EntityCategory; is_active: boolean }>
 ) {
   return pb.collection("entities").update<Entity>(id, data);
 }
@@ -42,7 +47,7 @@ export async function exportEntitiesCsv(): Promise<string> {
   const rows = entities.map((entity) => ({
     name: entity.name,
     description: entity.description ?? "",
-    type: (entity as Entity & { type?: string }).type ?? "",
+    category: entity.category ?? "field",
     is_active: entity.is_active,
     created: entity.created,
   }));
@@ -101,11 +106,13 @@ export async function importEntitiesCsv(file: File): Promise<ImportEntitiesResul
     }
 
     try {
+      const rawCat = (row.category ?? row.type ?? "").trim().toLowerCase();
+      const category: EntityCategory = rawCat === "storage" ? "storage" : "field";
       await pb.collection("entities").create<Entity>(
         {
           name,
           description: row.description ?? "",
-          type: row.type?.trim() || "storage",
+          category,
           is_active: parseBool(row.is_active),
         },
         { requestKey: `import-entity-create-${i}-${name}` }

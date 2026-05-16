@@ -42,8 +42,8 @@ export async function requestsCreatedLast7Days(): Promise<DailyCount[]> {
 
 export interface UtilizationStats {
   totalKits: number;
-  kitsAssigned: number;
-  kitsUnassigned: number;
+  kitsOut: number;
+  kitsInStorage: number;
   topRequesters: { email: string; count: number }[];
   topMovedKits: { serial: string; count: number }[];
   statusBreakdown: Record<RequestStatus, number>;
@@ -83,12 +83,9 @@ export async function computeStats(): Promise<UtilizationStats> {
   }
 
   // --- Card 1: Fleet utilization ---
-  // "Assigned" = latest transaction exists AND points to an ACTIVE entity.
-  // "Unassigned" = no transactions, OR latest tx points to a deactivated entity.
-  //
-  // We don't use entity.type to classify storage vs non-storage because
-  // services/entities.ts:createEntity hardcodes type="storage" for every
-  // record, making the previous regex check meaningless.
+  // "Out" = latest tx points to an active entity with category="field".
+  // "In storage" = no tx OR tx points to deactivated/storage entity.
+  // Utilization% = out / total.
   const latestTxByKit = new Map<string, Transaction>();
   for (const tx of transactions) {
     if (!latestTxByKit.has(tx.kit)) {
@@ -96,19 +93,19 @@ export async function computeStats(): Promise<UtilizationStats> {
     }
   }
 
-  let kitsAssigned = 0;
-  let kitsUnassigned = 0;
+  let kitsOut = 0;
+  let kitsInStorage = 0;
   for (const kit of kits) {
     const latestTx = latestTxByKit.get(kit.id);
     if (!latestTx) {
-      kitsUnassigned++;
+      kitsInStorage++;
       continue;
     }
     const toEntity = entityMap.get(latestTx.to_entity);
-    if (toEntity && toEntity.is_active) {
-      kitsAssigned++;
+    if (toEntity && toEntity.is_active && toEntity.category === "field") {
+      kitsOut++;
     } else {
-      kitsUnassigned++;
+      kitsInStorage++;
     }
   }
 
@@ -192,8 +189,8 @@ export async function computeStats(): Promise<UtilizationStats> {
 
   return {
     totalKits: kits.length,
-    kitsAssigned,
-    kitsUnassigned,
+    kitsOut,
+    kitsInStorage,
     topRequesters,
     topMovedKits,
     statusBreakdown,
