@@ -689,7 +689,7 @@ export async function linkComponentToProduct(componentId: string, productId: str
 }
 
 export async function seedAuditRows(rows: Array<{ via: string; action?: string; collection_name?: string }>): Promise<void> {
-  const token = await getAdminToken();
+  const token = await getSuperToken();
   const actorId = await getAdminUserId();
   for (const r of rows) {
     const res = await fetch(`${PB_URL}/api/collections/audit_log/records`, {
