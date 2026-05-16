@@ -1,0 +1,61 @@
+name: Daily PB Backup
+
+on:
+  schedule:
+    - cron: "23 4 * * *"  # 04:23 UTC daily (off the :00 spike)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Run snapshot via Fly SSH
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          mkdir -p backups
+          flyctl ssh console -a kit-tracker -C "bash /app/scripts/backup-pb-data.sh"
+
+      - name: Download snapshot via Fly SFTP
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          LATEST=$(flyctl ssh console -a kit-tracker -C "ls -t /app/backups/pb-snapshot-*.tar.gz | head -1" 2>/dev/null | tr -d '\r\n')
+          if [ -z "$LATEST" ]; then
+            echo "ERROR: no snapshot file found on Fly" >&2
+            exit 1
+          fi
+          echo "Downloading: $LATEST"
+          flyctl ssh sftp get -a kit-tracker "$LATEST" backups/
+
+      - name: Validate snapshot size
+        run: |
+          SIZE=$(stat -c %s backups/pb-snapshot-*.tar.gz 2>/dev/null | head -1)
+          if [ -z "$SIZE" ] || [ "$SIZE" -lt 100000 ]; then
+            echo "ERROR: snapshot is missing or suspiciously small (${SIZE:-0} bytes)" >&2
+            exit 1
+          fi
+          echo "✓ Snapshot size: $SIZE bytes"
+
+      - name: Upload as release artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="backup-$(date -u +%Y%m%d-%H%M)"
+          TARBALL=$(ls -t backups/pb-snapshot-*.tar.gz | head -1)
+          gh release create "$TAG" "$TARBALL" \
+            --title "Daily backup $TAG" \
+            --notes "Automated daily snapshot." \
+            --repo "${{ github.repository }}"
+
+      - name: Prune old releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/prune-backup-releases.sh
