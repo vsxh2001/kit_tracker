@@ -1,3 +1,5 @@
+export type MaintenanceType = "calibration" | "inspection" | "service" | "replacement" | "certification" | "other";
+
 export type RequestStatus =
   | "open"
   | "approved"
@@ -124,7 +126,7 @@ export interface AuditLog {
 export interface KitMaintenanceSchedule {
   id: string;
   kit: string;
-  type: string;
+  type: MaintenanceType;
   description: string;
   interval_days: number;
   last_done_at: string;       // PB date "YYYY-MM-DD ..." or empty

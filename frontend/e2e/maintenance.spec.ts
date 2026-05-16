@@ -112,8 +112,9 @@ test.describe("Maintenance — add schedule", () => {
     // Click "Add schedule"
     await page.getByRole("button", { name: "Add schedule" }).first().click();
 
-    // Fill form
-    await page.getByLabel("Type").fill("Calibration");
+    // Fill form — Type is now a Select dropdown
+    await page.getByLabel("Type").click();
+    await page.getByRole("option", { name: /^Calibration$/i }).click();
     await page.getByLabel("Interval (days)").fill("30");
 
     // Fill next due date (should be auto-calculated, but try to fill if field exists)
@@ -127,7 +128,7 @@ test.describe("Maintenance — add schedule", () => {
     await page.getByRole("button", { name: "Add schedule" }).last().click();
 
     // Should see the new schedule in the list (scope to tbody to avoid notification text)
-    await expect(page.locator("tbody").getByText("Calibration").first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("tbody").getByText("calibration").first()).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -276,8 +277,8 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
   let schedSerial: string;
 
   test.beforeAll(async () => {
-    // Clean up any leftover HubCalibration schedules from prior test runs before creating our kit
-    await deleteSchedulesByType("HubCalibration");
+    // Clean up any leftover calibration schedules from prior test runs before creating our kit
+    await deleteSchedulesByType("calibration");
 
     schedSerial = `${TS}-HUB`;
     const kit = await createTestKit(schedSerial);
@@ -286,7 +287,7 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
 
   test.afterAll(async () => {
     // Clean up schedules by type to prevent growth on retry
-    await deleteSchedulesByType("HubCalibration");
+    await deleteSchedulesByType("calibration");
     await deleteKit(kitId);
   });
 
@@ -304,8 +305,9 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     // Select the test kit by serial
     await page.getByLabel("Kit").selectOption({ label: schedSerial });
 
-    // Fill required fields
-    await page.getByLabel("Type").fill("HubCalibration");
+    // Fill required fields — Type is now a Select dropdown
+    await page.getByLabel("Type").click();
+    await page.getByRole("option", { name: /^Calibration$/i }).click();
     await page.getByLabel("Interval (days)").fill("45");
 
     // Save
@@ -315,6 +317,6 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await expect(page.locator("div:has-text('Schedule created')").first()).toBeVisible({ timeout: 10_000 });
 
     // Schedule appears in the table (scope to tbody to avoid notification/option matches, use first() for strict mode)
-    await expect(page.locator("tbody").getByText("HubCalibration").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("tbody").getByText("calibration").first()).toBeVisible({ timeout: 5000 });
   });
 });
