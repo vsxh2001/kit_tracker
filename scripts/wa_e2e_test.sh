@@ -416,6 +416,60 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Scenario E: viewer attempting RETURN shortcut → permission denied
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario E: viewer RETURN shortcut → permission denied (no transaction) ==="
+
+VIEWER_PHONE="${VIEWER_PHONE:-+972500000099}"
+
+# Find a viewer user in DB
+VIEWER_ID="$(curl -s \
+  -H "Authorization: ${ADMIN_TOKEN}" \
+  "${PB_URL}/api/collections/users/records?filter=role%3D%27viewer%27&perPage=1" \
+  | jq -r '.items[0].id // empty')"
+
+if [[ -z "${VIEWER_ID}" ]]; then
+  log "E: SKIP — no viewer user found in DB"
+  pass "Scenario E: viewer RETURN — SKIPPED (no viewer in DB)"
+else
+  # Assign VIEWER_PHONE to the viewer user
+  curl -s -X PATCH "${PB_URL}/api/collections/users/records/${VIEWER_ID}" \
+    -H "Authorization: ${ADMIN_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"phone\":\"${VIEWER_PHONE}\"}" >/dev/null
+
+  log "E: assigned phone=${VIEWER_PHONE} to viewer user ${VIEWER_ID}"
+
+  SID_E1="SM-${RUN_ID}-E1"
+  BEFORE_E_SEC="$(date +%s)"
+  BEFORE_E_ISO="$(date -u "+%Y-%m-%d %H:%M:%S")"
+
+  log "E: sending 'return DEMO-KIT-005' as viewer ..."
+  resp_e1="$(send_wa "${SID_E1}" "${VIEWER_PHONE}" "return DEMO-KIT-005")"
+  log "E: response: ${resp_e1:0:200}"
+
+  sleep 3
+
+  # Verify no new transaction was created for DEMO-KIT-005 since we started.
+  # Use plain second-precision ISO timestamp (date +%s is universally supported).
+  filter_e="kit.serial='DEMO-KIT-005'&&created>='${BEFORE_E_ISO}'"
+  filter_e_enc="$(url_encode "${filter_e}")"
+  tx_count_e="$(curl -s \
+    -H "Authorization: ${ADMIN_TOKEN}" \
+    "${PB_URL}/api/collections/transactions/records?filter=${filter_e_enc}&perPage=1" \
+    | jq -r '.totalItems // 0')"
+
+  log "E: new transactions for DEMO-KIT-005 after viewer RETURN: ${tx_count_e} (expected 0)"
+
+  if [[ "${tx_count_e}" -eq 0 ]]; then
+    pass "Scenario E: viewer RETURN did not create transaction (role gate OK)"
+  else
+    fail "Scenario E: viewer RETURN" "${tx_count_e} transaction(s) created — privilege escalation NOT blocked"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 log ""
