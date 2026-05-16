@@ -21,6 +21,8 @@ import { StatsPage } from "./pages/StatsPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
 import { OnCallPage } from "./pages/OnCallPage";
+import { OnCallCalendarPage } from "./pages/OnCallCalendarPage";
+import { KitHistoryCalendarPage } from "./pages/KitHistoryCalendarPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { ProductDetailPage } from "./pages/ProductDetailPage";
@@ -75,6 +77,8 @@ export default function App() {
             <Route path="maintenance" element={<CanDecideOnly><MaintenancePage /></CanDecideOnly>} />
             <Route path="stats" element={<CanDecideOnly><StatsPage /></CanDecideOnly>} />
             <Route path="oncall" element={<RequireRole><OnCallPage /></RequireRole>} />
+            <Route path="oncall/calendar" element={<RequireRole><OnCallCalendarPage /></RequireRole>} />
+            <Route path="kits/calendar" element={<RequireRole><KitHistoryCalendarPage /></RequireRole>} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="products" element={<RequireRole><ProductsPage /></RequireRole>} />
             <Route path="products/:id" element={<RequireRole><ProductDetailPage /></RequireRole>} />
