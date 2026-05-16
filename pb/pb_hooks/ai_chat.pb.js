@@ -302,6 +302,59 @@ function getAiTools() {
         },
         required: ["id"]
       }
+    },
+    {
+      name: "report_kits_by_entity",
+      description: "Report how many active kits are currently at each entity, sorted by count descending. Use when user asks 'where are kits located', 'how many kits at each site', 'kit distribution'.",
+      input_schema: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "report_recent_activity",
+      description: "Return the last N kit transactions across all kits with expanded kit serial, entity names, and actor email. Use when user asks 'what happened recently', 'recent moves', 'activity log'.",
+      input_schema: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Number of transactions to return (default 10, max 50)" }
+        },
+        required: []
+      }
+    },
+    {
+      name: "report_open_requests",
+      description: "Return open and approved kit requests sorted by delivery_date ascending. Use when user asks 'what requests are pending', 'open requests', 'approved requests', 'upcoming deliveries'.",
+      input_schema: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Number of requests to return (default 20, max 50)" }
+        },
+        required: []
+      }
+    },
+    {
+      name: "report_overdue_returns",
+      description: "Return fulfilled requests where expected_return is in the past. Use when user asks 'what\\'s overdue', 'late returns', 'who hasn\\'t returned a kit', 'overdue kits'.",
+      input_schema: {
+        type: "object",
+        properties: {
+          now: { type: "string", description: "ISO timestamp for 'now' (optional, defaults to current time; useful for testing)" }
+        },
+        required: []
+      }
+    },
+    {
+      name: "report_maintenance_due",
+      description: "Return maintenance schedules due within N days from now. Use when user asks 'what maintenance is due', 'upcoming maintenance', 'overdue maintenance'.",
+      input_schema: {
+        type: "object",
+        properties: {
+          days_ahead: { type: "number", description: "Look-ahead window in days (default 7)" }
+        },
+        required: []
+      }
     }
   ];
 
@@ -1672,6 +1725,219 @@ function getAiTools() {
     }
   }
 
+  function executeReportKitsByEntity(dao) {
+    try {
+      var kits = dao.findRecordsByFilter("kits", "is_active = true", "serial", 500, 0, {});
+      var entityMap = {};
+      for (var i = 0; i < kits.length; i++) {
+        var k = kits[i];
+        var ce = kitCurrentEntity(dao, k.id);
+        var eid = ce.id || "__unassigned__";
+        var ename = ce.name || "(unassigned)";
+        if (!entityMap[eid]) {
+          entityMap[eid] = { id: eid, name: ename, kit_count: 0, sample_serials: [] };
+        }
+        entityMap[eid].kit_count++;
+        if (entityMap[eid].sample_serials.length < 5) {
+          entityMap[eid].sample_serials.push(safeStr(k, "serial"));
+        }
+      }
+      var entities = [];
+      var keys = Object.keys(entityMap);
+      for (var j = 0; j < keys.length; j++) {
+        entities.push(entityMap[keys[j]]);
+      }
+      entities.sort(function(a, b) { return b.kit_count - a.kit_count; });
+      return { entities: entities };
+    } catch (err) {
+      return { error: "report_kits_by_entity failed", detail: String(err && err.message ? err.message : err) };
+    }
+  }
+
+  function executeReportRecentActivity(dao, args) {
+    try {
+      var limit = clamp(args.limit, 10, 50);
+      var txns = dao.findRecordsByFilter("transactions", "id != ''", "-timestamp,-created", limit, 0, {});
+      var results = [];
+      for (var i = 0; i < txns.length; i++) {
+        var tx = txns[i];
+        var kitSerial = "";
+        var kitId = safeStr(tx, "kit");
+        if (kitId) {
+          try { kitSerial = safeStr(dao.findRecordById("kits", kitId), "serial"); } catch (_) {}
+        }
+        var fromName = "";
+        var fromId = safeStr(tx, "from_entity");
+        if (fromId) {
+          try { fromName = safeStr(dao.findRecordById("entities", fromId), "name"); } catch (_) {}
+        }
+        var toName = "";
+        var toId = safeStr(tx, "to_entity");
+        if (toId) {
+          try { toName = safeStr(dao.findRecordById("entities", toId), "name"); } catch (_) {}
+        }
+        var actorEmail = "";
+        var actorId = safeStr(tx, "created_by");
+        if (actorId) {
+          try { actorEmail = safeStr(dao.findRecordById("users", actorId), "email"); } catch (_) {}
+        }
+        results.push({
+          id: tx.id,
+          timestamp: safeStr(tx, "timestamp"),
+          kit_serial: kitSerial,
+          from_entity: fromName,
+          to_entity: toName,
+          actor_email: actorEmail,
+          notes: safeStr(tx, "notes")
+        });
+      }
+      return { transactions: results };
+    } catch (err) {
+      return { error: "report_recent_activity failed", detail: String(err && err.message ? err.message : err) };
+    }
+  }
+
+  function executeReportOpenRequests(dao, args) {
+    try {
+      var limit = clamp(args.limit, 20, 50);
+      var reqs = dao.findRecordsByFilter(
+        "requests",
+        "status = 'open' || status = 'approved'",
+        "delivery_date",
+        limit,
+        0,
+        {}
+      );
+      var results = [];
+      for (var i = 0; i < reqs.length; i++) {
+        var r = reqs[i];
+        var requesterEmail = "";
+        var rid = safeStr(r, "requester");
+        if (rid) {
+          try { requesterEmail = safeStr(dao.findRecordById("users", rid), "email"); } catch (_) {}
+        }
+        var kitSerial = "";
+        var kid = safeStr(r, "designated_kit");
+        if (kid) {
+          try { kitSerial = safeStr(dao.findRecordById("kits", kid), "serial"); } catch (_) {}
+        }
+        var targetEntityName = "";
+        var eid = safeStr(r, "target_entity");
+        if (eid) {
+          try { targetEntityName = safeStr(dao.findRecordById("entities", eid), "name"); } catch (_) {}
+        }
+        results.push({
+          id: r.id,
+          status: safeStr(r, "status"),
+          requester_email: requesterEmail,
+          delivery_date: safeStr(r, "delivery_date"),
+          kit_serial: kitSerial,
+          target_entity_name: targetEntityName,
+          notes: safeStr(r, "notes")
+        });
+      }
+      return { requests: results };
+    } catch (err) {
+      return { error: "report_open_requests failed", detail: String(err && err.message ? err.message : err) };
+    }
+  }
+
+  function executeReportOverdueReturns(dao, args) {
+    try {
+      var nowDate = args.now ? String(args.now).slice(0, 10) : new Date().toISOString().slice(0, 10);
+      var overdueReqs = dao.findRecordsByFilter(
+        "requests",
+        "status = 'fulfilled' && expected_return != '' && expected_return < {:today}",
+        "-expected_return",
+        100,
+        0,
+        { today: nowDate }
+      );
+      var overdue = [];
+      for (var i = 0; i < overdueReqs.length; i++) {
+        var r = overdueReqs[i];
+        var expectedReturn = safeStr(r, "expected_return");
+        var kitSerial = "";
+        var currentEntityName = "";
+        var kid = safeStr(r, "designated_kit");
+        if (kid) {
+          try {
+            var kit = dao.findRecordById("kits", kid);
+            kitSerial = safeStr(kit, "serial");
+            var ce = kitCurrentEntity(dao, kit.id);
+            currentEntityName = ce.name;
+          } catch (_) {}
+        }
+        var requesterEmail = "";
+        var rid = safeStr(r, "requester");
+        if (rid) {
+          try { requesterEmail = safeStr(dao.findRecordById("users", rid), "email"); } catch (_) {}
+        }
+        var dueMs = new Date(expectedReturn).getTime();
+        var nowMs = new Date(nowDate).getTime();
+        var daysOverdue = isNaN(dueMs) ? 0 : Math.floor((nowMs - dueMs) / 86400000);
+        overdue.push({
+          kit_serial: kitSerial,
+          current_entity_name: currentEntityName,
+          expected_return: expectedReturn,
+          days_overdue: daysOverdue,
+          requester_email: requesterEmail
+        });
+      }
+      return { overdue: overdue };
+    } catch (err) {
+      return { error: "report_overdue_returns failed", detail: String(err && err.message ? err.message : err) };
+    }
+  }
+
+  function executeReportMaintenanceDue(dao, args) {
+    try {
+      var daysAhead = args.days_ahead ? parseInt(args.days_ahead, 10) : 7;
+      if (isNaN(daysAhead) || daysAhead < 0) daysAhead = 7;
+      var horizon = new Date();
+      horizon.setDate(horizon.getDate() + daysAhead);
+      var horizonStr = horizon.toISOString().slice(0, 10);
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var schedules = [];
+      try {
+        schedules = dao.findRecordsByFilter(
+          "kit_maintenance_schedules",
+          "is_active = true && next_due_at <= {:horizon}",
+          "next_due_at",
+          100,
+          0,
+          { horizon: horizonStr }
+        );
+      } catch (_) {
+        return { due: [], note: "kit_maintenance_schedules collection not available" };
+      }
+      var due = [];
+      for (var i = 0; i < schedules.length; i++) {
+        var s = schedules[i];
+        var kitSerial = "";
+        try {
+          var kit = dao.findRecordById("kits", safeStr(s, "kit"));
+          if (!kit || !kit.getBool("is_active")) continue;
+          kitSerial = safeStr(kit, "serial");
+        } catch (_) { continue; }
+        var nextDueAt = safeStr(s, "next_due_at");
+        var dueMs = new Date(nextDueAt).getTime();
+        var nowMs = new Date(todayStr).getTime();
+        var daysUntilDue = isNaN(dueMs) ? 0 : Math.floor((dueMs - nowMs) / 86400000);
+        due.push({
+          kit_serial: kitSerial,
+          kms_type: safeStr(s, "type"),
+          next_due_at: nextDueAt,
+          days_until_due: daysUntilDue,
+          notes: safeStr(s, "description")
+        });
+      }
+      return { due: due };
+    } catch (err) {
+      return { error: "report_maintenance_due failed", detail: String(err && err.message ? err.message : err) };
+    }
+  }
+
   function execute(toolName, args, dao, userId, userRole, originalPrompt) {
     try {
       if (toolName === "list_kits") return executeListKits(dao, args);
@@ -1694,6 +1960,11 @@ function getAiTools() {
       if (toolName === "update_entity") return executeUpdateEntity(dao, args, userId, userRole, originalPrompt);
       if (toolName === "update_kit") return executeUpdateKit(dao, args, userId, userRole, originalPrompt);
       if (toolName === "update_product") return executeUpdateProduct(dao, args, userId, userRole, originalPrompt);
+      if (toolName === "report_kits_by_entity") return executeReportKitsByEntity(dao);
+      if (toolName === "report_recent_activity") return executeReportRecentActivity(dao, args);
+      if (toolName === "report_open_requests") return executeReportOpenRequests(dao, args);
+      if (toolName === "report_overdue_returns") return executeReportOverdueReturns(dao, args);
+      if (toolName === "report_maintenance_due") return executeReportMaintenanceDue(dao, args);
       return { error: "unknown tool: " + toolName };
     } catch (err) {
       return { error: "tool execution error", detail: String(err && err.message ? err.message : err) };
