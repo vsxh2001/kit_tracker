@@ -562,6 +562,16 @@ export async function createTestUser(
   return res.json();
 }
 
+export async function setRole(userId: string, role: string): Promise<void> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/users/records/${userId}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) throw new Error(`setRole failed: ${res.status}`);
+}
+
 export async function deleteTestUser(id: string): Promise<void> {
   const token = await getAdminToken();
   await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
