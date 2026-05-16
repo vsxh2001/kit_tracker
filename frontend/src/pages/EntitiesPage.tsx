@@ -34,7 +34,7 @@ export function EntitiesPage() {
   async function load() {
     setLoading(true);
     try {
-      setEntities(await listEntities(true));
+      setEntities(await listEntities());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
