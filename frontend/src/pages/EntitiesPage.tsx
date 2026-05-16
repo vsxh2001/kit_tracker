@@ -6,7 +6,7 @@ import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { ImportEntitiesDialog } from "../components/ImportEntitiesDialog";
-import { listEntities, updateEntity, deleteEntity, exportEntitiesCsv } from "../services/entities";
+import { listEntities, updateEntity, exportEntitiesCsv } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
 import {
@@ -21,9 +21,6 @@ import {
 } from "../components/ui/alert-dialog";
 import type { Entity } from "../types";
 
-type ConfirmKind = "deactivate" | "delete";
-interface PendingConfirm { kind: ConfirmKind; entity: Entity; }
-
 export function EntitiesPage() {
   const navigate = useNavigate();
   const { canDecideRequests } = useAuth();
@@ -31,7 +28,7 @@ export function EntitiesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Entity | undefined>();
   const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState<PendingConfirm | null>(null);
+  const [pending, setPending] = useState<Entity | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   async function load() {
@@ -79,21 +76,16 @@ export function EntitiesPage() {
 
   async function confirmAction() {
     if (!pending) return;
-    const { kind, entity } = pending;
+    const entity = pending;
     setPending(null);
     try {
-      if (kind === "deactivate") {
-        await updateEntity(entity.id, { is_active: false });
-        toast({ title: "Entity deactivated", description: entity.name, variant: "success" });
-      } else {
-        await deleteEntity(entity.id);
-        toast({ title: "Entity deleted", description: entity.name, variant: "success" });
-      }
+      await updateEntity(entity.id, { is_active: false });
+      toast({ title: "Entity deactivated", description: entity.name, variant: "success" });
       load();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({
-        title: kind === "deactivate" ? "Failed to deactivate" : "Failed to delete",
+        title: "Failed to deactivate",
         description: err?.message,
         variant: "destructive",
       });
@@ -151,13 +143,10 @@ export function EntitiesPage() {
                     <div className="flex gap-2 mt-2" onClick={(ev) => ev.stopPropagation()}>
                       <Button variant="ghost" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => openEdit(e)}>Edit</Button>
                       {e.is_active && (
-                        <Button variant="ghost" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => setPending({ kind: "deactivate", entity: e })}>
+                        <Button variant="destructive" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => setPending(e)}>
                           Deactivate
                         </Button>
                       )}
-                      <Button variant="destructive" size="sm" className="min-h-[44px] md:min-h-0" onClick={() => setPending({ kind: "delete", entity: e })}>
-                        Delete
-                      </Button>
                     </div>
                   )}
                 </div>
@@ -193,13 +182,10 @@ export function EntitiesPage() {
                             <div className="flex gap-1 justify-end">
                               <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}>Edit</Button>
                               {e.is_active && (
-                                <Button variant="ghost" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "deactivate", entity: e }); }}>
+                                <Button variant="destructive" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending(e); }}>
                                   Deactivate
                                 </Button>
                               )}
-                              <Button variant="destructive" size="sm" onClick={(ev) => { ev.stopPropagation(); setPending({ kind: "delete", entity: e }); }}>
-                                Delete
-                              </Button>
                             </div>
                           </td>
                         )}
@@ -229,24 +215,15 @@ export function EntitiesPage() {
       <AlertDialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pending?.kind === "deactivate"
-                ? `Deactivate "${pending?.entity.name}"?`
-                : `Delete "${pending?.entity.name}"?`}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Deactivate "{pending?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pending?.kind === "deactivate"
-                ? "Inactive entities are hidden from new transactions but historical records remain."
-                : "This permanently removes the entity. Cannot be undone."}
+              Inactive entities are hidden from new transactions but historical records remain.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant={pending?.kind === "delete" ? "destructive" : "default"}
-              onClick={confirmAction}
-            >
-              {pending?.kind === "deactivate" ? "Deactivate" : "Delete"}
+            <AlertDialogAction variant="destructive" onClick={confirmAction}>
+              Deactivate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
