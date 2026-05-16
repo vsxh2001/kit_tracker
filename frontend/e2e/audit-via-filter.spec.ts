@@ -9,6 +9,36 @@ import { seedAuditRows } from "./helpers/api";
 
 const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:5173";
 
+test.describe("Audit log — CSV export @smoke", () => {
+  test.beforeAll(async () => {
+    await seedAuditRows([
+      { via: "web", action: "create", collection_name: "kits" },
+    ]);
+  });
+
+  test("Export CSV button triggers download with correct filename", async ({ page }) => {
+    // Login as admin
+    await page.goto(`${BASE_URL}/login`);
+    await page.getByLabel("Email").fill("logistics@kit.local");
+    await page.getByLabel("Password").fill("Pass1234!");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL(/\/(dashboard|$)/);
+
+    // Navigate to /audit
+    await page.goto(`${BASE_URL}/audit`);
+    await page.waitForLoadState("networkidle");
+
+    // Start waiting for download before clicking
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /export csv/i }).click();
+    const download = await downloadPromise;
+
+    // Filename matches audit-log-YYYY-MM-DD-HHMM.csv
+    const filename = download.suggestedFilename();
+    expect(filename).toMatch(/^audit-log-\d{4}-\d{2}-\d{2}-\d{4}\.csv$/);
+  });
+});
+
 test.describe("Audit log — via source filter @smoke", () => {
   test.beforeAll(async () => {
     await seedAuditRows([
