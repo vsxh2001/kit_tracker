@@ -17,7 +17,7 @@
 // Phase 2A additions:
 //   - Write tools: create_entity, create_kit, move_kit
 //   - Mode B: auto-execute when unambiguous, clarification_needed when fuzzy
-//   - Undo: 30s window via $app.store() key "ai_undo:<token>"
+//   - Undo: 60s window via $app.store() key "ai_undo:<token>"
 //   - Audit logging on every write
 //   - Permission check: only admin/technician can use write tools
 
@@ -134,7 +134,7 @@ function getAiTools() {
     },
     {
       name: "create_entity",
-      description: "Create a new entity (location/site). ALWAYS call this directly when the user asks to create an entity — do NOT call resolve_entity first. Returns the new entity record ID and an undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Create a new entity (location/site). ALWAYS call this directly when the user asks to create an entity — do NOT call resolve_entity first. Returns the new entity record ID and an undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -147,7 +147,7 @@ function getAiTools() {
     },
     {
       name: "create_kit",
-      description: "Create a new kit record. ALWAYS call this directly when the user asks to create a kit — do NOT call resolve_kit first. Duplicate serials are allowed. Returns the new kit record ID and an undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Create a new kit record. ALWAYS call this directly when the user asks to create a kit — do NOT call resolve_kit first. Duplicate serials are allowed. Returns the new kit record ID and an undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -184,7 +184,7 @@ function getAiTools() {
     },
     {
       name: "create_product",
-      description: "Create a new product catalog entry. ALWAYS call directly. Do NOT resolve_* first. Duplicate names allowed. Returns the new product record ID and an undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Create a new product catalog entry. ALWAYS call directly. Do NOT resolve_* first. Duplicate names allowed. Returns the new product record ID and an undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -201,7 +201,7 @@ function getAiTools() {
     },
     {
       name: "create_component",
-      description: "Create a new component record. Components MUST have a product — resolve_product or create_product first to get product_id. Serial required when is_bulk=false; quantity required when is_bulk=true. After creation the component is unplaced — call move_component to place it at a kit or entity. Returns undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Create a new component record. Components MUST have a product — resolve_product or create_product first to get product_id. Serial required when is_bulk=false; quantity required when is_bulk=true. After creation the component is unplaced — call move_component to place it at a kit or entity. Returns undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -216,7 +216,7 @@ function getAiTools() {
     },
     {
       name: "move_component",
-      description: "Move a component to a kit or entity by creating a component_transactions record. Exactly one of to_kit_id or to_entity_id required. For bulk components, quantity defaults to the full component quantity. Returns undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Move a component to a kit or entity by creating a component_transactions record. Exactly one of to_kit_id or to_entity_id required. For bulk components, quantity defaults to the full component quantity. Returns undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -231,7 +231,7 @@ function getAiTools() {
     },
     {
       name: "decide_request",
-      description: "Approve or reject a kit request. Updates the request status to 'approved' or 'rejected'. Does NOT fulfill the request — fulfillment (creating the transaction + kit move) is a separate step. Returns undo_token valid for 30s (undo reverts status to 'open'). Only admin/technician can call this.",
+      description: "Approve or reject a kit request. Updates the request status to 'approved' or 'rejected'. Does NOT fulfill the request — fulfillment (creating the transaction + kit move) is a separate step. Returns undo_token valid for 60s (undo reverts status to 'open'). Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -244,7 +244,7 @@ function getAiTools() {
     },
     {
       name: "link_component_to_product",
-      description: "Re-assigns a component to a different product. Use when a component was linked to the wrong product or to migrate Legacy:* products into proper catalog entries. Returns undo_token valid for 30s (undo reverts to previous product). Only admin/technician can call this.",
+      description: "Re-assigns a component to a different product. Use when a component was linked to the wrong product or to migrate Legacy:* products into proper catalog entries. Returns undo_token valid for 60s (undo reverts to previous product). Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -256,7 +256,7 @@ function getAiTools() {
     },
     {
       name: "update_entity",
-      description: "Update fields on an existing entity. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Returns undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Update fields on an existing entity. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Returns undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -271,7 +271,7 @@ function getAiTools() {
     },
     {
       name: "update_kit",
-      description: "Update fields on an existing kit. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Returns undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Update fields on an existing kit. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Returns undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -286,7 +286,7 @@ function getAiTools() {
     },
     {
       name: "update_product",
-      description: "Update fields on an existing product. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Returns undo_token valid for 30s. Only admin/technician can call this.",
+      description: "Update fields on an existing product. Only specified fields are changed. Use for renaming, soft-deleting (is_active=false), reactivating (is_active=true), or fixing typos. Returns undo_token valid for 60s. Only admin/technician can call this.",
       input_schema: {
         type: "object",
         properties: {
@@ -861,7 +861,7 @@ function getAiTools() {
         result_record_id: record.id,
         collection: "entities",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId
       }));
 
@@ -914,7 +914,7 @@ function getAiTools() {
         result_record_id: record.id,
         collection: "kits",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId
       }));
 
@@ -1007,7 +1007,7 @@ function getAiTools() {
         result_record_id: txRecord.id,
         collection: "transactions",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         // For undo: create reverse transaction
         reverse: {
@@ -1121,7 +1121,7 @@ function getAiTools() {
         result_record_id: record.id,
         collection: "products",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId
       }));
 
@@ -1194,7 +1194,7 @@ function getAiTools() {
         result_record_id: record.id,
         collection: "components",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId
       }));
 
@@ -1306,7 +1306,7 @@ function getAiTools() {
         result_record_id: txRecord.id,
         collection: "component_transactions",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         reverse: {
           componentId: componentId,
@@ -1392,7 +1392,7 @@ function getAiTools() {
         result_record_id: requestId,
         collection: "requests",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         prev_status: prevStatus
       }));
@@ -1460,7 +1460,7 @@ function getAiTools() {
         result_record_id: componentId,
         collection: "components",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         prev_product_id: prevProductId
       }));
@@ -1551,7 +1551,7 @@ function getAiTools() {
         result_record_id: id,
         collection: "entities",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         restore: before
       }));
@@ -1639,7 +1639,7 @@ function getAiTools() {
         result_record_id: id,
         collection: "kits",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         restore: before
       }));
@@ -1721,7 +1721,7 @@ function getAiTools() {
         result_record_id: id,
         collection: "products",
         executed_at: Date.now(),
-        ttl_at: Date.now() + 30000,
+        ttl_at: Date.now() + 60000,
         actor: userId,
         restore: before
       }));
@@ -2156,7 +2156,7 @@ function getAiTools() {
       "   resolve_entity / resolve_kit / resolve_product to get the id, then call update_*.\n" +
       "5. NEVER claim success without calling the tool. Every ID in your reply must come\n" +
       "   from a tool_result. If you did not call a write tool, do not say 'created' or 'moved'.\n" +
-      "Every write tool execution is logged and reversible within 30s via Undo.\n" +
+      "Every write tool execution is logged and reversible within 60s via Undo.\n" +
       "If a write tool returns permission_denied, politely explain the user does not have permission."
     );
 
@@ -2390,7 +2390,7 @@ function getAiTools() {
   }
 });
 
-// POST /api/ai/undo — reverse a write tool action within the 30s window
+// POST /api/ai/undo — reverse a write tool action within the 60s window
 routerAdd("POST", "/api/ai/undo", function(c) {
   try {
     var info = $apis.requestInfo(c);
@@ -2421,7 +2421,7 @@ routerAdd("POST", "/api/ai/undo", function(c) {
 
     if (Date.now() > undoData.ttl_at) {
       $app.store().remove(undoKey);
-      return c.json(400, { error: "expired", detail: "Undo window has passed (30s)" });
+      return c.json(400, { error: "expired", detail: "Undo window has passed (60s)" });
     }
 
     // Consume the token immediately (prevent double-undo)
