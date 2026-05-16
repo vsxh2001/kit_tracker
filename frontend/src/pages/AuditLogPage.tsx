@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { ScrollText } from "lucide-react";
+import { ScrollText, Download } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import {
@@ -16,7 +16,8 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { EmptyState } from "../components/EmptyState";
-import { listAuditLog } from "../services/audit";
+import { Button } from "../components/ui/button";
+import { listAuditLog, exportAuditLogCsv } from "../services/audit";
 import { formatDate } from "../lib/utils";
 import { cn } from "../lib/utils";
 import type { AuditLog, AuditVia } from "../types";
@@ -168,6 +169,17 @@ export function AuditLogPage() {
               <SelectItem value="mcp">MCP</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground font-medium">&nbsp;</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportAuditLogCsv(filtered)}
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Export CSV
+          </Button>
         </div>
       </div>
 
