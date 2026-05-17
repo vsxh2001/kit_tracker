@@ -371,13 +371,15 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // Cache seen SIDs for 1h. If already processed, ack 200 silently.
   if (msgSid) {
     var seenKey = "wa_seen:" + msgSid;
-    var alreadySeen = false;
-    try { alreadySeen = !!$app.store().get(seenKey); } catch (e) {}
-    if (alreadySeen) {
+    var ttlMs = 24 * 60 * 60 * 1000; // 24h — well beyond Twilio retry window
+    var now = Date.now();
+    var existing = null;
+    try { existing = $app.store().get(seenKey); } catch (e) {}
+    if (existing && existing.expires > now) {
       console.log("[wa_inbound] duplicate MessageSid " + msgSid + " — skipping");
       return c.string(200, "");
     }
-    try { $app.store().set(seenKey, String(Date.now() + 3600000)); } catch (e) {}
+    try { $app.store().set(seenKey, { expires: now + ttlMs }); } catch (e) {}
   }
 
   // Strip "whatsapp:" prefix
@@ -448,6 +450,16 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // (e.g. the directExec transaction below) receive "wa-bot".
   try { c.set("audit_via", "wa-bot"); } catch (_) {}
 
+  // T32 role gate: only admin or technician may perform write operations via WA.
+  // $app.dao().saveRecord() does NOT enforce PB collection rules, so this must
+  // be checked explicitly before any directExec path.
+  function isWriteAuthorized(userRec) {
+    try {
+      var r = userRec && userRec.get && userRec.get("role");
+      return r === "admin" || r === "technician";
+    } catch (_) { return false; }
+  }
+
   // =====================================================================
   // ENHANCEMENT 1 — Confirmation flow
   // =====================================================================
@@ -479,6 +491,13 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
     if (bodyTrimmed.toLowerCase() === "yes") {
       // Confirmed — check for direct-exec shortcut first
       if (pending.directExec) {
+        // T32: defense-in-depth role gate. $app.dao().saveRecord() bypasses PB
+        // collection rules, so we must enforce admin/technician here as well.
+        if (!isWriteAuthorized(user)) {
+          try { $app.store().remove(pendingKey); } catch (_) {}
+          console.log("[wa_inbound] directExec refused — role=" + (user && user.get ? user.get("role") : "unknown"));
+          return replyViaTwilio(phone, "Permission lost — only admins or technicians can move kits.");
+        }
         // Direct-execution path — bypass AI. Invoke move_kit logic directly.
         console.log("[wa_inbound] YES received — direct-exec: " + JSON.stringify(pending.directExec));
         try { $app.store().remove(pendingKey); } catch (e) {}
@@ -523,6 +542,27 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
             created_by: user.id
           });
           $app.dao().saveRecord(txRec);
+          // T13: explicit audit_log row — $app.dao().saveRecord() bypasses
+          // onRecordAfterCreate hooks, so ai_chat's hook-based audit writer
+          // never fires for this path. Write the row directly here so that
+          // admin filter "via=wa-bot" works as advertised.
+          try {
+            var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+            var auditRec = new Record(auditCol);
+            auditRec.set("collection_name", "transactions");
+            auditRec.set("record_id", txRec.id);
+            auditRec.set("actor", user.id);
+            auditRec.set("action", "create");
+            auditRec.set("changes", JSON.stringify({
+              via: "wa-bot",
+              tool: "move_kit",
+              original_prompt: "return " + deArgs.kit_serial
+            }));
+            $app.dao().saveRecord(auditRec);
+            console.log("[wa_inbound] audit_log written for tx=" + txRec.id + " via=wa-bot");
+          } catch (auditErr) {
+            console.log("[wa_inbound] audit_log write error: " + auditErr);
+          }
         } catch (e) {
           console.log("[wa_inbound] direct-exec saveRecord error: " + e);
           return replyViaTwilio(phone, "Failed to record return: " + String(e && e.message ? e.message : e));
@@ -603,6 +643,11 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   var returnMatch = body.trim().match(/^(?:return|send\s+back)\s+(\S+)\s*$/i)
                  || body.trim().match(/^(\S+)\s+is\s+back\s*$/i);
   if (returnMatch) {
+    // T32: role gate — only admin/technician may use RETURN shortcut.
+    if (!isWriteAuthorized(user)) {
+      console.log("[wa_inbound] RETURN refused — role=" + (user && user.get ? user.get("role") : "unknown"));
+      return replyViaTwilio(phone, "Only admins or technicians can move kits via WhatsApp.");
+    }
     var serial = returnMatch[1];
     var warehouseId = $os.getenv("DEFAULT_WAREHOUSE_ENTITY_ID") || "";
     if (!warehouseId) {

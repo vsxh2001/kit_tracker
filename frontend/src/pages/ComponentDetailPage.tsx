@@ -155,8 +155,8 @@ export function ComponentDetailPage() {
           <CardContent className="space-y-0 text-sm pt-0">
             <Row label="Serial" value={component.serial || "—"} mono />
             <Row label="Notes" value={component.notes || "—"} />
-            {component.quantity != null && (
-              <Row label="Quantity" value={String(component.quantity)} />
+            {component.is_bulk && (
+              <Row label="Quantity" value={component.quantity != null ? String(component.quantity) : "—"} />
             )}
             <Row label="Bulk" value={component.is_bulk ? "Yes" : "No"} />
             {latest && <Row label="Current location" value={locationLabel(latest)} />}

@@ -32,7 +32,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
   const [kits, setKits] = useState<Kit[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
   const [targetId, setTargetId] = useState("");
-  const [qty, setQty] = useState(String(component.quantity));
+  const [qty, setQty] = useState(String(component.quantity ?? 1));
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +42,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
       startTransition(() => {
         setTargetType("kit");
         setTargetId("");
-        setQty(String(component.quantity));
+        setQty(String(component.quantity ?? 1));
         setNotes("");
         setError("");
       });
@@ -58,7 +58,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
     setLoading(true);
     try {
       const moveQty = parseInt(qty, 10) || 1;
-      const isFullMove = !component.is_bulk || moveQty >= component.quantity;
+      const isFullMove = !component.is_bulk || moveQty >= (component.quantity ?? 1);
 
       if (!isFullMove) {
         // Split and move
@@ -141,16 +141,16 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
           {/* Quantity (for bulk) */}
           {component.is_bulk && (
             <div className="space-y-1.5">
-              <Label htmlFor="move-qty">Quantity (max {component.quantity})</Label>
+              <Label htmlFor="move-qty">Quantity (max {component.quantity ?? "?"})</Label>
               <Input
                 id="move-qty"
                 type="number"
                 min={1}
-                max={component.quantity}
+                max={component.quantity ?? undefined}
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
               />
-              {parseInt(qty, 10) < component.quantity && (
+              {parseInt(qty, 10) < (component.quantity ?? 1) && (
                 <p className="text-xs text-muted-foreground">
                   Will split bulk — a new component record will be created for the moved quantity.
                 </p>
