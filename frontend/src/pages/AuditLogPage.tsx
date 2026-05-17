@@ -95,7 +95,7 @@ export function AuditLogPage() {
   const [loading, setLoading] = useState(true);
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>("All");
   const [actionFilter, setActionFilter] = useState<ActionFilter>("All");
-  const [viaFilter, setViaFilter] = useState<string>("");
+  const [viaFilter, setViaFilter] = useState<string>("all");
   const [selected, setSelected] = useState<AuditLog | null>(null);
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export function AuditLogPage() {
 
   const filtered = entries.filter((e) => {
     if (actionFilter !== "All" && e.action !== actionFilter) return false;
-    if (viaFilter !== "" && parseVia(e.changes) !== viaFilter) return false;
+    if (viaFilter !== "all" && parseVia(e.changes) !== viaFilter) return false;
     return true;
   });
 
@@ -161,7 +161,7 @@ export function AuditLogPage() {
               <SelectValue placeholder="All sources" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All sources</SelectItem>
+              <SelectItem value="all">All sources</SelectItem>
               <SelectItem value="web">Web</SelectItem>
               <SelectItem value="wa-bot">WhatsApp</SelectItem>
               <SelectItem value="ai-agent">AI chat</SelectItem>
