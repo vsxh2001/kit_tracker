@@ -54,7 +54,7 @@ const TS = `comp-${Date.now()}`;
 
 // Wait for the components page list/table to finish loading.
 async function waitForComponentsPage(page: Page) {
-  await expect(page.getByRole("heading", { name: "Components" })).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole("heading", { name: "Components", exact: true })).toBeVisible({ timeout: 8000 });
   // Wait for skeletons to disappear — loading=false.
   await expect(page.locator(".animate-pulse").first()).not.toBeVisible({ timeout: 8000 });
   // React StrictMode double-mount causes first load to abort (rows=[]) then second load completes.
