@@ -371,13 +371,15 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // Cache seen SIDs for 1h. If already processed, ack 200 silently.
   if (msgSid) {
     var seenKey = "wa_seen:" + msgSid;
-    var alreadySeen = false;
-    try { alreadySeen = !!$app.store().get(seenKey); } catch (e) {}
-    if (alreadySeen) {
+    var ttlMs = 24 * 60 * 60 * 1000; // 24h — well beyond Twilio retry window
+    var now = Date.now();
+    var existing = null;
+    try { existing = $app.store().get(seenKey); } catch (e) {}
+    if (existing && existing.expires > now) {
       console.log("[wa_inbound] duplicate MessageSid " + msgSid + " — skipping");
       return c.string(200, "");
     }
-    try { $app.store().set(seenKey, String(Date.now() + 3600000)); } catch (e) {}
+    try { $app.store().set(seenKey, { expires: now + ttlMs }); } catch (e) {}
   }
 
   // Strip "whatsapp:" prefix
