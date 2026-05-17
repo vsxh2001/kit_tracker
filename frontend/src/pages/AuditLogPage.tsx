@@ -24,7 +24,17 @@ import type { AuditLog, AuditVia } from "../types";
 const COLLECTIONS = ["All", "kits", "entities", "users"] as const;
 type CollectionFilter = (typeof COLLECTIONS)[number];
 
-const ACTIONS = ["All", "create", "update"] as const;
+const ACTIONS = [
+  "All",
+  "create",
+  "update",
+  "delete",
+  "cascade_delete",
+  "cascade_partial",
+  "create_failed",
+  "update_failed",
+  "frontend_error",
+] as const;
 type ActionFilter = (typeof ACTIONS)[number];
 
 const VIA_LABELS: Record<AuditVia, string> = {

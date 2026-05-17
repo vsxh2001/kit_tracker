@@ -1,4 +1,5 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { pb } from "../lib/pocketbase";
 
 interface Props { children: ReactNode; }
 interface State { error: Error | null; }
@@ -8,6 +9,28 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(error, info);
+    if (!pb.authStore.token) return;
+    const changes = JSON.stringify({
+      message: error.message,
+      stack: error.stack?.slice(0, 2000),
+      componentStack: info.componentStack?.slice(0, 2000),
+      url: window.location.href,
+      ua: navigator.userAgent,
+      via: "web",
+    });
+    pb.collection("audit_log")
+      .create({
+        collection_name: "frontend",
+        record_id: "",
+        actor: pb.authStore.model?.id ?? "",
+        action: "frontend_error",
+        changes,
+      }, { requestKey: null })
+      .catch(() => {/* never throw from componentDidCatch */});
   }
 
   render() {
