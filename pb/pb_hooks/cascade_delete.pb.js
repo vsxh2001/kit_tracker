@@ -111,7 +111,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       var ctFromRows = dao.findRecordsByFilter(
         "component_transactions",
         "from_entity = {:eid} || to_entity = {:eid}",
-        "", 10, 0, { eid: recordId }
+        "", 0, 0, { eid: recordId }
       );
       if (ctFromRows.length > 0) {
         blocked = true;
@@ -364,7 +364,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       var ctFromRows2 = dao.findRecordsByFilter(
         "component_transactions",
         "from_entity = {:eid} || to_entity = {:eid}",
-        "", 10, 0, { eid: recordId }
+        "", 0, 0, { eid: recordId }
       );
       if (ctFromRows2.length > 0) {
         blocked2 = true;

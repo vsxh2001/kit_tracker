@@ -1,6 +1,7 @@
 import Papa from "papaparse";
 import { pb } from "../lib/pocketbase";
 import type { Kit, KitRequest, Transaction } from "../types";
+import { getTransactionVia } from "./transactions";
 
 export function parseTags(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -79,6 +80,58 @@ export async function getKitHistory(kitId: string) {
     expand: "from_entity,to_entity,created_by",
     requestKey: `kit-history-${kitId}`,
   });
+}
+
+function csvEscape(value: string): string {
+  const s = value ?? "";
+  // RFC4180: quote if contains comma, double-quote, or newline; double internal quotes
+  if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function buildCsvRow(cells: string[]): string {
+  return cells.map(csvEscape).join(",");
+}
+
+export async function exportKitTimelineCsv(kitId: string, kitSerial: string): Promise<void> {
+  // Bulk-fetch all transactions with expanded relations
+  const transactions = await pb.collection("transactions").getFullList<Transaction>({
+    filter: pb.filter("kit = {:kit}", { kit: kitId }),
+    sort: "-timestamp,-created",
+    expand: "from_entity,to_entity,created_by,request",
+    requestKey: `export-kit-timeline-${kitId}`,
+  });
+
+  // Bulk-fetch via tags from audit_log in one query
+  const txIds = transactions.map((tx) => tx.id);
+  const viaMap = await getTransactionVia(txIds);
+
+  const header = buildCsvRow(["Timestamp", "From", "To", "By", "Via", "Notes", "Request"]);
+  const rows = transactions.map((tx) => {
+    const from = tx.expand?.from_entity?.name ?? "";
+    const to = tx.expand?.to_entity?.name ?? "";
+    const by =
+      tx.expand?.created_by?.name ??
+      tx.expand?.created_by?.email ??
+      "";
+    const via = viaMap[tx.id] ?? "";
+    const notes = tx.notes ?? "";
+    const request = tx.expand?.request?.id ?? tx.request ?? "";
+    return buildCsvRow([tx.timestamp, from, to, by, via, notes, request]);
+  });
+
+  const csv = [header, ...rows].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${kitSerial}-timeline.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export async function exportKitsCsv(): Promise<string> {
