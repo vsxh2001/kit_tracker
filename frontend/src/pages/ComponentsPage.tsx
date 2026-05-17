@@ -219,12 +219,13 @@ export function ComponentsPage() {
 
   useEffect(() => { startTransition(() => load()); }, []);
 
-  // Distinct products from dataset
+  // Distinct active products from dataset — product filter is always active-only
+  // regardless of the "show inactive components" toggle
   const allProducts = Array.from(
     new Map(
       rows
         .map(({ component }) => component.expand?.product)
-        .filter((p): p is NonNullable<typeof p> => Boolean(p))
+        .filter((p): p is NonNullable<typeof p> => p != null && p.is_active)
         .map((p) => [p.id, p])
     ).values()
   ).sort((a, b) => a.name.localeCompare(b.name));
