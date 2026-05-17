@@ -28,11 +28,9 @@ test.describe("Audit log — via source filter @smoke", () => {
 
     // Navigate to /audit
     await page.goto(`${BASE_URL}/audit`);
-    await page.waitForLoadState("networkidle");
-
     // All 3 seeded rows should be present (table may have more rows from other tests)
     const rows = page.locator("table tbody tr");
-    await expect(rows.first()).toBeVisible();
+    await expect(rows.first()).toBeVisible({ timeout: 10_000 });
 
     // Find rows containing "Web", "WhatsApp", "MCP" in the Source column
     const webRow = rows.filter({ hasText: "Web" });
