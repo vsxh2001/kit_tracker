@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Pencil, ArrowRight, Wrench, Plus } from "lucide-react";
+import { ArrowLeft, Pencil, ArrowRight, Wrench, Plus, Download } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -13,7 +13,7 @@ import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { KitQR } from "../components/KitQR";
 import { KitCalendar } from "../components/KitCalendar";
-import { getKit, getKitHistory, softDeleteKit, uploadKitAttachment, deleteKitAttachment } from "../services/kits";
+import { getKit, getKitHistory, softDeleteKit, uploadKitAttachment, deleteKitAttachment, exportKitTimelineCsv } from "../services/kits";
 import { AttachmentList } from "../components/AttachmentList";
 import { listComponentsInKit } from "../services/componentTransactions";
 import { listSchedulesForKit, updateSchedule } from "../services/maintenance";
@@ -145,32 +145,34 @@ export function KitDetailPage() {
           </CardContent>
         </Card>
 
-        {canTransferKits && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2 pt-0">
-              {canTransferKits && (
-                <Button size="sm" onClick={() => setShowMove(true)}>
-                  <ArrowRight className="h-4 w-4" />
-                  Move kit
-                </Button>
-              )}
-              {canDecideRequests && (
-                <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Button>
-              )}
-              {isAdmin && (
-                <Button size="sm" variant="destructive" onClick={() => setShowDelete(true)}>
-                  Deactivate
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2 pt-0">
+            {canTransferKits && (
+              <Button size="sm" onClick={() => setShowMove(true)}>
+                <ArrowRight className="h-4 w-4" />
+                Move kit
+              </Button>
+            )}
+            {canDecideRequests && (
+              <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => exportKitTimelineCsv(kit.id, kit.serial)}>
+              <Download className="h-4 w-4" />
+              Export timeline
+            </Button>
+            {isAdmin && (
+              <Button size="sm" variant="destructive" onClick={() => setShowDelete(true)}>
+                Deactivate
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Location history timeline */}

@@ -279,7 +279,7 @@ export function ComponentsPage() {
   });
 
   const serializedRows = sortedFiltered.filter(
-    ({ component }) => component.expand?.product?.is_serialized === true
+    ({ component }) => component.expand?.product?.is_serialized !== false
   );
   const bulkRows = sortedFiltered.filter(
     ({ component }) => component.expand?.product?.is_serialized === false
