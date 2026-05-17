@@ -27,7 +27,7 @@ import { toast } from "../components/ui/use-toast";
 const COLLECTIONS = ["All", "kits", "entities", "users", "requests", "transactions", "components", "products", "on_call_shifts", "kit_maintenance_schedules", "maintenance_records"] as const;
 type CollectionFilter = (typeof COLLECTIONS)[number];
 
-const ACTIONS = ["All", "create", "update", "delete", "cascade_delete", "cascade_partial", "create_failed", "update_failed"] as const;
+const ACTIONS = ["All", "create", "update", "delete", "cascade_delete", "cascade_partial", "create_failed", "update_failed", "frontend_error"] as const;
 type ActionFilter = (typeof ACTIONS)[number];
 
 const VIA_LABELS: Record<AuditVia, string> = {
