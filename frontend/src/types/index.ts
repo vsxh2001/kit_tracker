@@ -106,7 +106,7 @@ export interface Component {
   notes: string;
   is_active: boolean;
   is_bulk: boolean;
-  quantity: number;
+  quantity: number | null;
   product: string; // relation id, now required
   created: string;
   updated: string;
