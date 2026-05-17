@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { login, loginWithGoogle } from "../services/auth";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -8,6 +8,8 @@ import { Box } from "lucide-react";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const deniedReason = searchParams.get("reason") === "denied";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -132,6 +134,18 @@ export function LoginPage() {
               <div className="flex-1 h-px" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
             </div>
           </div>
+
+          {deniedReason && (
+            <div className="rounded-md px-3 py-2.5 text-sm text-amber-800 flex items-center gap-2 mb-5"
+              style={{ backgroundColor: "rgba(251, 191, 36, 0.18)", border: "1px solid rgba(251, 191, 36, 0.4)" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0" aria-hidden="true">
+                <circle cx="7" cy="7" r="6.5" stroke="currentColor"/>
+                <path d="M7 4.5V7.5" stroke="currentColor" strokeLinecap="round"/>
+                <circle cx="7" cy="9.5" r="0.5" fill="currentColor"/>
+              </svg>
+              Your account access was revoked. Contact administrator.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">

@@ -111,13 +111,14 @@ export async function getKitBySerial(serial: string): Promise<{ id: string; seri
 export async function createTestEntity(
   name: string,
   description = "",
-  type = "storage"
+  type = "storage",
+  category: "storage" | "field" = "storage"
 ): Promise<{ id: string; name: string }> {
   const token = await getAdminToken();
   const res = await fetch(`${PB_URL}/api/collections/entities/records`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
-    body: JSON.stringify({ name, description, type, is_active: true }),
+    body: JSON.stringify({ name, description, type, category, is_active: true }),
   });
   if (!res.ok) {
     const body = await res.json();
@@ -334,9 +335,10 @@ export async function createTestComponent(opts: {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: `Test Product: ${type}`,
+        name: `Test Product: ${type} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         category: type,
         is_active: true,
+        is_serialized: !isBulk,
       }),
     });
     if (!prodRes.ok) {
@@ -561,6 +563,16 @@ export async function createTestUser(
   return res.json();
 }
 
+export async function setRole(userId: string, role: string): Promise<void> {
+  const token = await getAdminToken();
+  const res = await fetch(`${PB_URL}/api/collections/users/records/${userId}`, {
+    method: "PATCH",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) throw new Error(`setRole failed: ${res.status}`);
+}
+
 export async function deleteTestUser(id: string): Promise<void> {
   const token = await getAdminToken();
   await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
@@ -601,6 +613,7 @@ export interface ProductRecord {
   model?: string;
   description?: string;
   specs?: string;
+  is_serialized?: boolean;
   is_active: boolean;
 }
 
@@ -611,12 +624,13 @@ export async function createTestProduct(data: {
   model?: string;
   description?: string;
   specs?: string;
+  is_serialized?: boolean;
 }): Promise<ProductRecord> {
   const token = await getAdminToken();
   const res = await fetch(`${PB_URL}/api/collections/products/records`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
-    body: JSON.stringify({ ...data, is_active: true }),
+    body: JSON.stringify({ is_serialized: true, ...data, is_active: true }),
   });
   if (!res.ok) {
     const body = await res.json();
@@ -654,5 +668,27 @@ export async function linkComponentToProduct(componentId: string, productId: str
   if (!res.ok) {
     const body = await res.json();
     throw new Error(`linkComponentToProduct failed: ${JSON.stringify(body)}`);
+  }
+}
+
+export async function seedAuditRows(rows: Array<{ via: string; action?: string; collection_name?: string }>): Promise<void> {
+  const token = await getAdminToken();
+  const actorId = await getAdminUserId();
+  for (const r of rows) {
+    const res = await fetch(`${PB_URL}/api/collections/audit_log/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collection_name: r.collection_name ?? "kits",
+        record_id: "test-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+        actor: actorId,
+        action: r.action ?? "create",
+        changes: JSON.stringify({ via: r.via, after: { test: true } }),
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json();
+      throw new Error(`seedAuditRows failed: ${JSON.stringify(body)}`);
+    }
   }
 }

@@ -11,7 +11,7 @@
  *
  * Phase 2A additions:
  *   - tool_result card rendered when write tool succeeds
- *   - Undo button visible for 30s, hidden after timer
+ *   - Undo button visible for 60s, hidden after timer
  *   - Undo button calls POST /api/ai/undo
  *   - clarification_needed renders choice buttons
  *   - Clicking choice button sends follow-up message

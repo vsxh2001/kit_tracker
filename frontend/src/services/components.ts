@@ -4,12 +4,13 @@ import type { Component } from "../types";
 export async function listComponents(opts?: { activeOnly?: boolean; requestKey?: string }): Promise<Component[]> {
   const filters: string[] = [];
   if (opts?.activeOnly) filters.push("is_active = true");
-  return pb.collection("components").getFullList<Component>({
+  const params: Record<string, unknown> = {
     sort: "serial",
-    filter: filters.join(" && ") || undefined,
     expand: "product",
     requestKey: opts?.requestKey ?? "list-components",
-  });
+  };
+  if (filters.length) params.filter = filters.join(" && ");
+  return pb.collection("components").getFullList<Component>(params);
 }
 
 export async function getComponent(id: string): Promise<Component> {
