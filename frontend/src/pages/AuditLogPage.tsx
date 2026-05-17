@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { ScrollText } from "lucide-react";
+import { ScrollText, Download, Loader2 } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import {
@@ -16,10 +16,13 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { EmptyState } from "../components/EmptyState";
-import { listAuditLog } from "../services/audit";
+import { Button } from "../components/ui/button";
+import { listAuditLog, exportAuditLogCsv } from "../services/audit";
+import { pb } from "../lib/pocketbase";
 import { formatDate } from "../lib/utils";
 import { cn } from "../lib/utils";
 import type { AuditLog, AuditVia } from "../types";
+import { toast } from "../components/ui/use-toast";
 
 const COLLECTIONS = ["All", "kits", "entities", "users"] as const;
 type CollectionFilter = (typeof COLLECTIONS)[number];
@@ -103,6 +106,7 @@ function ChipGroup<T extends string>({
 export function AuditLogPage() {
   const [entries, setEntries] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>("All");
   const [actionFilter, setActionFilter] = useState<ActionFilter>("All");
   const [viaFilter, setViaFilter] = useState<string>("all");
@@ -119,6 +123,23 @@ export function AuditLogPage() {
         .finally(() => setLoading(false));
     });
   }, [collectionFilter]);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const allRows = await pb.collection("audit_log").getFullList({ sort: "-created", requestKey: "audit-export-all" });
+      const filteredAll = viaFilter !== "all"
+        ? allRows.filter((r) => {
+            try { return JSON.parse((r as unknown as AuditLog).changes)?.via === viaFilter; } catch { return false; }
+          })
+        : allRows;
+      exportAuditLogCsv(filteredAll as unknown as AuditLog[]);
+    } catch (err) {
+      toast({ title: "Export failed", description: String(err), variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const filtered = entries.filter((e) => {
     if (actionFilter !== "All" && e.action !== actionFilter) return false;
@@ -178,6 +199,20 @@ export function AuditLogPage() {
               <SelectItem value="mcp">MCP</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground font-medium">&nbsp;</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting
+              ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              : <Download className="h-4 w-4 mr-1.5" />}
+            Export CSV
+          </Button>
         </div>
       </div>
 
