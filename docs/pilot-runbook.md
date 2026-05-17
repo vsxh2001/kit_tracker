@@ -47,13 +47,13 @@ flyctl secrets set --app kit-tracker-<pilot-name> \
   ANTHROPIC_API_KEY=<key> \
   TWILIO_ACCOUNT_SID=<from-twilio-console> \
   TWILIO_AUTH_TOKEN=<from-twilio-console> \
-  TWILIO_AUTH_BASIC=<base64 of "SID:AUTH_TOKEN"> \
+  TWILIO_BASIC_AUTH=<base64 of "SID:AUTH_TOKEN"> \
   DEFAULT_WAREHOUSE_ENTITY_ID=placeholder
 ```
 
 > `DEFAULT_WAREHOUSE_ENTITY_ID` must be set before the first deploy (placeholder is fine); update it with the real ID after seeding (step 4 or 5).
 
-To compute `TWILIO_AUTH_BASIC`:
+To compute `TWILIO_BASIC_AUTH`:
 ```bash
 echo -n "<SID>:<AUTH_TOKEN>" | base64
 ```
