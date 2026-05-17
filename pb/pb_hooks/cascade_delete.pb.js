@@ -28,7 +28,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
   var recordId   = (body.record_id  || "").toString();
 
   // Whitelist
-  var allowed = { kits: true, entities: true, components: true, transactions: true };
+  var allowed = { kits: true, entities: true, components: true, transactions: true, products: true };
   if (!allowed[collection]) {
     return c.json(400, { error: "invalid_collection" });
   }
@@ -58,6 +58,9 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       identifierField = "id";
       identifierValue = record.id;
     }
+  } else if (collection === "products") {
+    identifierField = "name";
+    identifierValue = record.getString("name");
   } else {
     // transactions
     identifierField = "id";
@@ -223,6 +226,36 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
     });
   }
 
+  // ---- products: compute cascade counts ----
+  if (collection === "products") {
+    var prodCounts = { products: 1, components: 0, component_transactions: 0 };
+    try {
+      var prodComps = dao.findRecordsByFilter(
+        "components", "product = {:pid}", "", 0, 0, { pid: recordId }
+      );
+      prodCounts.components = prodComps.length;
+
+      for (var pci = 0; pci < prodComps.length; pci++) {
+        try {
+          var pctRows = dao.findRecordsByFilter(
+            "component_transactions", "component = {:cid}", "", 0, 0, { cid: prodComps[pci].id }
+          );
+          prodCounts.component_transactions += pctRows.length;
+        } catch(_) {}
+      }
+    } catch(_) {}
+
+    return c.json(200, {
+      collection:       collection,
+      record_id:        recordId,
+      identifier_field: identifierField,
+      identifier_value: identifierValue,
+      blocked:          false,
+      blockers:         [],
+      counts:           prodCounts
+    });
+  }
+
   // ---- transactions: single row ----
   return c.json(200, {
     collection:       collection,
@@ -257,7 +290,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
   var confirmText = (body.confirm_text || "").toString();
 
   // Whitelist
-  var allowed = { kits: true, entities: true, components: true, transactions: true };
+  var allowed = { kits: true, entities: true, components: true, transactions: true, products: true };
   if (!allowed[collection]) {
     return c.json(400, { error: "invalid_collection" });
   }
@@ -279,6 +312,8 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
   } else if (collection === "components") {
     var compSerial2 = record.getString("serial");
     expectedConfirm = compSerial2 ? compSerial2 : record.id;
+  } else if (collection === "products") {
+    expectedConfirm = record.getString("name");
   } else {
     expectedConfirm = record.id;
   }
@@ -426,6 +461,22 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       );
       predictedCounts.component_transactions = compTxns.length;
     } catch(_) {}
+  } else if (collection === "products") {
+    predictedCounts = { products: 1, components: 0, component_transactions: 0 };
+    try {
+      var predProdComps = dao.findRecordsByFilter(
+        "components", "product = {:pid}", "", 0, 0, { pid: recordId }
+      );
+      predictedCounts.components = predProdComps.length;
+      for (var ppc = 0; ppc < predProdComps.length; ppc++) {
+        try {
+          var ppct = dao.findRecordsByFilter(
+            "component_transactions", "component = {:cid}", "", 0, 0, { cid: predProdComps[ppc].id }
+          );
+          predictedCounts.component_transactions += ppct.length;
+        } catch(_) {}
+      }
+    } catch(_) {}
   } else {
     predictedCounts = { transactions: 1 };
   }
@@ -544,6 +595,39 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     // (b) component itself
     try { dao.deleteRecord(record); deleted.components++; }
     catch(e) { partialError = e; console.log("[cascade_delete] component delete error:", e); }
+
+  } else if (collection === "products") {
+    deleted = { products: 0, components: 0, component_transactions: 0 };
+
+    // (a) find all components for this product
+    try {
+      var dcProdComps = dao.findRecordsByFilter(
+        "components", "product = {:pid}", "", 0, 0, { pid: recordId }
+      );
+
+      // (b) for each component, find + delete component_transactions
+      for (var dpci = 0; dpci < dcProdComps.length; dpci++) {
+        try {
+          var dpct = dao.findRecordsByFilter(
+            "component_transactions", "component = {:cid}", "", 0, 0, { cid: dcProdComps[dpci].id }
+          );
+          for (var dptj = 0; dptj < dpct.length; dptj++) {
+            try { dao.deleteRecord(dpct[dptj]); deleted.component_transactions++; }
+            catch(e) { partialError = e; console.log("[cascade_delete] prod comp_txn delete error:", e); }
+          }
+        } catch(_) {}
+      }
+
+      // (c) delete the components
+      for (var dpci2 = 0; dpci2 < dcProdComps.length; dpci2++) {
+        try { dao.deleteRecord(dcProdComps[dpci2]); deleted.components++; }
+        catch(e) { partialError = e; console.log("[cascade_delete] prod component delete error:", e); }
+      }
+    } catch(_) {}
+
+    // (d) delete the product itself
+    try { dao.deleteRecord(record); deleted.products++; }
+    catch(e) { partialError = e; console.log("[cascade_delete] product delete error:", e); }
 
   } else {
     // transactions — single row
