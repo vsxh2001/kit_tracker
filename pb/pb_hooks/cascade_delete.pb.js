@@ -153,7 +153,10 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
   if (collection === "kits") {
     var counts = { kits: 1, transactions: 0, components: 0,
                    component_transactions: 0,
-                   kit_maintenance_schedules: 0, maintenance_records: 0 };
+                   kit_maintenance_schedules: 0, maintenance_records: 0,
+                   requests: 0 };
+    var kitBlockers = [];
+    var kitBlocked = false;
 
     try {
       var compRecs = dao.findRecordsByFilter(
@@ -194,13 +197,31 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       counts.transactions = txnRecs.length;
     } catch(_) {}
 
+    // check requests that designate this kit — these block deletion
+    try {
+      var kitReqRows = dao.findRecordsByFilter(
+        "requests",
+        "designated_kit = {:kid}",
+        "", 0, 0, { kid: recordId }
+      );
+      counts.requests = kitReqRows.length;
+      if (kitReqRows.length > 0) {
+        kitBlocked = true;
+        kitBlockers.push({
+          collection: "requests",
+          count:      kitReqRows.length,
+          reason:     "kit referenced by " + kitReqRows.length + " request(s)"
+        });
+      }
+    } catch(_) {}
+
     return c.json(200, {
       collection:       collection,
       record_id:        recordId,
       identifier_field: identifierField,
       identifier_value: identifierValue,
-      blocked:          false,
-      blockers:         [],
+      blocked:          kitBlocked,
+      blockers:         kitBlockers,
       counts:           counts
     });
   }
@@ -391,6 +412,28 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     if (blocked2) {
       return c.json(400, { error: "blocked", blockers: blockers2 });
     }
+  }
+
+  // ---- kits: check designated_kit reference blocker ----
+  if (collection === "kits") {
+    try {
+      var kitReqCheck = dao.findRecordsByFilter(
+        "requests",
+        "designated_kit = {:kid}",
+        "", 0, 0, { kid: recordId }
+      );
+      if (kitReqCheck.length > 0) {
+        return c.json(400, {
+          error: "blocked",
+          blockers: [{
+            collection: "requests",
+            count:      kitReqCheck.length,
+            reason:     "kit referenced by " + kitReqCheck.length + " request(s)"
+          }],
+          message: "cannot cascade-delete kit — " + kitReqCheck.length + " open request(s) reference it; resolve requests first"
+        });
+      }
+    } catch(_) {}
   }
 
   // ---- build snapshot BEFORE delete ----
