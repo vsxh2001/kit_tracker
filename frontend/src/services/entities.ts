@@ -14,11 +14,10 @@ export async function getEntity(id: string) {
 export async function createEntity(data: {
   name: string;
   description?: string;
-  category?: EntityCategory;
+  category: EntityCategory;
 }) {
   return pb.collection("entities").create<Entity>({
     ...data,
-    category: data.category ?? "field",
     is_active: true,
   });
 }

@@ -20,7 +20,10 @@ import {
   deactivateEntity,
   deleteEntityRecord,
   getEntityByName,
+  getAdminToken,
 } from "./helpers/api";
+
+const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 
 const TS = `ent-${Date.now()}`;
 
@@ -292,5 +295,23 @@ test.describe("Entity delete (admin)", () => {
     await expect(page.getByRole("cell", { name: DEL_NAME })).not.toBeVisible({
       message: "Deleted entity should no longer appear in the table",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Category required — API regression
+// ---------------------------------------------------------------------------
+
+test.describe("Entity category — schema enforcement", () => {
+  test("create entity without category is rejected by PB", async () => {
+    const token = await getAdminToken();
+    const res = await fetch(`${PB_URL}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `NoCat-${Date.now()}`, is_active: true, type: "other" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body?.data?.category?.code).toBe("validation_required");
   });
 });

@@ -51,6 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     pb.collection("users").subscribe(userId, async (e) => {
       if (cancelled) return;
       if (e.action === "update") {
+        if (e.record?.role === "denied") {
+          pb.authStore.clear();
+          window.location.href = "/login?reason=denied";
+          return;
+        }
         try { await pb.collection("users").authRefresh(); } catch { /* swallow */ }
       } else if (e.action === "delete") {
         pb.authStore.clear();

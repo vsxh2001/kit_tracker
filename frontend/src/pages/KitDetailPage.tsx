@@ -32,6 +32,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "../components/ui/alert-dialog";
+import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import type { Kit, Transaction, Component, KitMaintenanceSchedule } from "../types";
 
 export function KitDetailPage() {
@@ -53,6 +54,7 @@ export function KitDetailPage() {
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [deactivatingSched, setDeactivatingSched] = useState<KitMaintenanceSchedule | null>(null);
   const [historyTab, setHistoryTab] = useState<"history" | "calendar">("history");
+  const [showCascadeDelete, setShowCascadeDelete] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -541,6 +543,26 @@ export function KitDetailPage() {
         </CardContent>
       </Card>
 
+      {isAdmin && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-destructive">Danger zone</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-sm text-muted-foreground mb-3">
+              Hard-delete this kit and all dependent rows. Last-resort tool to fix history.
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowCascadeDelete(true)}
+            >
+              Cascade Hard Delete
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <MoveKitDialog
         kit={kit}
         currentEntityId={currentEntity?.id}
@@ -618,6 +640,17 @@ export function KitDetailPage() {
           onRecorded={() => { setRecordingSchedule(null); load(); }}
         />
       )}
+
+      <CascadeDeleteDialog
+        open={showCascadeDelete}
+        onOpenChange={setShowCascadeDelete}
+        collection="kits"
+        recordId={kit.id}
+        onDeleted={() => {
+          navigate("/kits");
+          toast({ title: "Kit deleted with cascade", variant: "success" });
+        }}
+      />
     </div>
   );
 }

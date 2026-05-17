@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { updateProduct } from "../services/products";
+import { updateProduct, countComponentsForProduct } from "../services/products";
 import type { Product } from "../types";
 
 interface Props {
@@ -29,6 +29,8 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [description, setDescription] = useState(product.description ?? "");
   const [url, setUrl] = useState(product.url ?? "");
   const [specs, setSpecs] = useState(product.specs ?? "");
+  const [isSerialized, setIsSerialized] = useState(product.is_serialized ?? true);
+  const [serializedWarn, setSerializedWarn] = useState(false);
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,11 +45,28 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         setDescription(product.description ?? "");
         setUrl(product.url ?? "");
         setSpecs(product.specs ?? "");
+        setIsSerialized(product.is_serialized ?? true);
+        setSerializedWarn(false);
         setError("");
         setSpecsError("");
       });
     }
   }, [open, product]);
+
+  async function handleSerializedToggle(checked: boolean) {
+    if (checked !== (product.is_serialized ?? true)) {
+      // Warn if toggling away from current value while active components exist
+      try {
+        const count = await countComponentsForProduct(product.id);
+        setSerializedWarn(count > 0);
+      } catch {
+        setSerializedWarn(false);
+      }
+    } else {
+      setSerializedWarn(false);
+    }
+    setIsSerialized(checked);
+  }
 
   async function handleSubmit() {
     if (!name.trim()) {
@@ -74,6 +93,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         description: description.trim() || "",
         url: url.trim() || "",
         specs: specs.trim() || "",
+        is_serialized: isSerialized,
       });
       toast({ title: "Product updated", description: name.trim(), variant: "success" });
       onSuccess();
@@ -152,6 +172,21 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
               placeholder="https://example.com/datasheet"
             />
           </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="edit-prod-serialized"
+              checked={isSerialized}
+              onChange={(e) => handleSerializedToggle(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <Label htmlFor="edit-prod-serialized">Serialized (one unit per component)</Label>
+          </div>
+          {serializedWarn && (
+            <p className="text-sm text-amber-600">
+              Warning: this product has active components. Changing serialized/bulk mode may conflict with existing components.
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="edit-prod-specs">Specs (JSON)</Label>
             <Textarea

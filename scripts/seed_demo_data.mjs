@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Puppet show / demo data seeder.
+ * Puppet show / demo data seeder — field-service pilot flavor.
  * Creates realistic DEMO- prefixed records across all core collections.
  *
  * Usage:
@@ -106,41 +106,41 @@ async function alreadySeeded() {
 
 async function seedEntities() {
   console.log("→ Entities...");
-  // type select: person, team, lab, storage, customer, maintenance, other
-  const types = [
-    "storage", "storage", "storage",
-    "customer", "customer", "customer",
-    "maintenance", "maintenance",
-    "lab", "lab",
+  // type: required legacy field; category: new field added by migration
+  const defs = [
+    { name: "DEMO-Warehouse",         type: "storage",  category: "storage" },
+    { name: "DEMO-Customer-Alpha",    type: "customer", category: "field" },
+    { name: "DEMO-Customer-Bravo",    type: "customer", category: "field" },
+    { name: "DEMO-Customer-Charlie",  type: "customer", category: "field" },
   ];
-  const ids = [];
-  for (let i = 0; i < 10; i++) {
+  const records = [];
+  for (const d of defs) {
     const rec = await pb.collection("entities").create({
-      name: `DEMO-Entity-${pad(i + 1)}`,
-      type: types[i],
-      description: `Demo ${types[i]} entity ${pad(i + 1)}`,
+      name: d.name,
+      type: d.type,
+      category: d.category,
       is_active: true,
     });
-    ids.push(rec.id);
+    records.push(rec);
   }
-  console.log(`   created ${ids.length} entities`);
-  return ids;
+  console.log(`   created ${records.length} entities`);
+  return records;
 }
 
 async function seedUsers() {
   console.log("→ Users...");
   const defs = [
-    { role: "admin", email: "demo-admin-1@kit.local", name: "Demo Admin" },
-    { role: "technician", email: "demo-technician-1@kit.local", name: "Demo Tech 1" },
-    { role: "technician", email: "demo-technician-2@kit.local", name: "Demo Tech 2" },
-    { role: "user", email: "demo-user-1@kit.local", name: "Demo User 1" },
-    { role: "user", email: "demo-user-2@kit.local", name: "Demo User 2" },
-    { role: "viewer", email: "demo-viewer-1@kit.local", name: "Demo Viewer" },
+    { role: "admin",      email: "demo-admin-1@kit.local",       name: "Demo Admin",      phone: "+972500000010" },
+    { role: "technician", email: "demo-technician-1@kit.local",  name: "Demo Tech 1",     phone: "+972500000001" },
+    { role: "technician", email: "demo-technician-2@kit.local",  name: "Demo Tech 2",     phone: "+972500000002" },
+    { role: "technician", email: "demo-technician-3@kit.local",  name: "Demo Tech 3",     phone: "+972500000003" },
+    { role: "user",       email: "demo-user-1@kit.local",        name: "Demo User 1",     phone: "" },
+    { role: "viewer",     email: "demo-viewer-1@kit.local",      name: "Demo Viewer",     phone: "" },
   ];
   const ids = [];
   for (const d of defs) {
     try {
-      const rec = await pb.collection("users").create({
+      const payload = {
         email: d.email,
         password: "Pass1234!",
         passwordConfirm: "Pass1234!",
@@ -148,7 +148,9 @@ async function seedUsers() {
         role: d.role,
         emailVisibility: true,
         verified: true,
-      });
+      };
+      if (d.phone) payload.phone = d.phone;
+      const rec = await pb.collection("users").create(payload);
       ids.push(rec.id);
     } catch (err) {
       // Likely already exists — fetch it
@@ -169,79 +171,128 @@ async function seedUsers() {
 
 async function seedKits() {
   console.log("→ Kits...");
-  const tagPool = ["laptop", "ssd", "monitor", "cable", "battery", "camera"];
   const ids = [];
-  for (let i = 1; i <= 30; i++) {
-    const isActive = i <= 25; // last 5 retired
-    const tags = [pick(tagPool), pick(tagPool)].filter((v, idx, self) => self.indexOf(v) === idx);
+  for (let i = 1; i <= 20; i++) {
+    // kits 19-20 are retired (is_active=false)
+    const isActive = i <= 18;
     const rec = await pb.collection("kits").create({
       serial: `DEMO-KIT-${pad(i)}`,
-      notes: `Demo kit ${pad(i)} — ${tags.join(", ")}`,
+      notes: `Demo field-service kit ${pad(i)}`,
       is_active: isActive,
-      tags: tags.join(","),
     });
     ids.push(rec.id);
   }
-  console.log(`   created ${ids.length} kits`);
+  console.log(`   created ${ids.length} kits (18 active, 2 retired)`);
   return ids;
 }
 
-async function seedTransactions(kitIds, entityIds, userIds) {
+/**
+ * Build realistic lifecycle transactions for each kit.
+ *
+ * Layout:
+ *   kits 1-5  (indices 0-4):   5 at Warehouse  — intake only
+ *   kits 6-9  (indices 5-8):   4 at Alpha       — warehouse → customer
+ *   kits 10-12 (indices 9-11): 3 at Bravo       — warehouse → customer
+ *   kits 13-15 (indices 12-14):3 at Charlie      — warehouse → customer
+ *   kits 16-18 (indices 15-17):3 mid-return      — warehouse → customer, last tx notes "RETURN PENDING"
+ *   kits 19-20 (indices 18-19):2 retired         — warehouse → customer (history), then deactivated in seedKits
+ */
+async function seedTransactions(kitIds, entityRecords, userIds) {
   console.log("→ Transactions...");
-  const adminUserId = userIds[0]; // demo-admin-1 is first
-  const ids = [];
-  for (let i = 0; i < 50; i++) {
-    const kitId = pick(kitIds);
-    const toEntityId = pick(entityIds);
-    const fromEntityId = pick(entityIds.filter((e) => e !== toEntityId));
-    const daysBack = randInt(1, 90);
-    const rec = await pb.collection("transactions").create({
-      kit: kitId,
-      from_entity: fromEntityId,
-      to_entity: toEntityId,
-      timestamp: daysAgo(daysBack),
-      notes: `Demo transfer ${pad(i + 1)}`,
-      created_by: adminUserId,
-    });
-    ids.push(rec.id);
-  }
-  console.log(`   created ${ids.length} transactions`);
-  return ids;
-}
 
-async function seedRequests(kitIds, entityIds, userIds) {
-  console.log("→ Requests...");
-  // distribution: 5 open, 4 approved, 6 fulfilled, 3 rejected, 2 cancelled
-  const statuses = [
-    ...Array(5).fill("open"),
-    ...Array(4).fill("approved"),
-    ...Array(6).fill("fulfilled"),
-    ...Array(3).fill("rejected"),
-    ...Array(2).fill("cancelled"),
-  ];
-  // requester pool: admin + technicians + users (not viewer)
-  const requesterPool = userIds.slice(0, 5);
-  const ids = [];
-  for (let i = 0; i < 20; i++) {
-    const status = statuses[i];
-    const requesterId = pick(requesterPool);
-    const deliveryDate = daysFromNow(randInt(3, 30));
-    const rec = await pb.collection("requests").create({
-      requester: requesterId,
-      date: daysAgo(randInt(1, 60)),
-      delivery_date: deliveryDate,
-      status,
-      designated_kit: status !== "open" ? pick(kitIds) : undefined,
-      target_entity: pick(entityIds),
-      notes: `Demo request ${pad(i + 1)} — ${status}`,
-      decision_notes: ["approved", "rejected", "fulfilled", "cancelled"].includes(status)
-        ? `Decision for demo request ${pad(i + 1)}`
-        : undefined,
+  const warehouseId = entityRecords[0].id;  // DEMO-Warehouse
+  const alphaId     = entityRecords[1].id;  // DEMO-Customer-Alpha
+  const bravoId     = entityRecords[2].id;  // DEMO-Customer-Bravo
+  const charlieId   = entityRecords[3].id;  // DEMO-Customer-Charlie
+
+  const adminId  = userIds[0];
+  const tech1Id  = userIds[1];
+  const tech2Id  = userIds[2];
+  const tech3Id  = userIds[3];
+  const techIds  = [tech1Id, tech2Id, tech3Id];
+
+  const txIds = [];
+
+  // Helper: create a transaction
+  async function tx({ kit, from_entity, to_entity, notes, daysBack, createdBy }) {
+    const rec = await pb.collection("transactions").create({
+      kit,
+      from_entity: from_entity || undefined,
+      to_entity,
+      timestamp: daysAgo(daysBack),
+      notes,
+      created_by: createdBy,
     });
-    ids.push(rec.id);
+    txIds.push(rec.id);
   }
-  console.log(`   created ${ids.length} requests`);
-  return ids;
+
+  // kits 1-5 — warehouse intake only (2 transactions each: initial receipt + shelf move)
+  for (let i = 0; i < 5; i++) {
+    const kitId = kitIds[i];
+    const kitNum = pad(i + 1);
+    const createdBy = i % 2 === 0 ? adminId : pick(techIds);
+    await tx({ kit: kitId, from_entity: null,       to_entity: warehouseId, notes: `DEMO intake DEMO-KIT-${kitNum}`,             daysBack: randInt(25, 30), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId, to_entity: warehouseId, notes: `DEMO shelf assignment DEMO-KIT-${kitNum}`,   daysBack: randInt(20, 24), createdBy });
+  }
+
+  // kits 6-9 — Alpha customer (4 kits)
+  for (let i = 5; i < 9; i++) {
+    const kitId = kitIds[i];
+    const kitNum = pad(i + 1);
+    const createdBy = pick(techIds);
+    await tx({ kit: kitId, from_entity: null,        to_entity: warehouseId, notes: `DEMO intake DEMO-KIT-${kitNum}`,                       daysBack: randInt(28, 30), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId,  to_entity: alphaId,    notes: `DEMO deployed to Alpha DEMO-KIT-${kitNum}`,              daysBack: randInt(18, 27), createdBy });
+    if (i === 6 || i === 7) {
+      // two extra kits have an intermediate move
+      await tx({ kit: kitId, from_entity: alphaId,   to_entity: warehouseId, notes: `DEMO temporary recall DEMO-KIT-${kitNum}`,               daysBack: randInt(10, 17), createdBy: adminId });
+      await tx({ kit: kitId, from_entity: warehouseId, to_entity: alphaId,   notes: `DEMO re-deployed to Alpha DEMO-KIT-${kitNum}`,            daysBack: randInt(3, 9),  createdBy });
+    }
+  }
+
+  // kits 10-12 — Bravo customer (3 kits)
+  for (let i = 9; i < 12; i++) {
+    const kitId = kitIds[i];
+    const kitNum = pad(i + 1);
+    const createdBy = pick(techIds);
+    await tx({ kit: kitId, from_entity: null,        to_entity: warehouseId, notes: `DEMO intake DEMO-KIT-${kitNum}`,           daysBack: randInt(28, 30), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId,  to_entity: bravoId,    notes: `DEMO deployed to Bravo DEMO-KIT-${kitNum}`, daysBack: randInt(10, 25), createdBy });
+  }
+
+  // kits 13-15 — Charlie customer (3 kits)
+  for (let i = 12; i < 15; i++) {
+    const kitId = kitIds[i];
+    const kitNum = pad(i + 1);
+    const createdBy = pick(techIds);
+    await tx({ kit: kitId, from_entity: null,        to_entity: warehouseId, notes: `DEMO intake DEMO-KIT-${kitNum}`,              daysBack: randInt(28, 30), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId,  to_entity: charlieId,  notes: `DEMO deployed to Charlie DEMO-KIT-${kitNum}`, daysBack: randInt(10, 25), createdBy });
+  }
+
+  // kits 16-18 — mid-return (at customer, last tx has RETURN PENDING)
+  const returnCustomers = [alphaId, bravoId, charlieId];
+  for (let i = 15; i < 18; i++) {
+    const kitId = kitIds[i];
+    const kitNum = pad(i + 1);
+    const custId = returnCustomers[i - 15];
+    const createdBy = pick(techIds);
+    await tx({ kit: kitId, from_entity: null,        to_entity: warehouseId, notes: `DEMO intake DEMO-KIT-${kitNum}`,                         daysBack: randInt(28, 30), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId,  to_entity: custId,     notes: `DEMO deployed DEMO-KIT-${kitNum}`,                        daysBack: randInt(15, 25), createdBy });
+    // The critical last transaction — "RETURN PENDING" signals mid-return state
+    await tx({ kit: kitId, from_entity: custId,       to_entity: custId,     notes: `DEMO-KIT-${kitNum} RETURN PENDING — customer confirmed`, daysBack: randInt(1, 5),   createdBy: adminId });
+  }
+
+  // kits 19-20 — retired, have historical transactions
+  for (let i = 18; i < 20; i++) {
+    const kitId = kitIds[i];
+    const kitNum = pad(i + 1);
+    const custId = pick([alphaId, bravoId, charlieId]);
+    await tx({ kit: kitId, from_entity: null,        to_entity: warehouseId, notes: `DEMO intake DEMO-KIT-${kitNum}`,              daysBack: randInt(28, 30), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId,  to_entity: custId,     notes: `DEMO deployed DEMO-KIT-${kitNum}`,             daysBack: randInt(20, 27), createdBy: pick(techIds) });
+    await tx({ kit: kitId, from_entity: custId,       to_entity: warehouseId, notes: `DEMO returned DEMO-KIT-${kitNum}`,            daysBack: randInt(10, 19), createdBy: adminId });
+    await tx({ kit: kitId, from_entity: warehouseId,  to_entity: warehouseId, notes: `DEMO retired DEMO-KIT-${kitNum} — end of life`, daysBack: randInt(1, 9),  createdBy: adminId });
+  }
+
+  console.log(`   created ${txIds.length} transactions`);
+  return txIds;
 }
 
 async function seedProducts() {
@@ -255,62 +306,28 @@ async function seedProducts() {
   ];
   const products = [];
   for (const p of catalog) {
-    const rec = await pb.collection("products").create({
-      name: p.name,
-      category: p.category,
-      manufacturer: p.manufacturer,
-      model: p.model,
-      description: `Demo product ${p.name}`,
-      specs: "{}",
-      is_active: true,
-    });
-    products.push(rec);
+    try {
+      const rec = await pb.collection("products").create({
+        name: p.name,
+        category: p.category,
+        manufacturer: p.manufacturer,
+        model: p.model,
+        description: `Demo product ${p.name}`,
+        specs: "{}",
+        is_active: true,
+      });
+      products.push(rec);
+    } catch (err) {
+      if (err?.status === 400) {
+        // products may not exist in all environments
+        console.log(`   WARN: could not create product ${p.name}: ${err?.message}`);
+      } else {
+        throw err;
+      }
+    }
   }
   console.log(`   created ${products.length} products`);
   return products;
-}
-
-async function seedComponents(kitIds, entityIds, products) {
-  console.log("→ Components...");
-  const ids = [];
-  for (let i = 1; i <= 40; i++) {
-    const isBulk = i > 30; // last 10 are bulk
-    const inKit = !isBulk && i <= 20; // first 20 serialized go into kits
-    const product = pick(products);
-    const rec = await pb.collection("components").create({
-      serial: isBulk ? "" : `DEMO-COMP-${pad(i)}`,
-      product: product.id,
-      notes: `Demo component ${pad(i)} (${product.name})`,
-      is_active: true,
-      is_bulk: isBulk,
-      quantity: isBulk ? randInt(2, 10) : 1,
-    });
-    ids.push({ id: rec.id, kitId: inKit ? pick(kitIds) : null, entityId: !inKit ? pick(entityIds) : null });
-  }
-  console.log(`   created ${ids.length} components`);
-  return ids;
-}
-
-async function seedComponentTransactions(components, userIds) {
-  console.log("→ Component transactions...");
-  const adminUserId = userIds[0];
-  const ids = [];
-  // place first 20 components (initial placement)
-  for (let i = 0; i < 20 && i < components.length; i++) {
-    const comp = components[i];
-    const rec = await pb.collection("component_transactions").create({
-      component: comp.id,
-      to_kit: comp.kitId || undefined,
-      to_entity: comp.entityId || undefined,
-      quantity: 1,
-      timestamp: daysAgo(randInt(10, 90)),
-      notes: `Initial placement DEMO-COMP-${pad(i + 1)}`,
-      created_by: adminUserId,
-    });
-    ids.push(rec.id);
-  }
-  console.log(`   created ${ids.length} component transactions`);
-  return ids;
 }
 
 async function seedMaintenanceSchedules(kitIds) {
@@ -345,6 +362,7 @@ async function seedOnCallShifts(userIds) {
   const adminId = userIds[0];
   const tech1Id = userIds[1];
   const tech2Id = userIds[2];
+  const tech3Id = userIds[3];
   const shifts = [
     {
       user: tech1Id,
@@ -361,7 +379,7 @@ async function seedOnCallShifts(userIds) {
       created_by: adminId,
     },
     {
-      user: adminId,
+      user: tech3Id,
       start_at: daysFromNow(7),
       end_at: daysFromNow(14),
       notes: "DEMO future shift",
@@ -385,25 +403,27 @@ async function seed() {
   console.log("Authenticated as superuser.");
 
   if (await alreadySeeded()) {
-    console.log("DEMO- records already exist. Run teardown_demo_data.mjs first to re-seed.");
+    console.log("Already seeded. Run teardown_demo_data.mjs first to re-seed.");
     process.exit(0);
   }
 
-  const entityIds = await seedEntities();
-  const userIds = await seedUsers();
-  const kitIds = await seedKits();
-  await seedTransactions(kitIds, entityIds, userIds);
-  await seedRequests(kitIds, entityIds, userIds);
-  const products = await seedProducts();
-  const components = await seedComponents(kitIds, entityIds, products);
-  await seedComponentTransactions(components, userIds);
+  const entityRecords = await seedEntities();
+  const userIds       = await seedUsers();
+  const kitIds        = await seedKits();
+  await seedTransactions(kitIds, entityRecords, userIds);
+  await seedProducts();
   await seedMaintenanceSchedules(kitIds);
   await seedOnCallShifts(userIds);
 
-  console.log("\nDone. Puppet show demo data seeded.");
+  const warehouseId = entityRecords[0].id;
+
+  console.log("\nDone. Field-service pilot demo data seeded.");
   console.log(
-    `  ${entityIds.length} entities | ${userIds.length} users | ${kitIds.length} kits`
+    `  ${entityRecords.length} entities | ${userIds.length} users | ${kitIds.length} kits`
   );
+  console.log(`  Layout: 5 at Warehouse | 4 at Alpha | 3 at Bravo | 3 at Charlie | 3 mid-return | 2 retired`);
+  console.log(`\nDEMO-Warehouse entity ID: ${warehouseId}`);
+  console.log(`Set DEFAULT_WAREHOUSE_ENTITY_ID=${warehouseId} in Fly secrets for RETURN shortcut.`);
 }
 
 seed().catch((e) => {

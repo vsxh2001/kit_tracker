@@ -239,7 +239,7 @@ test.describe("T7-T10: Bulk component lifecycle", () => {
     await deactivateEntity(entityId);
   });
 
-  test("T7: create bulk component (qty=10) at entity — appears in /components list", async ({ page }) => {
+  test("T7: create bulk component (qty=10) at entity — appears in /components Bulk section", async ({ page }) => {
     const comp = await createTestComponent({
       type: "Cable",
       isBulk: true,
@@ -252,14 +252,14 @@ test.describe("T7-T10: Bulk component lifecycle", () => {
     await page.goto("/components");
     await waitForComponentsPage(page);
 
-    // Filter to standalone to narrow results
-    await page.getByRole("combobox").filter({ hasText: /all locations/i }).click();
-    await page.getByRole("option", { name: /standalone/i }).click();
+    // The bulk section heading must exist
+    await expect(page.getByRole("heading", { name: /bulk components/i })).toBeVisible({
+      message: "'Bulk components' section heading must be visible",
+    });
 
-    // The bulk component row should show qty=10 and type=Cable
-    // Row is: "Cable — (no serial)" with qty 10
+    // The bulk component row should show qty=10
     await expect(page.getByRole("cell", { name: "10" }).first()).toBeVisible({
-      message: "Bulk component qty=10 must appear in standalone list",
+      message: "Bulk component qty=10 must appear in Bulk components table",
     });
   });
 
@@ -823,26 +823,32 @@ test.describe("T23-T27: UI, search, and mobile", () => {
     await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-CAB`) })).not.toBeVisible({ message: "UICable must not appear when searching for UIBattery serial" });
   });
 
-  test("T24: filter by container kind — in-kit vs standalone", async ({ page }) => {
+  test("T24: filter by kit — kit dropdown isolates in-kit component", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/components");
     await waitForComponentsPage(page);
 
-    // Location select is the 2nd combobox (after search input; type filter removed).
-    // Re-query each time because the trigger label changes after selection.
-    const getLocationSelect = () => page.getByRole("combobox").nth(0);
+    // Both sections must be visible by default
+    await expect(page.getByRole("heading", { name: /serialized components/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /bulk components/i })).toBeVisible();
 
-    // Filter: In kit
-    await getLocationSelect().click();
-    await page.getByRole("option", { name: "In kit" }).click();
-    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-CAB`) })).toBeVisible({ message: "In-kit component must appear under 'In kit' filter" });
-    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-BAT`) })).not.toBeVisible({ message: "Standalone must not appear under 'In kit' filter" });
+    // The kit dropdown is the 3rd combobox (search input, product select, kit select)
+    const getKitSelect = () => page.getByRole("combobox").nth(1);
 
-    // Filter: Standalone (re-query — label is now "In kit" not "All locations")
-    await getLocationSelect().click();
-    await page.getByRole("option", { name: "Standalone" }).click();
-    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-BAT`) })).toBeVisible({ message: "Standalone must appear under 'Standalone' filter" });
-    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-CAB`) })).not.toBeVisible({ message: "In-kit must not appear under 'Standalone' filter" });
+    // Select the test kit — UI-CAB is in the kit, UI-BAT is standalone
+    await getKitSelect().click();
+    const kitOption = page.getByRole("option", { name: new RegExp(`${TS}-KIT-UI`) });
+    await expect(kitOption).toBeVisible({ timeout: 5000 });
+    await kitOption.click();
+
+    // In-kit component must appear; standalone must not
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-CAB`) })).toBeVisible({ message: "In-kit component must appear when kit filter is selected" });
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-BAT`) })).not.toBeVisible({ message: "Standalone must not appear when kit filter is selected" });
+
+    // Reset to All kits
+    await getKitSelect().click();
+    await page.getByRole("option", { name: /all kits/i }).click();
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-UI-BAT`) })).toBeVisible({ message: "Standalone appears again after resetting kit filter" });
   });
 
   test("T25: search by serial finds exact component", async ({ page }) => {
@@ -879,8 +885,135 @@ test.describe("T23-T27: UI, search, and mobile", () => {
     await waitForComponentsPage(page);
 
     await page.getByPlaceholder(/search by serial/i).fill("ZZZZ-NONEXISTENT-COMP-9999");
-    await expect(page.getByText(/no components found/i)).toBeVisible({
-      message: "Empty state must appear when no components match search",
+    // Both section empty states must appear
+    await expect(page.getByText(/no serialized components match/i)).toBeVisible({
+      message: "Serialized empty state must appear when no components match search",
+    });
+    await expect(page.getByText(/no bulk components match/i)).toBeVisible({
+      message: "Bulk empty state must appear when no components match search",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T23b: Split-table sections + new filters (T28 spec — two-section layout)
+// ---------------------------------------------------------------------------
+
+test.describe("T23b: Serialized vs Bulk sections and product/active filters @smoke", () => {
+  let entityId: string;
+  let serCompId: string;
+  let bulkCompId: string;
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    entityId = (await createTestEntity(`${TS}-SplitEntity`, "", "storage")).id;
+    kitId = (await createTestKit(`${TS}-KIT-SPLIT`)).id;
+    await createTestTransaction({ kitId, toEntityId: entityId });
+
+    // Serialized component
+    serCompId = (await createTestComponent({
+      serial: `${TS}-SPLIT-SER`,
+      type: "SplitSerial",
+      initialEntity: entityId,
+    })).id;
+
+    // Bulk component
+    bulkCompId = (await createTestComponent({
+      type: "SplitBulk",
+      isBulk: true,
+      quantity: 7,
+      initialEntity: entityId,
+    })).id;
+  });
+
+  test.afterAll(async () => {
+    if (serCompId) await deactivateComponent(serCompId);
+    if (bulkCompId) await deactivateComponent(bulkCompId);
+    await deleteKit(kitId);
+    await deactivateEntity(entityId);
+  });
+
+  test("T23b-1: page has 'Serialized components' and 'Bulk components' section headings", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/components");
+    await waitForComponentsPage(page);
+
+    await expect(page.getByRole("heading", { name: /serialized components/i })).toBeVisible({
+      message: "'Serialized components' section heading must be visible",
+    });
+    await expect(page.getByRole("heading", { name: /bulk components/i })).toBeVisible({
+      message: "'Bulk components' section heading must be visible",
+    });
+  });
+
+  test("T23b-2: serialized section shows Serial column, bulk section shows Quantity column", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/components");
+    await waitForComponentsPage(page);
+
+    // Serialized table has "Serial" column header, not "Quantity"
+    const serialColHeaders = page.getByRole("columnheader", { name: "Serial" });
+    await expect(serialColHeaders.first()).toBeVisible({ message: "Serialized table must have Serial column" });
+
+    // Bulk table has "Quantity" column header, not "Serial"
+    const qtyColHeaders = page.getByRole("columnheader", { name: "Quantity" });
+    await expect(qtyColHeaders.first()).toBeVisible({ message: "Bulk table must have Quantity column" });
+  });
+
+  test("T23b-3: product dropdown filters both sections to matching product only", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/components");
+    await waitForComponentsPage(page);
+
+    // Product dropdown is 1st combobox
+    const productSelect = page.getByRole("combobox").nth(0);
+    await productSelect.click();
+
+    // Find the SplitSerial product option
+    const productOption = page.getByRole("option", { name: /SplitSerial/i });
+    await expect(productOption).toBeVisible({ timeout: 5000 });
+    await productOption.click();
+
+    // Serialized row should appear, bulk row should not
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-SPLIT-SER`) })).toBeVisible({
+      message: "Serialized component must appear when its product is selected",
+    });
+    // SplitBulk product not selected — bulk empty state
+    await expect(page.getByText(/no bulk components match/i)).toBeVisible({
+      message: "Bulk empty state must appear when a different product is selected",
+    });
+  });
+
+  test("T23b-4: 'Show inactive' checkbox reveals inactive components", async ({ page }) => {
+    // Deactivate the serialized component
+    const token = await getAdminToken();
+    await fetch(`${PB_URL}/api/collections/components/records/${serCompId}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: false }),
+    });
+
+    await loginAs(page, "admin");
+    await page.goto("/components");
+    await waitForComponentsPage(page);
+
+    // By default inactive is hidden — search to narrow
+    await page.getByPlaceholder(/search by serial/i).fill(`${TS}-SPLIT-SER`);
+    await expect(page.getByText(/no serialized components match/i)).toBeVisible({
+      message: "Inactive component must be hidden by default",
+    });
+
+    // Enable Show inactive
+    await page.getByLabel(/show inactive/i).check();
+    await expect(page.getByRole("cell", { name: new RegExp(`${TS}-SPLIT-SER`) })).toBeVisible({
+      message: "Inactive component must appear when 'Show inactive' is checked",
+    });
+
+    // Restore component to active
+    await fetch(`${PB_URL}/api/collections/components/records/${serCompId}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: true }),
     });
   });
 });

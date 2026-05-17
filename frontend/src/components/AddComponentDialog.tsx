@@ -45,6 +45,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
   const [productId, setProductId] = useState(presetProductId ?? "");
   const [products, setProducts] = useState<Product[]>([]);
   const [presetProduct, setPresetProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Move existing fields
   const [existingComponents, setExistingComponents] = useState<Component[]>([]);
@@ -63,6 +64,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         setIsBulk(false);
         setQuantity("1");
         setProductId(presetProductId ?? "");
+        setSelectedProduct(null);
         setSelectedId("");
         setMoveQty("1");
         setError("");
@@ -84,6 +86,17 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
             const found = prods.find((p) => p.id === presetProductId) ?? null;
             setPresetProduct(found);
             setProducts(prods);
+            // Apply serialized rules for preset product
+            if (found) {
+              if (found.is_serialized) {
+                setIsBulk(false);
+                setQuantity("1");
+              } else {
+                setIsBulk(true);
+                setSerial("");
+              }
+              setSelectedProduct(found);
+            }
           })
           .catch(() => {});
       } else {
@@ -91,22 +104,45 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
           .then((prods) => {
             setProducts(prods);
             setPresetProduct(null);
+            setSelectedProduct(null);
           })
           .catch(() => {});
       }
     }
   }, [open, isAdmin, canTransferKits, presetProductId]);
 
+  function handleProductChange(id: string) {
+    setProductId(id);
+    const prod = products.find((p) => p.id === id) ?? null;
+    setSelectedProduct(prod);
+    if (prod) {
+      if (prod.is_serialized) {
+        setIsBulk(false);
+        setQuantity("1");
+      } else {
+        setIsBulk(true);
+        setSerial("");
+        if (quantity === "1") setQuantity("1");
+      }
+    }
+  }
+
   async function handleCreate() {
     if (!productId) { setError("Product is required."); return; }
+    const prod = selectedProduct ?? presetProduct;
+    if (prod?.is_serialized && !serial.trim()) {
+      setError("Serial is required for serialized products.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
-      const qty = parseInt(quantity, 10) || 1;
+      const isSerialized = prod ? prod.is_serialized : !isBulk;
+      const qty = isSerialized ? 1 : (parseInt(quantity, 10) || 1);
       const comp = await createComponent({
-        serial: serial.trim(),
+        serial: isSerialized ? serial.trim() : "",
         notes: notes.trim(),
-        is_bulk: isBulk,
+        is_bulk: !isSerialized,
         quantity: qty,
         is_active: true,
         product: productId,
@@ -203,7 +239,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
                 ) : (
                   <Select
                     value={productId}
-                    onValueChange={setProductId}
+                    onValueChange={handleProductChange}
                   >
                     <SelectTrigger id="comp-product">
                       <SelectValue placeholder="Select a product…" />
@@ -218,45 +254,62 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
                   </Select>
                 )}
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-serial">Serial (optional)</Label>
-                <Input
-                  id="comp-serial"
-                  value={serial}
-                  onChange={(e) => setSerial(e.target.value)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-notes">Notes</Label>
-                <Textarea
-                  id="comp-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional notes…"
-                  rows={2}
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="comp-bulk"
-                  checked={isBulk}
-                  onChange={(e) => setIsBulk(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="comp-bulk">Bulk item</Label>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-qty">Quantity</Label>
-                <Input
-                  id="comp-qty"
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
+              {/* Branch UI based on product.is_serialized */}
+              {(() => {
+                const prod = selectedProduct ?? presetProduct;
+                const prodIsSerialized = prod ? prod.is_serialized : null;
+                return (
+                  <>
+                    {prodIsSerialized !== false && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="comp-serial">
+                          Serial{prodIsSerialized === true ? " *" : " (optional)"}
+                        </Label>
+                        <Input
+                          id="comp-serial"
+                          value={serial}
+                          onChange={(e) => setSerial(e.target.value)}
+                          placeholder={prodIsSerialized === true ? "Required" : "Optional"}
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-notes">Notes</Label>
+                      <Textarea
+                        id="comp-notes"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Optional notes…"
+                        rows={2}
+                      />
+                    </div>
+                    {prodIsSerialized === null && (
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="comp-bulk"
+                          checked={isBulk}
+                          onChange={(e) => setIsBulk(e.target.checked)}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="comp-bulk">Bulk item</Label>
+                      </div>
+                    )}
+                    {(prodIsSerialized === false || (prodIsSerialized === null && isBulk)) && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="comp-qty">Quantity</Label>
+                        <Input
+                          id="comp-qty"
+                          type="number"
+                          min={1}
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
 
