@@ -134,6 +134,8 @@ async function seedUsers() {
     { role: "technician", email: "demo-technician-1@kit.local",  name: "Demo Tech 1",     phone: "+972500000001" },
     { role: "technician", email: "demo-technician-2@kit.local",  name: "Demo Tech 2",     phone: "+972500000002" },
     { role: "technician", email: "demo-technician-3@kit.local",  name: "Demo Tech 3",     phone: "+972500000003" },
+    { role: "technician", email: "demo-technician-4@kit.local",  name: "Demo Tech 4",     phone: "+972500000004" },
+    { role: "technician", email: "demo-technician-5@kit.local",  name: "Demo Tech 5",     phone: "+972500000005" },
     { role: "user",       email: "demo-user-1@kit.local",        name: "Demo User 1",     phone: "" },
     { role: "viewer",     email: "demo-viewer-1@kit.local",      name: "Demo Viewer",     phone: "" },
   ];
