@@ -13,11 +13,22 @@ A backup you can't restore is decoration. This drill confirms:
 ## Prerequisites
 
 - Local copy of `pb/pocketbase` binary (same version as production)
-- A recent backup ZIP — download from GitHub releases:
+- A recent backup — download from GitHub releases:
   ```bash
   gh release list --limit 5
-  gh release download <backup-YYYYMMDD-HHMM> -p '*.zip' -D /tmp/restore-test
+  gh release download <backup-YYYYMMDD-HHMM> -p '*.gpg' -D /tmp/restore-test
   ```
+
+## Decrypt snapshot
+
+```bash
+export BACKUP_ENCRYPTION_KEY=$(... fetch from 1Password ...)
+gpg --batch --yes --decrypt --passphrase "$BACKUP_ENCRYPTION_KEY" \
+  -o pb-snapshot-YYYYMMDD-HHMMSS.zip \
+  pb-snapshot-YYYYMMDD-HHMMSS.zip.gpg
+```
+
+If decryption fails, the snapshot is unusable — verify key matches what was set when backup ran.
 
 ## Steps
 

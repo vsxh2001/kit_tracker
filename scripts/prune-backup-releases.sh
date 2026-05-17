@@ -29,8 +29,8 @@ KEEP_TAGS=()
 DELETE_TAGS=()
 
 # Track which week/month we've already kept for weekly/monthly retention
-KEPT_WEEKS=()
-KEPT_MONTHS=()
+declare -a KEPT_WEEKS=()
+declare -a KEPT_MONTHS=()
 
 DAILY_COUNT=0
 CUTOFF_14_DAYS=$((NOW - 14 * 86400))
@@ -65,7 +65,7 @@ while IFS= read -r line; do
     YEAR_NUM=$(date -u -d @"$RELEASE_TS" +%Y)
     WEEK_KEY="$YEAR_NUM-$WEEK_NUM"
     
-    if [[ ! " ${KEPT_WEEKS[*]} " =~ " ${WEEK_KEY} " ]]; then
+    if [[ ! " ${KEPT_WEEKS[*]:-} " =~ " ${WEEK_KEY} " ]]; then
       echo "✓ KEEP $TAG (weekly keeper, week $WEEK_KEY, ${AGE_DAYS}d old)"
       KEEP_TAGS+=("$TAG")
       KEPT_WEEKS+=("$WEEK_KEY")
@@ -77,7 +77,7 @@ while IFS= read -r line; do
   if [ "$RELEASE_TS" -gt "$CUTOFF_6_MONTHS" ]; then
     MONTH_NUM=$(date -u -d @"$RELEASE_TS" +%Y%m)
     
-    if [[ ! " ${KEPT_MONTHS[*]} " =~ " ${MONTH_NUM} " ]]; then
+    if [[ ! " ${KEPT_MONTHS[*]:-} " =~ " ${MONTH_NUM} " ]]; then
       echo "✓ KEEP $TAG (monthly keeper, month $MONTH_NUM, ${AGE_DAYS}d old)"
       KEEP_TAGS+=("$TAG")
       KEPT_MONTHS+=("$MONTH_NUM")
