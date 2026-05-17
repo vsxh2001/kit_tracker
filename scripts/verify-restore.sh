@@ -26,6 +26,19 @@ PB_URL="http://127.0.0.1:$PORT"
 PB_ADMIN_EMAIL="${PB_ADMIN_EMAIL:-admin@example.com}"
 PB_ADMIN_PASSWORD="${PB_ADMIN_PASSWORD:-changeme123}"
 
+# Decrypt snapshot if .gpg extension present
+if [ -n "${SNAPSHOT:-}" ] && [[ "$SNAPSHOT" == *.gpg ]]; then
+  if [ -z "${BACKUP_ENCRYPTION_KEY:-}" ]; then
+    echo "FAIL — SNAPSHOT is .gpg but BACKUP_ENCRYPTION_KEY is not set"
+    exit 1
+  fi
+  DECRYPTED="${SNAPSHOT%.gpg}"
+  echo "→ Decrypting $SNAPSHOT → $DECRYPTED"
+  gpg --batch --yes --decrypt --passphrase "$BACKUP_ENCRYPTION_KEY" \
+    -o "$DECRYPTED" "$SNAPSHOT"
+  SNAPSHOT="$DECRYPTED"
+fi
+
 echo "→ Health check"
 if ! curl -sf "$PB_URL/api/health" >/dev/null; then
   echo "  FAIL — PB not responding on port $PORT"

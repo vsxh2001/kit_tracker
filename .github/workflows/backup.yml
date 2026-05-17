@@ -1,3 +1,7 @@
+# Backup encryption: requires GitHub repository secret BACKUP_ENCRYPTION_KEY
+# (passphrase, ~32 chars random). Generate: openssl rand -base64 32
+# Set: gh secret set BACKUP_ENCRYPTION_KEY -b "<paste>"
+# Lose the key = lose every backup. Store in 1Password/Bitwarden alongside Fly secrets.
 name: Daily PB Backup
 
 on:
@@ -39,7 +43,8 @@ jobs:
 
           # Trigger backup
           HTTP=$(curl -s -o /tmp/backup-resp.json -w '%{http_code}' -X POST "$APP_BASE_URL/api/backups" \
-            -H "Authorization: $TOKEN" -H 'Content-Type: application/json' \
+            -H "Authorization: $TOKEN" \  # PB v0.22 accepts raw token; v0.23+ may require 'Bearer $TOKEN'
+            -H 'Content-Type: application/json' \
             -d "{\"name\":\"$SNAPSHOT\"}")
           if [ "$HTTP" != "204" ] && [ "$HTTP" != "200" ]; then
             echo "::error::backup HTTP failed (status $HTTP)"
@@ -81,15 +86,32 @@ jobs:
           fi
           echo "✓ Snapshot size: $SIZE bytes"
 
+      - name: GPG-encrypt snapshot
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          if [ -z "$BACKUP_ENCRYPTION_KEY" ]; then
+            echo "::error::BACKUP_ENCRYPTION_KEY secret missing — refusing to upload unencrypted snapshot"
+            exit 1
+          fi
+          gpg --batch --yes --symmetric \
+            --cipher-algo AES256 \
+            --passphrase "$BACKUP_ENCRYPTION_KEY" \
+            -o "backups/${SNAPSHOT}.gpg" \
+            "backups/$SNAPSHOT"
+          rm "backups/$SNAPSHOT"  # delete plaintext
+          SNAPSHOT="${SNAPSHOT}.gpg"
+          echo "SNAPSHOT=$SNAPSHOT" >> $GITHUB_ENV
+
       - name: Upload as release artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="backup-$(date -u +%Y%m%d-%H%M%S)"
-          SNAPSHOT=$(ls -t backups/pb-snapshot-*.zip | head -1)
+          SNAPSHOT=$(ls -t backups/pb-snapshot-*.gpg | head -1)
           gh release create "$TAG" "$SNAPSHOT" \
             --title "Daily backup $TAG" \
-            --notes "Automated daily snapshot."
+            --notes "Encrypted with AES256 — restore requires BACKUP_ENCRYPTION_KEY."
 
       - name: Prune old releases
         env:
