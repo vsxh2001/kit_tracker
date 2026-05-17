@@ -1,20 +1,33 @@
 # Kit Tracker
 
-A self-hosted web app for tracking physical equipment — who holds each kit, its full movement history, and requests to borrow or transfer kits. Built on PocketBase (Go + SQLite) with a React/TypeScript frontend.
+A WhatsApp-driven kit tracker for field-service and IT ops teams. Technicians log moves from their phone; admins audit on the web. Self-hostable on a single $5/mo Fly machine.
 
-## Screenshots
+![WhatsApp move flow](docs/screenshots/wa-move.png)
 
-_Screenshots coming soon._
+## How it works
 
-## Features
+1. **Technician on phone** sends `move <KIT-SERIAL> to <ENTITY>` over WhatsApp. Bot confirms in plain text. Tech replies `YES`. Move logged with full audit trail.
+2. **Admin on web** sees the move in the kit timeline with a WhatsApp origin badge, filters audit log by source, exports CSV per kit.
+3. **Append-only history.** Every move is a transaction row — no edits, no deletes. Admins have a hard-delete-with-cascade tool for genuine corrections (audit row written before).
 
-- Track kits by serial number; current holder is always derived from the latest transaction
-- Entities (labs, teams, people, storage locations) as named holders
-- Append-only transaction log — no history is ever lost
-- Request workflow: users submit requests, admins approve/reject/fulfill
-- Role-based access: admin, user, viewer
-- PocketBase built-in auth (email/password); admin UI at `/_/`
-- Docker and Fly.io deployment support
+![Web timeline](docs/screenshots/web-timeline.png)
+
+## Stack
+
+- **Backend:** PocketBase v0.22 (Go + SQLite + Goja JS hooks) on Fly.io
+- **Frontend:** React 18 + Vite + Tailwind + Radix UI
+- **WhatsApp:** Twilio sandbox (production migration documented in `docs/pilot-runbook.md`)
+- **AI:** Anthropic Claude Haiku 4.5 for intent + tool routing (in-app chat sidebar + MCP server)
+
+![Admin audit filter](docs/screenshots/audit-filter.png)
+
+## Quick start (pilot deployment)
+
+See `docs/pilot-runbook.md` for the full Fly deployment + Twilio sandbox + onboarding flow.
+
+For local development, see the "Quick Start (dev)" section below.
+
+---
 
 ## Quick Start (dev)
 

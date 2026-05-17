@@ -138,12 +138,12 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
     setLoading(true);
     try {
       const isSerialized = prod ? prod.is_serialized : !isBulk;
-      const qty = isSerialized ? 1 : (parseInt(quantity, 10) || 1);
+      const bulkQty = isSerialized ? undefined : (parseInt(quantity, 10) || 1);
       const comp = await createComponent({
         serial: isSerialized ? serial.trim() : "",
         notes: notes.trim(),
         is_bulk: !isSerialized,
-        quantity: qty,
+        quantity: bulkQty,
         is_active: true,
         product: productId,
       });
@@ -153,7 +153,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
           component: comp.id,
           to_kit: targetKit ?? "",
           to_entity: targetEntity ?? "",
-          quantity: qty,
+          quantity: bulkQty ?? 1,
           notes: "",
           created_by: pb.authStore.model?.id,
         });
@@ -332,12 +332,12 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
               </div>
               {selectedComponent?.is_bulk && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="move-qty">Quantity to move (max {selectedComponent.quantity})</Label>
+                  <Label htmlFor="move-qty">Quantity to move (max {selectedComponent.quantity ?? "?"})</Label>
                   <Input
                     id="move-qty"
                     type="number"
                     min={1}
-                    max={selectedComponent.quantity}
+                    max={selectedComponent.quantity ?? undefined}
                     value={moveQty}
                     onChange={(e) => setMoveQty(e.target.value)}
                   />
