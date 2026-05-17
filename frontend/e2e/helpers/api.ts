@@ -13,6 +13,7 @@ const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 // test suites, but within a single suite run it's safe and efficient.
 let _adminToken: string | null = null;
 let _adminUserId: string | null = null;
+let _superToken: string | null = null;
 
 export async function getAdminToken(): Promise<string> {
   if (_adminToken) return _adminToken;
@@ -38,6 +39,31 @@ export async function getAdminToken(): Promise<string> {
 export async function getAdminUserId(): Promise<string> {
   await getAdminToken();
   return _adminUserId!;
+}
+
+async function getSuperToken(): Promise<string> {
+  if (_superToken) return _superToken;
+  // PB v0.22 path. Fallback to v0.21 path if newer endpoint returns 404 (older PB).
+  const body = JSON.stringify({
+    identity: process.env.PB_SUPERUSER_EMAIL ?? "admin@example.com",
+    password: process.env.PB_SUPERUSER_PASSWORD ?? "changeme123",
+  });
+  let res = await fetch(`${PB_URL}/api/collections/_superusers/auth-with-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+  if (res.status === 404) {
+    res = await fetch(`${PB_URL}/api/admins/auth-with-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+  }
+  if (!res.ok) throw new Error(`Super auth failed: ${res.status}`);
+  const data = await res.json();
+  _superToken = data.token;
+  return _superToken!;
 }
 
 const TEST_PASSWORDS: Record<string, string> = {
@@ -676,7 +702,7 @@ export async function linkComponentToProduct(componentId: string, productId: str
 }
 
 export async function seedAuditRows(rows: Array<{ via: string; action?: string; collection_name?: string }>): Promise<void> {
-  const token = await getAdminToken();
+  const token = await getSuperToken();
   const actorId = await getAdminUserId();
   for (const r of rows) {
     const res = await fetch(`${PB_URL}/api/collections/audit_log/records`, {
