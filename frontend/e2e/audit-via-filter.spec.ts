@@ -23,7 +23,7 @@ test.describe("Audit log — via source filter @smoke", () => {
     await page.goto(`${BASE_URL}/login`);
     await page.getByLabel("Email").fill("logistics@kit.local");
     await page.getByLabel("Password").fill("Pass1234!");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL(/\/(dashboard|$)/);
 
     // Navigate to /audit
