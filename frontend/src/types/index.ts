@@ -117,10 +117,10 @@ export type AuditVia = "web" | "wa-bot" | "ai-agent" | "mcp";
 
 export interface AuditLog {
   id: string;
-  collection_name: "kits" | "entities" | "users";
+  collection_name: string;
   record_id: string;
   actor: string;
-  action: "create" | "update" | "delete";
+  action: string;
   changes: string; // JSON — changes JSON includes a .via field of type AuditVia
   created: string;
   expand?: { actor?: PBUser };
