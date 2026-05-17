@@ -441,6 +441,12 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
     return replyViaTwilio(phone, "Your account isn't approved for WhatsApp access yet.");
   }
 
+  // Returns true only for roles that may perform write operations.
+  // viewer is read-only per CLAUDE.md invariant.
+  function isWriteAuthorized(r) {
+    return r === "admin" || r === "technician" || r === "user";
+  }
+
   // T6: tag all DAO writes from this handler as "wa-bot" for audit_log hook.
   // NOTE: this tag is on the outer WA request context. The $http.send() call to
   // /api/ai/chat runs in a separate request context, so AI-mediated writes get
@@ -603,6 +609,10 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   var returnMatch = body.trim().match(/^(?:return|send\s+back)\s+(\S+)\s*$/i)
                  || body.trim().match(/^(\S+)\s+is\s+back\s*$/i);
   if (returnMatch) {
+    if (!isWriteAuthorized(role)) {
+      console.log("[wa_inbound] RETURN intent blocked — role=" + role + " is read-only");
+      return replyViaTwilio(phone, "You don't have permission to perform that action. Contact an admin.");
+    }
     var serial = returnMatch[1];
     var warehouseId = $os.getenv("DEFAULT_WAREHOUSE_ENTITY_ID") || "";
     if (!warehouseId) {
@@ -642,6 +652,10 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // Trade-off: "tell me where it moved" triggers confirm — acceptable false positive.
   var writeVerbs = /\b(move|create|add|new|make|delete|deactivate|remove|update|change|set|edit|approve|reject|fulfill|rename|reassign|transfer|put|send|cancel)\b/i;
   if (writeVerbs.test(body)) {
+    if (!isWriteAuthorized(role)) {
+      console.log("[wa_inbound] write-verb blocked — role=" + role + " is read-only");
+      return replyViaTwilio(phone, "You don't have permission to perform that action. Contact an admin.");
+    }
     var pendingEntry0 = JSON.stringify({
       messageText: body,
       expiresAtMs: Date.now() + 30000
