@@ -1,6 +1,6 @@
 import { pb } from "../lib/pocketbase";
 
-function baseUrl(): string {
+export function baseUrl(): string {
   return pb.baseUrl.replace(/\/+$/, "");
 }
 
