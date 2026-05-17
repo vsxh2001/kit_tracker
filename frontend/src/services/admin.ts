@@ -4,7 +4,7 @@ function baseUrl(): string {
   return pb.baseUrl.replace(/\/+$/, "");
 }
 
-export type CascadeCollection = "kits" | "entities" | "components" | "transactions";
+export type CascadeCollection = "kits" | "entities" | "components" | "transactions" | "products";
 
 export interface CascadeBlocker {
   collection: string;

@@ -16,6 +16,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "../components/ui/alert-dialog";
+import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { getProduct, listComponentsForProduct, softDeleteProduct, restoreProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
 import { formatDate } from "../lib/utils";
@@ -25,13 +26,14 @@ import type { Component, Product } from "../types";
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canDecideRequests } = useAuth();
+  const { canDecideRequests, isAdmin } = useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [components, setComponents] = useState<Component[]>([]);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
   const [showAddComp, setShowAddComp] = useState(false);
+  const [showCascadeDelete, setShowCascadeDelete] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -316,6 +318,37 @@ export function ProductDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {isAdmin && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-destructive">Danger zone</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-sm text-muted-foreground mb-3">
+              Hard-delete this product and all dependent rows. Last-resort tool to fix history.
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowCascadeDelete(true)}
+            >
+              Cascade Hard Delete
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <CascadeDeleteDialog
+        open={showCascadeDelete}
+        onOpenChange={setShowCascadeDelete}
+        collection="products"
+        recordId={product.id}
+        onDeleted={() => {
+          navigate("/products");
+          toast({ title: "Product deleted with cascade", variant: "success" });
+        }}
+      />
     </div>
   );
 }
