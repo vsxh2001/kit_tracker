@@ -30,7 +30,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [url, setUrl] = useState(product.url ?? "");
   const [specs, setSpecs] = useState(product.specs ?? "");
   const [isSerialized, setIsSerialized] = useState(product.is_serialized ?? true);
-  const [serializedWarn, setSerializedWarn] = useState(false);
+  const [activeComponentCount, setActiveComponentCount] = useState(0);
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,25 +46,25 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         setUrl(product.url ?? "");
         setSpecs(product.specs ?? "");
         setIsSerialized(product.is_serialized ?? true);
-        setSerializedWarn(false);
+        setActiveComponentCount(0);
         setError("");
         setSpecsError("");
       });
+      async function loadCount() {
+        try {
+          const count = await countComponentsForProduct(product.id);
+          setActiveComponentCount(count);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (err: any) {
+          if (!err?.isAbort) console.error(err);
+        }
+      }
+      loadCount();
     }
   }, [open, product]);
 
-  async function handleSerializedToggle(checked: boolean) {
-    if (checked !== (product.is_serialized ?? true)) {
-      // Warn if toggling away from current value while active components exist
-      try {
-        const count = await countComponentsForProduct(product.id);
-        setSerializedWarn(count > 0);
-      } catch {
-        setSerializedWarn(false);
-      }
-    } else {
-      setSerializedWarn(false);
-    }
+  function handleSerializedToggle(checked: boolean) {
+    if (activeComponentCount > 0) return;
     setIsSerialized(checked);
   }
 
@@ -178,13 +178,19 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
               id="edit-prod-serialized"
               checked={isSerialized}
               onChange={(e) => handleSerializedToggle(e.target.checked)}
-              className="h-4 w-4"
+              disabled={activeComponentCount > 0}
+              className="h-4 w-4 disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <Label htmlFor="edit-prod-serialized">Serialized (one unit per component)</Label>
+            <Label
+              htmlFor="edit-prod-serialized"
+              className={activeComponentCount > 0 ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              Serialized (one unit per component)
+            </Label>
           </div>
-          {serializedWarn && (
-            <p className="text-sm text-amber-600">
-              Warning: this product has active components. Changing serialized/bulk mode may conflict with existing components.
+          {activeComponentCount > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Cannot change — {activeComponentCount} active component{activeComponentCount !== 1 ? "s" : ""} exist{activeComponentCount === 1 ? "s" : ""}.
             </p>
           )}
           <div className="space-y-1.5">
