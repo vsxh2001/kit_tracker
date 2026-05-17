@@ -592,10 +592,11 @@ test.describe("P12: Serialized vs bulk product enforcement (serialized)", () => 
         product: serializedProdId,
       }),
     });
-    // Hook forces quantity=1 for serialized products
-    expect(res.status, "Serialized product: component with qty>1 must be accepted (qty coerced to 1)").toBe(200);
+    // Hook forces quantity=NULL for serialized products (NULL serializes as 0 in PB REST responses)
+    expect(res.status, "Serialized product: component with qty>1 must be accepted (qty coerced to NULL)").toBe(200);
     const data = await res.json();
-    expect(data.quantity, "Quantity must be coerced to 1 by the hook").toBe(1);
+    // PB returns NULL numeric fields as 0 in JSON; hook sets quantity=NULL via raw SQL for serialized
+    expect(data.quantity, "Quantity must be nulled by the hook (returned as 0 from PB)").toBe(0);
     createdCompIds.push(data.id);
   });
 

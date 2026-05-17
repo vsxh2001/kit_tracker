@@ -230,10 +230,13 @@ check_kit() {
   fi
 }
 
-check_entity "DEMO-Entity-002"
+check_entity "DEMO-Customer-Alpha"
+check_kit "DEMO-KIT-003"
 check_kit "DEMO-KIT-005"
 check_kit "DEMO-KIT-006"
 check_kit "DEMO-KIT-007"
+check_kit "DEMO-KIT-008"
+check_kit "DEMO-KIT-009"
 
 if [[ "${#MISSING_FIXTURES[@]}" -gt 0 ]]; then
   echo "ERROR: Required demo fixtures not found (active):"
@@ -281,14 +284,14 @@ fi
 # Scenario A: Move + YES → expect transaction
 # ---------------------------------------------------------------------------
 log ""
-log "=== Scenario A: move DEMO-KIT-005 to DEMO-Entity-002 + YES ==="
+log "=== Scenario A: move DEMO-KIT-005 to DEMO-Customer-Alpha + YES ==="
 
 SID_A1="SM-${RUN_ID}-A1"
 SID_A2="SM-${RUN_ID}-A2"
 BEFORE_A_MS="$(date +%s%3N)"
 
 log "A1: sending move command ..."
-resp_a1="$(send_wa "${SID_A1}" "${TECH_PHONE}" "move DEMO-KIT-005 to DEMO-Entity-002")"
+resp_a1="$(send_wa "${SID_A1}" "${TECH_PHONE}" "move DEMO-KIT-005 to DEMO-Customer-Alpha")"
 log "A1 response: ${resp_a1:0:200}"
 
 # The hook should have stored a pending confirmation and replied with "Confirm: ..."
@@ -302,7 +305,7 @@ log "A: waiting for transaction to appear (up to 30s) ..."
 found_a=0
 for i in $(seq 1 15); do
   sleep 2
-  tx_count_a="$(count_transactions_after "${BEFORE_A_MS}" "DEMO-KIT-005" "DEMO-Entity-002")"
+  tx_count_a="$(count_transactions_after "${BEFORE_A_MS}" "DEMO-KIT-005" "DEMO-Customer-Alpha")"
   if [[ "${tx_count_a}" -gt 0 ]]; then
     found_a=1
     break
@@ -314,27 +317,27 @@ log "A: transactions found after run start: ${tx_count_a}"
 if [[ "${found_a}" -eq 1 ]]; then
   pass "Scenario A: Move + YES created transaction (found ${tx_count_a}, after $((i*2))s)"
 else
-  fail "Scenario A: Move + YES" "no transaction found for DEMO-KIT-005 → DEMO-Entity-002 after 30s"
+  fail "Scenario A: Move + YES" "no transaction found for DEMO-KIT-005 → DEMO-Customer-Alpha after 30s"
 fi
 
 # ---------------------------------------------------------------------------
 # Scenario B: Move without YES (timeout)
 # ---------------------------------------------------------------------------
 log ""
-log "=== Scenario B: move DEMO-KIT-006 to DEMO-Entity-002 (no YES, wait for 30s timeout) ==="
+log "=== Scenario B: move DEMO-KIT-006 to DEMO-Customer-Alpha (no YES, wait for 30s timeout) ==="
 
 SID_B1="SM-${RUN_ID}-B1"
 BEFORE_B_MS="$(date +%s%3N)"
 
 log "B1: sending move command (will NOT send YES) ..."
-resp_b1="$(send_wa "${SID_B1}" "${TECH_PHONE}" "move DEMO-KIT-006 to DEMO-Entity-002")"
+resp_b1="$(send_wa "${SID_B1}" "${TECH_PHONE}" "move DEMO-KIT-006 to DEMO-Customer-Alpha")"
 log "B1 response: ${resp_b1:0:200}"
 
 log "B: waiting 35s for pending confirmation to expire ..."
 sleep 35
 
 log "B: verifying NO transaction was created ..."
-tx_count_b="$(count_transactions_after "${BEFORE_B_MS}" "DEMO-KIT-006" "DEMO-Entity-002")"
+tx_count_b="$(count_transactions_after "${BEFORE_B_MS}" "DEMO-KIT-006" "DEMO-Customer-Alpha")"
 log "B: transactions found: ${tx_count_b}"
 
 if [[ "${tx_count_b}" -eq 0 ]]; then
@@ -347,14 +350,14 @@ fi
 # Scenario C: Move + non-YES reply (cancel)
 # ---------------------------------------------------------------------------
 log ""
-log "=== Scenario C: move DEMO-KIT-007 to DEMO-Entity-002 + 'no' (cancel) ==="
+log "=== Scenario C: move DEMO-KIT-007 to DEMO-Customer-Alpha + 'no' (cancel) ==="
 
 SID_C1="SM-${RUN_ID}-C1"
 SID_C2="SM-${RUN_ID}-C2"
 BEFORE_C_MS="$(date +%s%3N)"
 
 log "C1: sending move command ..."
-resp_c1="$(send_wa "${SID_C1}" "${TECH_PHONE}" "move DEMO-KIT-007 to DEMO-Entity-002")"
+resp_c1="$(send_wa "${SID_C1}" "${TECH_PHONE}" "move DEMO-KIT-007 to DEMO-Customer-Alpha")"
 log "C1 response: ${resp_c1:0:200}"
 
 log "C2: sending 'no' to cancel ..."
@@ -364,7 +367,7 @@ log "C2 response: ${resp_c2:0:200}"
 sleep 3
 
 log "C: verifying NO transaction was created ..."
-tx_count_c="$(count_transactions_after "${BEFORE_C_MS}" "DEMO-KIT-007" "DEMO-Entity-002")"
+tx_count_c="$(count_transactions_after "${BEFORE_C_MS}" "DEMO-KIT-007" "DEMO-Customer-Alpha")"
 log "C: transactions found: ${tx_count_c}"
 
 # Note: "no" itself contains no write-verb match so it falls through to /api/ai/chat.
@@ -389,7 +392,7 @@ http_code_d="$(curl -s -o /dev/null -w "%{http_code}" -X POST "${PB_URL}/api/wa/
   --data-urlencode "AccountSid=${TWILIO_ACCOUNT_SID}" \
   --data-urlencode "From=whatsapp:${TECH_PHONE}" \
   --data-urlencode "To=whatsapp:+14155238886" \
-  --data-urlencode "Body=move DEMO-KIT-005 to DEMO-Entity-002" \
+  --data-urlencode "Body=move DEMO-KIT-005 to DEMO-Customer-Alpha" \
   --data-urlencode "NumMedia=0" \
   --data-urlencode "SmsStatus=received")"
 
@@ -399,7 +402,7 @@ log "D: HTTP response code from duplicate POST: ${http_code_d}"
 # We can't intercept Twilio outbound to count replies — rely on PB log + best-effort check.
 # Verification: no additional transaction for DEMO-KIT-005 created AFTER scenario D started.
 sleep 2
-tx_count_d_new="$(count_transactions_after "${BEFORE_D_MS}" "DEMO-KIT-005" "DEMO-Entity-002")"
+tx_count_d_new="$(count_transactions_after "${BEFORE_D_MS}" "DEMO-KIT-005" "DEMO-Customer-Alpha")"
 log "D: new transactions after duplicate POST: ${tx_count_d_new} (expected 0)"
 
 if [[ "${http_code_d}" == "200" ]]; then
@@ -413,6 +416,192 @@ if [[ "${http_code_d}" == "200" ]]; then
 else
   fail "Scenario D: Duplicate MessageSid" \
     "expected HTTP 200 but got ${http_code_d} — duplicate not absorbed"
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario E: viewer attempting RETURN shortcut → permission denied
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario E: viewer RETURN shortcut → permission denied (no transaction) ==="
+
+VIEWER_PHONE="${VIEWER_PHONE:-+972500000099}"
+
+# Find a viewer user in DB
+VIEWER_ID="$(curl -s \
+  -H "Authorization: ${ADMIN_TOKEN}" \
+  "${PB_URL}/api/collections/users/records?filter=role%3D%27viewer%27&perPage=1" \
+  | jq -r '.items[0].id // empty')"
+
+if [[ -z "${VIEWER_ID}" ]]; then
+  log "E: SKIP — no viewer user found in DB"
+  pass "Scenario E: viewer RETURN — SKIPPED (no viewer in DB)"
+else
+  # Assign VIEWER_PHONE to the viewer user
+  curl -s -X PATCH "${PB_URL}/api/collections/users/records/${VIEWER_ID}" \
+    -H "Authorization: ${ADMIN_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"phone\":\"${VIEWER_PHONE}\"}" >/dev/null
+
+  log "E: assigned phone=${VIEWER_PHONE} to viewer user ${VIEWER_ID}"
+
+  SID_E1="SM-${RUN_ID}-E1"
+  BEFORE_E_SEC="$(date +%s)"
+  BEFORE_E_ISO="$(date -u "+%Y-%m-%d %H:%M:%S")"
+
+  log "E: sending 'return DEMO-KIT-005' as viewer ..."
+  resp_e1="$(send_wa "${SID_E1}" "${VIEWER_PHONE}" "return DEMO-KIT-005")"
+  log "E: response: ${resp_e1:0:200}"
+
+  sleep 3
+
+  # Verify no new transaction was created for DEMO-KIT-005 since we started.
+  # Use plain second-precision ISO timestamp (date +%s is universally supported).
+  filter_e="kit.serial='DEMO-KIT-005'&&created>='${BEFORE_E_ISO}'"
+  filter_e_enc="$(url_encode "${filter_e}")"
+  tx_count_e="$(curl -s \
+    -H "Authorization: ${ADMIN_TOKEN}" \
+    "${PB_URL}/api/collections/transactions/records?filter=${filter_e_enc}&perPage=1" \
+    | jq -r '.totalItems // 0')"
+
+  log "E: new transactions for DEMO-KIT-005 after viewer RETURN: ${tx_count_e} (expected 0)"
+
+  if [[ "${tx_count_e}" -eq 0 ]]; then
+    pass "Scenario E: viewer RETURN did not create transaction (role gate OK)"
+  else
+    fail "Scenario E: viewer RETURN" "${tx_count_e} transaction(s) created — privilege escalation NOT blocked"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario F: RETURN + YES → audit_log row has via=wa-bot (T13 regression)
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario F: RETURN + YES → audit_log via=wa-bot ==="
+
+# Use DEMO-KIT-003 (untouched by scenarios A-E).
+# We need a kit that is NOT already at the warehouse so the move is real.
+# If it happens to already be there the transaction still writes and the
+# audit_log row is still expected with via=wa-bot — the check is on the
+# audit_log, not the transaction destination.
+SID_F1="SM-${RUN_ID}-F1"
+SID_F2="SM-${RUN_ID}-F2"
+BEFORE_F_MS="$(date +%s%3N)"
+BEFORE_F_ISO="$(date -u "+%Y-%m-%d %H:%M:%S")"
+
+log "F1: sending 'return DEMO-KIT-003' ..."
+resp_f1="$(send_wa "${SID_F1}" "${TECH_PHONE}" "return DEMO-KIT-003")"
+log "F1 response: ${resp_f1:0:200}"
+
+sleep 2
+
+log "F2: sending YES ..."
+resp_f2="$(send_wa "${SID_F2}" "${TECH_PHONE}" "YES")"
+log "F2 response: ${resp_f2:0:200}"
+
+sleep 3
+
+# Query audit_log for a transaction row created after F started with via=wa-bot.
+# Filter: collection_name='transactions' && created >= BEFORE_F_ISO.
+filter_f="collection_name='transactions'&&created>='${BEFORE_F_ISO}'"
+filter_f_enc="$(url_encode "${filter_f}")"
+audit_f_resp="$(curl -s \
+  -H "Authorization: ${ADMIN_TOKEN}" \
+  "${PB_URL}/api/collections/audit_log/records?filter=${filter_f_enc}&sort=-created&perPage=5")"
+
+log "F: raw audit_log response (first 400): ${audit_f_resp:0:400}"
+
+# Extract all .via values from changes JSON in matching rows
+audit_f_via_list="$(echo "${audit_f_resp}" | jq -r '[.items[] | (.changes | fromjson | .via)] | .[]' 2>/dev/null || true)"
+log "F: via values in new audit_log rows: ${audit_f_via_list:-<none>}"
+
+if echo "${audit_f_via_list}" | grep -qx "wa-bot"; then
+  pass "Scenario F: audit_log row with via=wa-bot found after RETURN+YES"
+else
+  fail "Scenario F: audit_log via=wa-bot" \
+    "no audit_log row with via='wa-bot' found for DEMO-KIT-003 return (got: ${audit_f_via_list:-<none>})"
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario G: "send back X" phrasing → RETURN variant
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario G: 'send back DEMO-KIT-008' phrasing → move to warehouse ==="
+
+# DEMO-KIT-008 is at DEMO-Customer-Alpha (indices 5-8 in seed, kit 8 = index 7).
+# Send "send back DEMO-KIT-008" → expect confirm prompt, then YES → warehouse tx.
+SID_G1="SM-${RUN_ID}-G1"
+SID_G2="SM-${RUN_ID}-G2"
+BEFORE_G_MS="$(date +%s%3N)"
+
+log "G1: sending 'send back DEMO-KIT-008' ..."
+resp_g1="$(send_wa "${SID_G1}" "${TECH_PHONE}" "send back DEMO-KIT-008")"
+log "G1 response: ${resp_g1:0:200}"
+
+sleep 2
+
+log "G2: sending YES ..."
+resp_g2="$(send_wa "${SID_G2}" "${TECH_PHONE}" "YES")"
+log "G2 response: ${resp_g2:0:200}"
+
+log "G: waiting for transaction to appear (up to 30s) ..."
+found_g=0
+for i in $(seq 1 15); do
+  sleep 2
+  tx_count_g="$(count_transactions_after "${BEFORE_G_MS}" "DEMO-KIT-008" "DEMO-Warehouse")"
+  if [[ "${tx_count_g}" -gt 0 ]]; then
+    found_g=1
+    break
+  fi
+done
+
+log "G: transactions found after run start: ${tx_count_g}"
+
+if [[ "${found_g}" -eq 1 ]]; then
+  pass "Scenario G: send back <serial> moved kit to warehouse (found ${tx_count_g}, after $((i*2))s)"
+else
+  fail "Scenario G: send back <serial> moved kit to warehouse" \
+    "no transaction found for DEMO-KIT-008 → DEMO-Warehouse after 30s (response: ${resp_g2:0:200})"
+fi
+
+# ---------------------------------------------------------------------------
+# Scenario H: "X is back" phrasing → RETURN variant
+# ---------------------------------------------------------------------------
+log ""
+log "=== Scenario H: 'DEMO-KIT-009 is back' phrasing → move to warehouse ==="
+
+# DEMO-KIT-009 is at DEMO-Customer-Alpha (index 8 in seed, kit 9).
+SID_H1="SM-${RUN_ID}-H1"
+SID_H2="SM-${RUN_ID}-H2"
+BEFORE_H_MS="$(date +%s%3N)"
+
+log "H1: sending 'DEMO-KIT-009 is back' ..."
+resp_h1="$(send_wa "${SID_H1}" "${TECH_PHONE}" "DEMO-KIT-009 is back")"
+log "H1 response: ${resp_h1:0:200}"
+
+sleep 2
+
+log "H2: sending YES ..."
+resp_h2="$(send_wa "${SID_H2}" "${TECH_PHONE}" "YES")"
+log "H2 response: ${resp_h2:0:200}"
+
+log "H: waiting for transaction to appear (up to 30s) ..."
+found_h=0
+for i in $(seq 1 15); do
+  sleep 2
+  tx_count_h="$(count_transactions_after "${BEFORE_H_MS}" "DEMO-KIT-009" "DEMO-Warehouse")"
+  if [[ "${tx_count_h}" -gt 0 ]]; then
+    found_h=1
+    break
+  fi
+done
+
+log "H: transactions found after run start: ${tx_count_h}"
+
+if [[ "${found_h}" -eq 1 ]]; then
+  pass "Scenario H: <serial> is back moved kit to warehouse (found ${tx_count_h}, after $((i*2))s)"
+else
+  fail "Scenario H: <serial> is back moved kit to warehouse" \
+    "no transaction found for DEMO-KIT-009 → DEMO-Warehouse after 30s (response: ${resp_h2:0:200})"
 fi
 
 # ---------------------------------------------------------------------------

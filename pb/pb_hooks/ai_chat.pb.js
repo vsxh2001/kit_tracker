@@ -801,12 +801,7 @@ function getAiTools() {
   // --- Write tools ---
 
   function generateUndoToken() {
-    var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    var token = "";
-    for (var i = 0; i < 16; i++) {
-      token += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return token;
+    return $security.randomString(32);
   }
 
   function saveAuditLog(dao, opts) {
@@ -2431,6 +2426,10 @@ routerAdd("POST", "/api/ai/undo", function(c) {
     if (Date.now() > undoData.ttl_at) {
       $app.store().remove(undoKey);
       return c.json(400, { error: "expired", detail: "Undo window has passed (60s)" });
+    }
+
+    if (!undoData || undoData.actor !== userId) {
+      return c.json(403, { error: "forbidden", message: "Undo token belongs to another user" });
     }
 
     // Consume the token immediately (prevent double-undo)
