@@ -129,7 +129,9 @@ onModelBeforeCreate((e) => {
     }
   }
 
-  // quantity vs component available
+  // quantity vs component available — only meaningful for bulk components.
+  // Serialized components (is_bulk=false) have quantity null/0 by design;
+  // each serialized unit is one tx, no available-quantity gate.
   const componentId = e.model.getString("component");
   const txnQty = e.model.getInt("quantity");
   if (txnQty < 1) {
@@ -137,11 +139,14 @@ onModelBeforeCreate((e) => {
   }
 
   const component = $app.dao().findRecordById("components", componentId);
-  const availableQty = component.getInt("quantity");
-  if (txnQty > availableQty) {
-    throw new BadRequestError(
-      "Cannot move more than available (requested " + txnQty + ", available " + availableQty + ")"
-    );
+  const compIsBulk = component.getBool("is_bulk");
+  if (compIsBulk) {
+    const availableQty = component.getInt("quantity");
+    if (txnQty > availableQty) {
+      throw new BadRequestError(
+        "Cannot move more than available (requested " + txnQty + ", available " + availableQty + ")"
+      );
+    }
   }
 
   // Source kit active check

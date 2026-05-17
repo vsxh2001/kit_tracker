@@ -1,5 +1,9 @@
 import { pb } from "../lib/pocketbase";
 
+function baseUrl(): string {
+  return pb.baseUrl.replace(/\/+$/, "");
+}
+
 export type CascadeCollection = "kits" | "entities" | "components" | "transactions";
 
 export interface CascadeBlocker {
@@ -22,7 +26,7 @@ export async function getCascadePreview(
   collection: CascadeCollection,
   recordId: string,
 ): Promise<CascadePreview> {
-  const res = await fetch(`${pb.baseUrl}/api/admin/cascade-delete/preview`, {
+  const res = await fetch(`${baseUrl()}/api/admin/cascade-delete/preview`, {
     method: "POST",
     headers: { Authorization: pb.authStore.token, "Content-Type": "application/json" },
     body: JSON.stringify({ collection, record_id: recordId }),
@@ -39,7 +43,7 @@ export async function cascadeDelete(
   recordId: string,
   confirmText: string,
 ): Promise<{ deleted: Record<string, number> }> {
-  const res = await fetch(`${pb.baseUrl}/api/admin/cascade-delete`, {
+  const res = await fetch(`${baseUrl()}/api/admin/cascade-delete`, {
     method: "POST",
     headers: { Authorization: pb.authStore.token, "Content-Type": "application/json" },
     body: JSON.stringify({ collection, record_id: recordId, confirm_text: confirmText }),
