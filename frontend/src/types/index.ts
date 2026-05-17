@@ -24,7 +24,7 @@ export interface Entity {
   id: string;
   name: string;
   description?: string;
-  category?: EntityCategory;
+  category: EntityCategory;
   is_active: boolean;
   created: string;
   updated: string;
@@ -92,6 +92,7 @@ export interface Product {
   description?: string;
   specs?: string; // JSON string
   url?: string;
+  is_serialized: boolean;
   is_active: boolean;
   created: string;
   updated: string;
@@ -110,13 +111,15 @@ export interface Component {
   expand?: { product?: Product };
 }
 
+export type AuditVia = "web" | "wa-bot" | "ai-agent" | "mcp";
+
 export interface AuditLog {
   id: string;
   collection_name: "kits" | "entities" | "users";
   record_id: string;
   actor: string;
   action: "create" | "update" | "delete";
-  changes: string; // JSON
+  changes: string; // JSON — changes JSON includes a .via field of type AuditVia
   created: string;
   expand?: { actor?: PBUser };
 }

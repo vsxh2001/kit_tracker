@@ -1868,6 +1868,11 @@ routerAdd("POST", "/api/mcp", function(c) {
     var userId = auth.id;
     var userRole = auth.getString ? auth.getString("role") : (auth.role || "");
 
+    // T6: tag audit rows from this handler as "mcp". Non-overwrite guard per spec.
+    try {
+      if (!c.get("audit_via")) c.set("audit_via", "mcp");
+    } catch (_) {}
+
     // Parse JSON-RPC body
     var body = info.data || {};
     var rpcId = (body.id !== undefined && body.id !== null) ? body.id : null;

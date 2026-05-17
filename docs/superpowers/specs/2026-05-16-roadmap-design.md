@@ -136,7 +136,7 @@ The single workflow that must work end-to-end, mobile-first via WhatsApp, with f
 | ID | Source | Description | Fix in |
 |---|---|---|---|
 | U-01 | puppet user findings | Denied users bypass `RequireRole` mid-session because `role="denied"` is truthy. PB listRules `role != ""` also pass. Security. | D11 |
-| WA-confirm | wa_inbound.pb.js source comment | `detectWriteTool` reads `parsedAi.toolsUsed` but `ai_chat.pb.js` may not return it — confirm flow may never fire. Verify, fix. | D1-2 |
+| WA-confirm | wa_inbound.pb.js source comment | `detectWriteTool` reads `parsedAi.toolsUsed` but `ai_chat.pb.js` did not return it — post-hoc telemetry path silently broken. Real gate is the **pre-flight write-intent regex** added in b62d971 (`wa_inbound.pb.js` checks inbound text BEFORE calling ai_chat). The `toolsUsed` field is defense-in-depth for cases the regex misses; fixed in 93adc5d so consumer can read it. Note: by the time ai_chat returns, write has already executed — `toolsUsed` is for audit/detection, not gating. | D1-2 (fix shipped) |
 
 ### P1 (fix if it touches wedge)
 

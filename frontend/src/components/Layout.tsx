@@ -19,7 +19,7 @@ const nav = [
 
 export function Layout() {
   const { user, isAdmin, canDecideRequests } = useAuth();
-  const hasRole = !!user?.role;
+  const hasRole = !!user?.role && user.role !== "denied";
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);

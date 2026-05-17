@@ -114,6 +114,9 @@ export function ProductDetailPage() {
         </Button>
         <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
+          {product.is_serialized
+            ? <Badge variant="outline">Serialized</Badge>
+            : <Badge variant="secondary">Bulk</Badge>}
           {!product.is_active && <Badge variant="destructive">Inactive</Badge>}
         </div>
       </div>

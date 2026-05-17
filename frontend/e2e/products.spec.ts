@@ -516,3 +516,163 @@ test.describe("P11: Product with url shows clickable link", () => {
     expect(data.url, "GET product must return the stored url").toBe(TEST_URL);
   });
 });
+
+// ---------------------------------------------------------------------------
+// P12: Serialized vs Bulk product — is_serialized enforcement (REST-level)
+// ---------------------------------------------------------------------------
+
+test.describe("P12: Serialized vs bulk product enforcement (serialized)", () => {
+  let serializedProdId: string;
+  let bulkProdId: string;
+  const createdCompIds: string[] = [];
+
+  test.beforeAll(async () => {
+    serializedProdId = (await createTestProduct({
+      name: `${TS}-SerializedProd`,
+      is_serialized: true,
+    })).id;
+    bulkProdId = (await createTestProduct({
+      name: `${TS}-BulkProd`,
+      is_serialized: false,
+    })).id;
+  });
+
+  test.afterAll(async () => {
+    for (const id of createdCompIds) {
+      await deactivateComponent(id);
+    }
+    await deleteTestProduct(serializedProdId);
+    await deleteTestProduct(bulkProdId);
+  });
+
+  test("P12a: serialized product — create component with serial succeeds @smoke", async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: `${TS}-SER-001`,
+        is_bulk: false,
+        quantity: 1,
+        is_active: true,
+        product: serializedProdId,
+      }),
+    });
+    expect(res.status, "Serialized product: component with serial must succeed").toBe(200);
+    const data = await res.json();
+    createdCompIds.push(data.id);
+  });
+
+  test("P12b: serialized product — create component without serial is rejected @smoke", async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: "",
+        is_bulk: false,
+        quantity: 1,
+        is_active: true,
+        product: serializedProdId,
+      }),
+    });
+    expect(res.status, "Serialized product: component without serial must be rejected").toBe(400);
+  });
+
+  test("P12c: serialized product — create component with quantity>1 is coerced to 1 @smoke", async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: `${TS}-SER-QTY`,
+        is_bulk: false,
+        quantity: 5,
+        is_active: true,
+        product: serializedProdId,
+      }),
+    });
+    // Hook forces quantity=1 for serialized products
+    expect(res.status, "Serialized product: component with qty>1 must be accepted (qty coerced to 1)").toBe(200);
+    const data = await res.json();
+    expect(data.quantity, "Quantity must be coerced to 1 by the hook").toBe(1);
+    createdCompIds.push(data.id);
+  });
+
+  test("P12d: bulk product — create component with serial is rejected @smoke", async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: `${TS}-BULK-SER`,
+        is_bulk: true,
+        quantity: 5,
+        is_active: true,
+        product: bulkProdId,
+      }),
+    });
+    expect(res.status, "Bulk product: component with non-empty serial must be rejected").toBe(400);
+  });
+
+  test("P12e: bulk product — create component with qty=5 and no serial succeeds @smoke", async () => {
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const res = await fetch(`${PB_URL}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: "",
+        is_bulk: true,
+        quantity: 5,
+        is_active: true,
+        product: bulkProdId,
+      }),
+    });
+    expect(res.status, "Bulk product: component with qty=5 and no serial must succeed").toBe(200);
+    const data = await res.json();
+    createdCompIds.push(data.id);
+  });
+
+  test("P12f: UI — admin creates serialized product via dialog, sees Serialized badge", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/products");
+    await waitForProductsPage(page);
+
+    await page.getByRole("button", { name: /add product/i }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByLabel(/name/i).fill(`${TS}-UI-SerialProd`);
+
+    // Serialized checkbox should be checked by default
+    const serializedCheckbox = dialog.getByLabel(/serialized/i);
+    await expect(serializedCheckbox).toBeChecked({
+      message: "Serialized checkbox must be checked by default",
+    });
+
+    await dialog.getByRole("button", { name: /create/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 8000 });
+
+    // Find the new product and check badge on detail page
+    const { token } = await getUserTokenByEmail("logistics@kit.local", "Pass1234!");
+    const listRes = await fetch(
+      `${PB_URL}/api/collections/products/records?filter=name="${TS}-UI-SerialProd"`,
+      { headers: { Authorization: token } }
+    );
+    const listData = await listRes.json();
+    const newProdId = listData.items?.[0]?.id;
+    if (newProdId) {
+      await page.goto(`/products/${newProdId}`);
+      await expect(page.getByText("Serialized")).toBeVisible({
+        message: "Product detail must show Serialized badge",
+        timeout: 8000,
+      });
+      // Cleanup
+      await fetch(`${PB_URL}/api/collections/products/records/${newProdId}`, {
+        method: "PATCH",
+        headers: { Authorization: token, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      });
+    }
+  });
+});
