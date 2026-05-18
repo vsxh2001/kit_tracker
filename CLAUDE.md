@@ -175,11 +175,15 @@ src/
 - Google OAuth: `pb.collection("users").authWithOAuth2({ provider: "google" })` via `services/auth.ts:loginWithGoogle()`
 - Both update `pb.authStore`; `AuthContext` subscribes via `onChange` — no special handling per provider
 
-### PocketBase SDK version (CRITICAL)
+### PocketBase SDK version (CRITICAL — DO NOT BUMP WITHOUT SERVER UPGRADE)
 
-`pocketbase` JS SDK is pinned to `^0.21.x` in `frontend/package.json`. PB server is **v0.22.22**. SDK v0.22+ rewrote the auth-methods response schema for v0.23+ servers — calls `/auth-methods?fields=mfa,otp,password,oauth2` and reads `response.oauth2.providers`. PB v0.22 returns `{authProviders: [...]}` at top level. Mismatch crashes OAuth with `TypeError: Cannot read properties of undefined (reading 'providers')`. Email/password is stable across versions, so the bug is OAuth-only.
+`pocketbase` JS SDK is pinned to `^0.21.5` (the latest v0.21.x patch) in `frontend/package.json`. PB server is **v0.22.22**.
 
-**Don't bump pocketbase casually.** When upgrading PB server (migrator agent territory), bump SDK in lockstep.
+**Why we can't bump the SDK alone:** SDK `v0.22.0+` is explicitly documented as "works only with PocketBase v0.23.0+" (see [js-sdk CHANGELOG](https://github.com/pocketbase/js-sdk/blob/master/CHANGELOG.md)). The v0.22 SDK rewrote `listAuthMethods()` to read `response.oauth2.providers`. PB server v0.22 returns the old shape `{authProviders: [...]}`, so SDK v0.22+ gets `oauth2: undefined`. Critically, `authWithOAuth2()` calls `listAuthMethods()` INTERNALLY, so OAuth crashes with `TypeError: Cannot read properties of undefined (reading 'providers')` the moment a user clicks the Google button. Empirically verified 2026-05-17 with SDK v0.22.1 against server v0.22.22. Email/password still works because it bypasses the auth-methods discovery path.
+
+The defensive-reader fix at the call site does NOT help — the crash is inside the SDK's pre-flight discovery call, not in user code.
+
+**Upgrade path:** SDK and server MUST be bumped together. v0.23+ requires a server migration (admins → `_superusers` collection, schema → fields rename, etc.). Treat as a single migrator-agent sprint — never bump the SDK alone.
 
 **Vite restart gotcha:** swapping a pre-bundled dep version requires `pkill -f "vite.*<port>"` (kill all workers, not just the wrapper PID `npm run dev` printed) + `rm -rf node_modules/.vite` + `npm run dev -- --force`. The `?v=<hash>` query in served `pocketbase.js` URLs comes from the running module map, not disk content — same content = same hash = browser/Vite cache hit even after npm install.
 
