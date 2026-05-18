@@ -1,32 +1,11 @@
 import { useEffect, useState, startTransition, useMemo } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Button } from "./ui/button";
+import { X } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { pb } from "../lib/pocketbase";
 import type { Transaction, KitRequest, Entity } from "../types";
 import { formatDate, formatDateOnly } from "../lib/utils";
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function monthDays(year: number, month: number): (Date | null)[] {
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const firstDow = firstDay.getDay();
-  const cells: (Date | null)[] = Array(firstDow).fill(null);
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    cells.push(new Date(year, month, d));
-  }
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
-}
+import { MonthGrid } from "./ui/month-grid";
+import { MONTH_NAMES, isoDate, monthDays } from "./ui/month-grid-utils";
 
 // ── Entity color hash (same algorithm as OnCallCalendar user-hash) ────────────
 
@@ -140,7 +119,7 @@ function Pill({ ev, onClick }: { ev: CalEvent; onClick: (ev: CalEvent) => void }
     return (
       <button
         onClick={(e) => { e.stopPropagation(); onClick(ev); }}
-        className="w-full text-left truncate rounded-full bg-blue-100 text-blue-800 px-1.5 py-0.5 text-[9px] font-semibold hover:bg-blue-200 transition-colors leading-tight"
+        className="w-full text-left truncate rounded-full bg-blue-100 text-blue-800 px-1.5 py-0.5 text-xs font-semibold hover:bg-blue-200 transition-colors leading-tight"
         title={`Move → ${to}`}
       >
         → {to}
@@ -152,7 +131,7 @@ function Pill({ ev, onClick }: { ev: CalEvent; onClick: (ev: CalEvent) => void }
     return (
       <button
         onClick={(e) => { e.stopPropagation(); onClick(ev); }}
-        className="w-full text-left truncate rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[9px] font-semibold hover:bg-amber-200 transition-colors leading-tight"
+        className="w-full text-left truncate rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5 text-xs font-semibold hover:bg-amber-200 transition-colors leading-tight"
         title={`Delivery → ${target}`}
       >
         📦 → {target}
@@ -169,7 +148,7 @@ function Pill({ ev, onClick }: { ev: CalEvent; onClick: (ev: CalEvent) => void }
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(ev); }}
-      className={`w-full text-left truncate rounded-full px-1.5 py-0.5 text-[9px] font-semibold transition-colors leading-tight ${cls}`}
+      className={`w-full text-left truncate rounded-full px-1.5 py-0.5 text-xs font-semibold transition-colors leading-tight ${cls}`}
       title={`Return from ${target}`}
     >
       ↩ {target}
@@ -196,7 +175,7 @@ function EventDetail({ ev, onClose }: { ev: CalEvent; onClose: () => void }) {
         <p className="text-xs text-muted-foreground">{formatDate(tx.timestamp)}</p>
         <p className="text-sm">{from} → {to}</p>
         {tx.notes && <p className="text-xs text-muted-foreground italic">{tx.notes}</p>}
-        <p className="text-[10px] text-muted-foreground">By: {actor}</p>
+        <p className="text-xs text-muted-foreground">By: {actor}</p>
       </div>
     );
   }
@@ -374,50 +353,33 @@ export function KitCalendar({ kitId, kitIsActive = true }: KitCalendarProps) {
 
   const MAX_PILLS = 3;
 
+  const legendCaption = !loading && (legendEntities.length > 0 || hasRetiredDays) ? (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span className="font-medium text-foreground">Location:</span>
+      {legendEntities.slice(0, LEGEND_MAX).map((e) => {
+        const band = entityBand(e.id);
+        return (
+          <span key={e.id} className="flex items-center gap-1">
+            <span className={`inline-block w-2.5 h-2.5 rounded-sm ${band.bg} ring-1 ${band.ring}`} />
+            <span className="truncate max-w-[120px]">{e.name}</span>
+          </span>
+        );
+      })}
+      {legendEntities.length > LEGEND_MAX && (
+        <span className="text-muted-foreground">+{legendEntities.length - LEGEND_MAX} more</span>
+      )}
+      {hasRetiredDays && (
+        <span className="flex items-center gap-1">
+          <span className={`inline-block w-2.5 h-2.5 rounded-sm ${RETIRED_BAND.bg} ring-1 ${RETIRED_BAND.ring}`} />
+          <span>(retired)</span>
+        </span>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-3">
-      {/* Month nav */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" onClick={prevMonth} aria-label="Previous month">
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="sm" onClick={goToday}>Today</Button>
-        <Button variant="outline" size="sm" onClick={nextMonth} aria-label="Next month">
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-medium ml-1">{MONTH_NAMES[month]} {year}</span>
-        <div className="ml-auto flex items-center gap-3 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-200" />Move</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-200" />Delivery</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-200" />Return</span>
-        </div>
-      </div>
-
-      {/* Location legend */}
-      {!loading && (legendEntities.length > 0 || hasRetiredDays) && (
-        <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="font-medium text-foreground">Location:</span>
-          {legendEntities.slice(0, LEGEND_MAX).map((e) => {
-            const band = entityBand(e.id);
-            return (
-              <span key={e.id} className="flex items-center gap-1">
-                <span className={`inline-block w-2.5 h-2.5 rounded-sm ${band.bg} ring-1 ${band.ring}`} />
-                <span className="truncate max-w-[120px]">{e.name}</span>
-              </span>
-            );
-          })}
-          {legendEntities.length > LEGEND_MAX && (
-            <span className="text-muted-foreground">+{legendEntities.length - LEGEND_MAX} more</span>
-          )}
-          {hasRetiredDays && (
-            <span className="flex items-center gap-1">
-              <span className={`inline-block w-2.5 h-2.5 rounded-sm ${RETIRED_BAND.bg} ring-1 ${RETIRED_BAND.ring}`} />
-              <span>(retired)</span>
-            </span>
-          )}
-        </div>
-      )}
-
+      {/* Event type legend in nav row — rendered via MonthGrid caption area */}
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -426,19 +388,24 @@ export function KitCalendar({ kitId, kitIsActive = true }: KitCalendarProps) {
         </div>
       ) : (
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Calendar grid — hidden on very small screens, shown as list fallback */}
-          <div className="flex-1 rounded-lg border bg-white overflow-x-auto">
-            {/* DOW header */}
-            <div className="grid grid-cols-7 border-b min-w-[420px]">
-              {DOW_LABELS.map((d) => (
-                <div key={d} className="py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-r last:border-r-0">
-                  {d}
+          <div className="flex-1 min-w-0">
+            <MonthGrid
+              year={year}
+              month={month}
+              onPrev={prevMonth}
+              onNext={nextMonth}
+              onToday={goToday}
+              caption={
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-200" />Move</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-200" />Delivery</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-200" />Return</span>
+                  </div>
+                  {legendCaption}
                 </div>
-              ))}
-            </div>
-            {/* Day cells */}
-            <div className="grid grid-cols-7 min-w-[420px]">
-              {cells.map((day, idx) => {
+              }
+              renderCell={(day, idx) => {
                 if (!day) {
                   return <div key={`empty-${idx}`} className="min-h-[80px] border-r border-b last:border-r-0 bg-slate-50/60" />;
                 }
@@ -486,9 +453,9 @@ export function KitCalendar({ kitId, kitIsActive = true }: KitCalendarProps) {
                     ].join(" ")}
                   >
                     <span className={[
-                      "text-[10px] font-medium self-end mb-0.5",
+                      "text-xs font-medium self-end mb-0.5",
                       isToday
-                        ? "bg-indigo-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]"
+                        ? "bg-indigo-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
                         : "text-muted-foreground",
                     ].join(" ")}>
                       {day.getDate()}
@@ -500,17 +467,17 @@ export function KitCalendar({ kitId, kitIsActive = true }: KitCalendarProps) {
                       }} />
                     ))}
                     {overflow > 0 && (
-                      <span className="text-[9px] text-muted-foreground pl-1">+{overflow} more</span>
+                      <span className="text-xs text-muted-foreground pl-1">+{overflow} more</span>
                     )}
                     {entityLabel && (
-                      <span className="mt-auto truncate text-[8px] text-muted-foreground leading-tight pt-0.5">
+                      <span className="mt-auto truncate text-xs text-muted-foreground leading-tight pt-0.5">
                         {entityLabel}
                       </span>
                     )}
                   </div>
                 );
-              })}
-            </div>
+              }}
+            />
           </div>
 
           {/* Side panel — event detail or day list */}
@@ -558,7 +525,7 @@ export function KitCalendar({ kitId, kitIsActive = true }: KitCalendarProps) {
                               ↩ Return from {ev.req.expand?.target_entity?.name ?? "—"}
                             </p>
                           )}
-                          <p className="text-[10px] text-muted-foreground capitalize mt-0.5">
+                          <p className="text-xs text-muted-foreground capitalize mt-0.5">
                             {ev.kind === "tx" ? formatDate((ev.tx.timestamp || ev.tx.created)) : `Status: ${ev.req.status}`}
                           </p>
                         </button>

@@ -71,7 +71,7 @@ export function ProfilePage() {
   return (
     <div className="space-y-5 max-w-lg">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Account</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Account</p>
         <h1 className="text-2xl font-semibold flex items-center gap-2">
           <User className="h-6 w-6" />
           Profile
