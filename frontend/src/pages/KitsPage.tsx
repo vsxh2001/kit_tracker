@@ -203,8 +203,18 @@ export function KitsPage() {
     startTransition(() => load());
   }
 
+  // Tag chips reflect kits visible under the current status filter — avoids showing
+  // stale tags belonging only to retired kits when viewing Active.
   const allTags = Array.from(
-    new Set(rows.flatMap(({ kit }) => parseTags(kit.tags)))
+    new Set(
+      rows
+        .filter(({ kit }) =>
+          statusFilter === "all" ||
+          (statusFilter === "active" && kit.is_active) ||
+          (statusFilter === "retired" && !kit.is_active)
+        )
+        .flatMap(({ kit }) => parseTags(kit.tags))
+    )
   ).sort();
 
   const filtersActive = statusFilter !== "active" || selectedTags.size > 0;
