@@ -287,7 +287,7 @@ export function EntityDetailPage() {
                           <div className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</div>
                           {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
-                        <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
+                        <td className="px-4 py-3 tabular-nums text-xs">{comp.is_bulk ? comp.quantity : <span className="text-muted-foreground opacity-40">—</span>}</td>
                         <td className="px-4 py-3 text-right">
                           {canTransferKits && (
                             <button
