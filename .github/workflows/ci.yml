@@ -9,6 +9,13 @@ on:
   schedule:
     - cron: "0 6 * * *"  # daily 6am UTC
 
+# Cancel in-flight runs for the same branch on push — a fix-up commit
+# kills the previous CI wave rather than queueing 4 stale runs per branch.
+# Main is exempt: every commit on main must pass to gate prod deploy.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
