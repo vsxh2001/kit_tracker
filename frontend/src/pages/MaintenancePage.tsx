@@ -5,7 +5,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
-import { AddScheduleDialog } from "../components/AddScheduleDialog";
+import { NewMaintenanceScheduleDialog } from "../components/NewMaintenanceScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { useAuth } from "../context/AuthContext";
@@ -107,6 +107,7 @@ export function MaintenancePage() {
           icon={Wrench}
           heading="No maintenance schedules"
           body={statusFilter !== "all" || typeFilter !== "all" ? "No schedules match the current filters." : "No active maintenance schedules found."}
+          cta={statusFilter === "all" && typeFilter === "all" ? { label: "New schedule", onClick: () => setShowAddSchedule(true) } : undefined}
         />
       ) : (
         <>
@@ -202,7 +203,7 @@ export function MaintenancePage() {
         />
       )}
 
-      <AddScheduleDialog
+      <NewMaintenanceScheduleDialog
         open={showAddSchedule}
         onClose={() => setShowAddSchedule(false)}
         onSaved={() => { setShowAddSchedule(false); load(); }}

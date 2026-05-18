@@ -295,26 +295,39 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await page.goto("/maintenance");
 
     // Button must be visible
-    await expect(page.getByRole("button", { name: "New schedule" })).toBeVisible();
-    await page.getByRole("button", { name: "New schedule" }).click();
+    const newScheduleBtn = page.getByRole("button", { name: "New schedule" });
+    await expect(newScheduleBtn).toBeVisible({ timeout: 10_000 });
+    await newScheduleBtn.click();
 
-    // Dialog opens — kit picker present
-    await expect(page.getByLabel("Kit")).toBeVisible();
+    // Dialog opens — wait for the dialog content to be visible
+    const dialogTitle = page.getByText("New Maintenance Schedule");
+    await expect(dialogTitle).toBeVisible({ timeout: 10_000 });
 
-    // Select the test kit by serial
-    await page.getByLabel("Kit").selectOption({ label: schedSerial });
+    // Kit picker present (NewMaintenanceScheduleDialog uses #nsched-kit)
+    const kitSelect = page.locator("#nsched-kit");
+    await expect(kitSelect).toBeVisible();
+    await kitSelect.selectOption({ label: schedSerial });
 
     // Fill required fields
-    await page.getByLabel("Type").fill("HubCalibration");
+    // Type is a Radix Select in NewMaintenanceScheduleDialog
+    const typeSelect = page.locator("#nsched-type");
+    await expect(typeSelect).toBeVisible();
+    await typeSelect.click();
+    await page.getByRole("option", { name: "Calibration" }).click();
+
+    // Description is required
+    await page.getByLabel("Description").fill("Hub calibration procedure");
+
+    // Interval days
     await page.getByLabel("Interval (days)").fill("45");
 
-    // Save
-    await page.getByRole("button", { name: "Add schedule" }).last().click();
+    // Save (NewMaintenanceScheduleDialog uses "Create schedule" button)
+    await page.getByRole("button", { name: "Create schedule" }).last().click();
 
     // Success toast
     await expect(page.locator("div:has-text('Schedule created')").first()).toBeVisible({ timeout: 10_000 });
 
     // Schedule appears in the table (scope to tbody to avoid notification/option matches, use first() for strict mode)
-    await expect(page.locator("tbody").getByText("HubCalibration").first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("tbody").getByText("Calibration").first()).toBeVisible({ timeout: 5000 });
   });
 });

@@ -28,8 +28,11 @@ function toDatetimeLocal(iso: string): string {
   // PB stores as "YYYY-MM-DD HH:MM:SS.sssZ" or ISO string
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  // datetime-local needs "YYYY-MM-DDTHH:MM"
-  return d.toISOString().slice(0, 16);
+  // datetime-local takes/displays LOCAL time as YYYY-MM-DDTHH:MM.
+  // toISOString() returned UTC parts → input mislabeled them as local →
+  // edit-with-no-change silently shifted timestamps by the local offset.
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export function AddShiftDialog({ open, onClose, onSaved, shift }: Props) {
