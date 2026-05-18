@@ -71,7 +71,7 @@ test.describe("Kits page — listing and search", () => {
     await loginAs(page, "admin");
     await page.goto("/kits");
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-SEARCH`);
-    await expect(page.getByRole("cell", { name: `${TS}-SEARCH` })).toBeVisible();
+    await expect(page.locator("table tbody").getByRole("cell", { name: `${TS}-SEARCH` })).toBeVisible();
   });
 
   test("search with no match shows 'No kits found.'", async ({ page }) => {
@@ -115,7 +115,7 @@ test.describe("Kit creation (admin)", () => {
 
     // Dialog closes and new serial appears in the table
     await expect(page.getByRole("heading", { name: "New Kit" })).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: SERIAL })).toBeVisible({
+    await expect(page.locator("table tbody").getByRole("cell", { name: SERIAL })).toBeVisible({
       message: "Newly created kit serial should appear in the table",
     });
   });
@@ -476,7 +476,7 @@ test.describe("Kit delete via kits list row", () => {
 
     // Filter to find the specific kit row
     await page.getByPlaceholder(/search by serial/i).fill(DELETE_ROW_SERIAL);
-    await expect(page.getByRole("cell", { name: DELETE_ROW_SERIAL })).toBeVisible();
+    await expect(page.locator("table tbody").getByRole("cell", { name: DELETE_ROW_SERIAL })).toBeVisible();
 
     // Click the Deactivate button in that row
     await page.getByRole("button", { name: /^deactivate$/i }).first().click();
@@ -488,7 +488,7 @@ test.describe("Kit delete via kits list row", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: /^deactivate$/i }).click();
 
     // Kit row disappears from the list
-    await expect(page.getByRole("cell", { name: DELETE_ROW_SERIAL })).not.toBeVisible({
+    await expect(page.locator("table tbody").getByRole("cell", { name: DELETE_ROW_SERIAL })).not.toBeVisible({
       timeout: 5000,
       message: "Deleted kit should be removed from the list",
     });
