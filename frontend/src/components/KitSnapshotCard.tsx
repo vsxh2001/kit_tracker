@@ -105,7 +105,7 @@ export function KitSnapshotCard({ kitId, atDate }: Props) {
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
           <Badge variant="success">Active</Badge>
-          <span className="ml-2 text-[10px] text-muted-foreground" title="Retirement history not tracked in v1; showing 'Active' for any date the kit had transactions.">
+          <span className="ml-2 text-xs text-muted-foreground" title="Retirement history not tracked in v1; showing 'Active' for any date the kit had transactions.">
             (history not tracked)
           </span>
         </div>
@@ -135,7 +135,7 @@ export function KitSnapshotCard({ kitId, atDate }: Props) {
                       <span className="text-muted-foreground">{ct.component}</span>
                     )}
                     {comp?.serial && (
-                      <span className="font-mono text-[10px] text-indigo-700 ml-1.5">{comp.serial}</span>
+                      <span className="font-mono text-xs text-indigo-700 ml-1.5">{comp.serial}</span>
                     )}
                   </li>
                 );

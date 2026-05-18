@@ -55,7 +55,7 @@ export function MaintenancePage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
           <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
         </div>
@@ -124,7 +124,7 @@ export function MaintenancePage() {
                     <div>
                       <span className="text-xs font-semibold">{sched.type}</span>
                       {sched.expand?.kit?.serial && (
-                        <span className="font-mono text-[11px] text-indigo-700 ml-2">{sched.expand.kit.serial}</span>
+                        <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand.kit.serial}</span>
                       )}
                     </div>
                     <MaintStatusPill status={status} />
@@ -150,10 +150,10 @@ export function MaintenancePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-slate-50/80">
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit serial</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Last done</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Next due</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Kit serial</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Last done</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Next due</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -212,7 +212,7 @@ export function MaintenancePage() {
 }
 
 function MaintStatusPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">OK</span>;
+  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
+  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
+  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }
