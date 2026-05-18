@@ -216,11 +216,11 @@ export function ProductDetailPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
-                        {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
+                        {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
                       </div>
                       <div className="flex items-center gap-1">
-                        {comp.is_bulk && <Badge variant="secondary" className="text-[10px]">Bulk × {comp.quantity}</Badge>}
-                        {!comp.is_active && <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                        {comp.is_bulk && <Badge variant="secondary" className="text-xs">Bulk × {comp.quantity}</Badge>}
+                        {!comp.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
                     </div>
                   </div>
@@ -234,14 +234,14 @@ export function ProductDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Serial</th>
                       {!product.is_serialized && (
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
                       )}
                       {!product.is_serialized && (
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bulk</th>
                       )}
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
@@ -250,7 +250,7 @@ export function ProductDetailPage() {
                       <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3">
                           {comp.serial
-                            ? <div className="font-mono text-[11px] text-indigo-700">{comp.serial}</div>
+                            ? <div className="font-mono text-xs text-indigo-700">{comp.serial}</div>
                             : <span className="text-muted-foreground opacity-40">—</span>}
                         </td>
                         {!product.is_serialized && (
@@ -259,14 +259,14 @@ export function ProductDetailPage() {
                         {!product.is_serialized && (
                           <td className="px-4 py-3">
                             {comp.is_bulk
-                              ? <Badge variant="secondary" className="text-[10px]">Bulk</Badge>
+                              ? <Badge variant="secondary" className="text-xs">Bulk</Badge>
                               : <span className="text-muted-foreground opacity-40">—</span>}
                           </td>
                         )}
                         <td className="px-4 py-3">
                           {comp.is_active
-                            ? <Badge variant="outline" className="text-[10px]">Active</Badge>
-                            : <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                            ? <Badge variant="outline" className="text-xs">Active</Badge>
+                            : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                         </td>
                         <td className="px-4 py-3">
                           <Link to={`/components/${comp.id}`} className="text-indigo-600 hover:underline text-xs">View</Link>

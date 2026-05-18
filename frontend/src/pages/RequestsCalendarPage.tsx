@@ -84,7 +84,7 @@ export function RequestsCalendarPage() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Calendar</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Calendar</p>
         <h1 className="text-2xl font-semibold tracking-tight">Requests Timeline</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Upcoming delivery and return schedule</p>
       </div>
@@ -144,14 +144,14 @@ export function RequestsCalendarPage() {
               gridTemplateColumns: `180px repeat(${range}, minmax(28px, 1fr))`,
             }}
           >
-            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-r">
+            <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r">
               Request
             </div>
             {days.map((d, i) => (
               <div
                 key={i}
                 className={[
-                  "py-2 text-center text-[9px] tabular-nums font-medium border-r last:border-r-0",
+                  "py-2 text-center text-xs tabular-nums font-medium border-r last:border-r-0",
                   i === 0 ? "text-indigo-600 font-bold" : "text-muted-foreground",
                   // highlight week starts
                   d.getDay() === 1 ? "bg-slate-50" : "",
@@ -202,7 +202,7 @@ export function RequestsCalendarPage() {
                 {/* Label column */}
                 <div className="px-3 py-2 border-r truncate">
                   <p className="text-xs font-medium truncate">{requester}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{formatDateOnly(r.delivery_date)}</p>
+                  <p className="text-xs text-muted-foreground truncate">{formatDateOnly(r.delivery_date)}</p>
                 </div>
 
                 {/* Bar column spanning the grid */}
@@ -214,7 +214,7 @@ export function RequestsCalendarPage() {
                     title={tooltipLines}
                     onClick={() => navigate(`/requests/${r.id}`)}
                     className={[
-                      "w-full h-5 rounded text-[10px] font-medium px-1.5 truncate cursor-pointer",
+                      "w-full h-5 rounded text-xs font-medium px-1.5 truncate cursor-pointer",
                       "hover:opacity-80 transition-opacity text-left",
                       STATUS_BG[r.status],
                       STATUS_TEXT[r.status],
