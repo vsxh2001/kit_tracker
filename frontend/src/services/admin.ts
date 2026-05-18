@@ -57,3 +57,17 @@ export async function cascadeDelete(
   }
   return body;
 }
+
+export async function revertLastTransaction(
+  kitId: string,
+  transactionId: string,
+): Promise<{ deleted: boolean }> {
+  const res = await fetch(`${baseUrl()}/api/admin/revert-transaction`, {
+    method: "POST",
+    headers: { Authorization: pb.authStore.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ kit_id: kitId, transaction_id: transactionId }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `Revert failed: ${res.status}`);
+  return body;
+}
