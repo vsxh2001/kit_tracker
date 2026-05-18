@@ -151,7 +151,7 @@ export function EntitiesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Directory</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Directory</p>
           <h1 className="text-2xl font-semibold">Entities</h1>
         </div>
         {canDecideRequests && (
@@ -226,7 +226,7 @@ export function EntitiesPage() {
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="font-medium text-sm">{e.name}</span>
                     <div className="flex items-center gap-1.5">
-                      <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-[10px]">
+                      <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-xs">
                         {e.category === "storage" ? "Storage" : "Field"}
                       </Badge>
                       <Badge variant={e.is_active ? "success" : "gray"}>{e.is_active ? "Active" : "Inactive"}</Badge>
@@ -286,7 +286,7 @@ export function EntitiesPage() {
                         </td>
                         <td className="p-3 font-medium">{e.name}</td>
                         <td className="p-3">
-                          <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-[10px]">
+                          <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-xs">
                             {e.category === "storage" ? "Storage" : "Field"}
                           </Badge>
                         </td>

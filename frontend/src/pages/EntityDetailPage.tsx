@@ -109,8 +109,8 @@ export function EntityDetailPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</span>
                     {kit.is_active
-                      ? <Badge variant="outline" className="text-[10px]">Active</Badge>
-                      : <Badge variant="destructive" className="text-[10px]">Retired</Badge>}
+                      ? <Badge variant="outline" className="text-xs">Active</Badge>
+                      : <Badge variant="destructive" className="text-xs">Retired</Badge>}
                   </div>
                   {kit.notes && <p className="text-xs text-muted-foreground mt-1">{kit.notes}</p>}
                 </div>
@@ -123,9 +123,9 @@ export function EntityDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Notes</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -139,8 +139,8 @@ export function EntityDetailPage() {
                         <td className="px-4 py-3 text-muted-foreground">{kit.notes ?? <span className="opacity-30">—</span>}</td>
                         <td className="px-4 py-3">
                           {kit.is_active
-                            ? <Badge variant="outline" className="text-[10px]">Active</Badge>
-                            : <Badge variant="destructive" className="text-[10px]">Retired</Badge>}
+                            ? <Badge variant="outline" className="text-xs">Active</Badge>
+                            : <Badge variant="destructive" className="text-xs">Retired</Badge>}
                         </td>
                       </tr>
                     ))}
@@ -173,12 +173,12 @@ export function EntityDetailPage() {
                     >
                       {tx.expand?.kit?.serial ?? tx.kit}
                     </span>
-                    <span className="text-[11px] text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? ""}
                   </p>
                 </div>
@@ -191,11 +191,11 @@ export function EntityDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Time</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Kit</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">From</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">To</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">By</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Time</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Kit</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">From</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">To</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">By</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,7 +252,7 @@ export function EntityDetailPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
-                      {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
+                      {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
@@ -275,8 +275,8 @@ export function EntityDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type / Serial</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
                       <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
@@ -285,7 +285,7 @@ export function EntityDetailPage() {
                       <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3">
                           <div className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</div>
-                          {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
+                          {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-xs">{comp.is_bulk ? comp.quantity : <span className="text-muted-foreground opacity-40">—</span>}</td>
                         <td className="px-4 py-3 text-right">
