@@ -21,6 +21,7 @@ export async function getCurrentOnCallUsers(): Promise<PBUser[]> {
   const shifts = await pb.collection("on_call_shifts").getFullList<OnCallShift>({
     filter: pb.filter("start_at <= {:now} && end_at >= {:now}", { now }),
     expand: "user",
+    sort: "start_at,created",
     requestKey: "oncall-current",
   });
   const seen = new Set<string>();
