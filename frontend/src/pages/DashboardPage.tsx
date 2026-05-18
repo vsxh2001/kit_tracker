@@ -1,16 +1,17 @@
 import { useEffect, useState, startTransition } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Package, FileText, CheckCircle, Clock, Wrench } from "lucide-react";
+import { Package, FileText, CheckCircle, Clock, Wrench, Users } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
 import { listRecentTransactions } from "../services/transactions";
 import { requestsCreatedLast7Days } from "../services/stats";
 import { listAllActiveSchedules } from "../services/maintenance";
+import { listShifts } from "../services/oncall";
 import { maintenanceStatus } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
-import type { Kit, KitRequest, Transaction } from "../types";
+import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
 import { cn, formatDate } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,6 +24,8 @@ export function DashboardPage() {
   const [reqSparkline, setReqSparkline] = useState<DailyCount[]>([]);
   const [overdueMaintenanceCount, setOverdueMaintenanceCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [oncallShifts, setOncallShifts] = useState<OnCallShift[]>([]);
+  const [oncallLoading, setOncallLoading] = useState(true);
 
   const pendingApproval = !user?.role;
 
@@ -53,8 +56,34 @@ export function DashboardPage() {
     });
   }, []);
 
+  useEffect(() => {
+    startTransition(() => {
+      async function loadOncall() {
+        setOncallLoading(true);
+        try {
+          const now = new Date().toISOString();
+          const all = await listShifts({ limit: 200, sort: "start_at", includeInactive: false });
+          setOncallShifts(all.filter((s) => s.start_at <= now && s.end_at >= now));
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        } finally {
+          setOncallLoading(false);
+        }
+      }
+      loadOncall();
+    });
+  }, []);
+
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
+
+  function oncallLabel(): string {
+    if (oncallShifts.length === 0) return "No one";
+    const first = oncallShifts[0];
+    const u = first.expand?.user;
+    const name = u?.name ? u.name.split(" ")[0] : u?.email ? u.email.split("@")[0] : first.user.slice(0, 6);
+    return oncallShifts.length > 1 ? `${name} +${oncallShifts.length - 1}` : name;
+  }
 
   function deltaLabel(daily: DailyCount[]): string {
     if (daily.length < 2) return "—";
@@ -111,6 +140,17 @@ export function DashboardPage() {
               />
             </div>
           )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard
+              icon={Users}
+              label="On call"
+              value={0}
+              stringValue={oncallLoading ? undefined : oncallLabel()}
+              valueLoading={oncallLoading}
+              color="violet"
+              onClick={() => navigate("/oncall")}
+            />
+          </div>
 
           {/* Recent transactions */}
           <div>
@@ -196,17 +236,20 @@ export function DashboardPage() {
 }
 
 const STAT_COLORS = {
-  blue:  { chip: "bg-blue-50 text-blue-500 ring-blue-100", bar: "bg-blue-500" },
-  amber: { chip: "bg-amber-50 text-amber-500 ring-amber-100", bar: "bg-amber-500" },
-  green: { chip: "bg-emerald-50 text-emerald-500 ring-emerald-100", bar: "bg-emerald-500" },
-  slate: { chip: "bg-slate-100 text-slate-400 ring-slate-200", bar: "bg-slate-400" },
-  red:   { chip: "bg-red-50 text-red-500 ring-red-100", bar: "bg-red-500" },
+  blue:   { chip: "bg-blue-50 text-blue-500 ring-blue-100", bar: "bg-blue-500" },
+  amber:  { chip: "bg-amber-50 text-amber-500 ring-amber-100", bar: "bg-amber-500" },
+  green:  { chip: "bg-emerald-50 text-emerald-500 ring-emerald-100", bar: "bg-emerald-500" },
+  slate:  { chip: "bg-slate-100 text-slate-400 ring-slate-200", bar: "bg-slate-400" },
+  red:    { chip: "bg-red-50 text-red-500 ring-red-100", bar: "bg-red-500" },
+  violet: { chip: "bg-violet-50 text-violet-500 ring-violet-100", bar: "bg-violet-500" },
 } as const;
 
 function StatCard({
   icon: Icon,
   label,
   value,
+  stringValue,
+  valueLoading,
   color,
   primary,
   sparklineData,
@@ -216,6 +259,8 @@ function StatCard({
   icon: React.ElementType;
   label: string;
   value: number;
+  stringValue?: string;
+  valueLoading?: boolean;
   color: keyof typeof STAT_COLORS;
   primary?: boolean;
   sparklineData?: number[];
@@ -256,7 +301,13 @@ function StatCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider truncate">{label}</p>
-            <p className="text-3xl font-bold mt-1.5 tabular-nums tracking-tight">{value}</p>
+            {valueLoading ? (
+              <div className="mt-2 h-8 w-24 rounded bg-muted animate-pulse" />
+            ) : stringValue !== undefined ? (
+              <p className="text-2xl font-bold mt-1.5 tracking-tight truncate">{stringValue}</p>
+            ) : (
+              <p className="text-3xl font-bold mt-1.5 tabular-nums tracking-tight">{value}</p>
+            )}
             {sparklineData && sparklineData.length > 0 && (
               <div className="mt-2 flex items-center gap-2">
                 <Sparkline data={sparklineData} color="var(--muted-foreground, #94a3b8)" />
