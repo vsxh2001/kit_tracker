@@ -23,6 +23,7 @@ export function ProductsPage() {
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("__all__");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -60,6 +61,11 @@ export function ProductsPage() {
       if (!matches) return false;
     }
     if (categoryFilter !== "__all__" && product.category !== categoryFilter) return false;
+    if (typeFilter !== "all") {
+      const isSerial = product.is_serialized !== false;
+      if (typeFilter === "serial" && !isSerial) return false;
+      if (typeFilter === "bulk" && isSerial) return false;
+    }
     return true;
   });
 
@@ -98,6 +104,16 @@ export function ProductsPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="serial">Serial</SelectItem>
+            <SelectItem value="bulk">Bulk</SelectItem>
+          </SelectContent>
+        </Select>
         <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
           <input
             type="checkbox"
@@ -129,7 +145,12 @@ export function ProductsPage() {
                   <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-medium text-sm">{product.name}</span>
-                      {!product.is_active && <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-[10px]">
+                          {product.is_serialized !== false ? "Serial" : "Bulk"}
+                        </Badge>
+                        {!product.is_active && <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{[product.manufacturer, product.model].filter(Boolean).join(" · ") || "—"}</span>
@@ -155,6 +176,7 @@ export function ProductsPage() {
                     <tr className="border-b bg-slate-50/80">
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Name</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Category</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Manufacturer</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Model</th>
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Components</th>
@@ -169,6 +191,11 @@ export function ProductsPage() {
                           {product.category
                             ? <Badge variant="outline" className="text-[10px]">{product.category}</Badge>
                             : <span className="text-muted-foreground opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-[10px]">
+                            {product.is_serialized !== false ? "Serial" : "Bulk"}
+                          </Badge>
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">{product.manufacturer || <span className="opacity-40">—</span>}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">{product.model || <span className="opacity-40">—</span>}</td>

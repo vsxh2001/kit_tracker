@@ -4,6 +4,7 @@ import { Plus, Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { ImportEntitiesDialog } from "../components/ImportEntitiesDialog";
 import { listEntities, updateEntity, exportEntitiesCsv } from "../services/entities";
@@ -30,6 +31,7 @@ export function EntitiesPage() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<Entity | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   async function load() {
     setLoading(true);
@@ -92,6 +94,10 @@ export function EntitiesPage() {
     }
   }
 
+  const filtered = categoryFilter === "all"
+    ? entities
+    : entities.filter((e) => e.category === categoryFilter);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -117,18 +123,32 @@ export function EntitiesPage() {
         )}
       </div>
 
+      {/* Category filter */}
+      <div className="flex flex-wrap gap-2">
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem value="field">Field</SelectItem>
+            <SelectItem value="storage">Storage</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
         <>
-          {entities.length === 0 && (
+          {filtered.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-8">No entities.</p>
           )}
 
           {/* Mobile card list */}
-          {entities.length > 0 && (
+          {filtered.length > 0 && (
             <div className="md:hidden space-y-2">
-              {entities.map((e) => (
+              {filtered.map((e) => (
                 <div
                   key={e.id}
                   className="rounded-lg border bg-card px-4 py-3 cursor-pointer hover:bg-slate-50/60 transition-colors"
@@ -136,7 +156,12 @@ export function EntitiesPage() {
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="font-medium text-sm">{e.name}</span>
-                    <Badge variant={e.is_active ? "success" : "gray"}>{e.is_active ? "Active" : "Inactive"}</Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-[10px]">
+                        {e.category === "storage" ? "Storage" : "Field"}
+                      </Badge>
+                      <Badge variant={e.is_active ? "success" : "gray"}>{e.is_active ? "Active" : "Inactive"}</Badge>
+                    </div>
                   </div>
                   {e.description && <p className="text-xs text-muted-foreground mb-2">{e.description}</p>}
                   {canDecideRequests && (
@@ -155,22 +180,28 @@ export function EntitiesPage() {
           )}
 
           {/* Desktop table */}
-          {entities.length > 0 && (
+          {filtered.length > 0 && (
             <Card className="hidden md:block">
               <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="border-b">
                       <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Category</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Description</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Active</th>
                       {canDecideRequests && <th className="p-3" />}
                     </tr>
                   </thead>
                   <tbody>
-                    {entities.map((e) => (
+                    {filtered.map((e) => (
                       <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => navigate(`/entities/${e.id}`)}>
                         <td className="p-3 font-medium">{e.name}</td>
+                        <td className="p-3">
+                          <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-[10px]">
+                            {e.category === "storage" ? "Storage" : "Field"}
+                          </Badge>
+                        </td>
                         <td className="p-3 text-muted-foreground">{e.description ?? "—"}</td>
                         <td className="p-3">
                           <Badge variant={e.is_active ? "success" : "gray"}>
