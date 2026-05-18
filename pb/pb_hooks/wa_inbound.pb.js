@@ -456,7 +456,7 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   function isWriteAuthorized(userRec) {
     try {
       var r = userRec && userRec.get && userRec.get("role");
-      return r === "admin" || r === "technician";
+      return r === "admin" || r === "technician" || r === "user";
     } catch (_) { return false; }
   }
 
@@ -687,6 +687,10 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   // Trade-off: "tell me where it moved" triggers confirm — acceptable false positive.
   var writeVerbs = /\b(move|create|add|new|make|delete|deactivate|remove|update|change|set|edit|approve|reject|fulfill|rename|reassign|transfer|put|send|cancel)\b/i;
   if (writeVerbs.test(body)) {
+    if (!isWriteAuthorized(user)) {
+      console.log("[wa_inbound] write-verb blocked — role=" + (user && user.get ? user.get("role") : "unknown") + " is read-only");
+      return replyViaTwilio(phone, "You don't have permission to perform that action. Contact an admin.");
+    }
     var pendingEntry0 = JSON.stringify({
       messageText: body,
       expiresAtMs: Date.now() + 30000
