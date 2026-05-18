@@ -203,8 +203,18 @@ export function KitsPage() {
     startTransition(() => load());
   }
 
+  // Tag chips reflect kits visible under the current status filter — avoids showing
+  // stale tags belonging only to retired kits when viewing Active.
   const allTags = Array.from(
-    new Set(rows.flatMap(({ kit }) => parseTags(kit.tags)))
+    new Set(
+      rows
+        .filter(({ kit }) =>
+          statusFilter === "all" ||
+          (statusFilter === "active" && kit.is_active) ||
+          (statusFilter === "retired" && !kit.is_active)
+        )
+        .flatMap(({ kit }) => parseTags(kit.tags))
+    )
   ).sort();
 
   const filtersActive = statusFilter !== "active" || selectedTags.size > 0;
@@ -280,7 +290,7 @@ export function KitsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
           <h1 className="text-2xl font-semibold tracking-tight">Kits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {filtersActive
@@ -402,7 +412,7 @@ export function KitsPage() {
                       {parseTags(kit.tags).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {[...parseTags(kit.tags)].sort().map((tag) => (
-                            <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                               {tag}
                             </span>
                           ))}
@@ -487,27 +497,27 @@ export function KitsPage() {
                           </th>
                         )}
                         <th
-                          className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                          className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
                           onClick={() => handleSort("serial")}
                         >
                           Serial<SortIcon active={sortField === "serial"} dir={sortDir} />
                         </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Current entity</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Last moved</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Current entity</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Last moved</th>
                         <th
-                          className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                          className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
                           onClick={() => handleSort("delivery")}
                         >
                           Next delivery<SortIcon active={sortField === "delivery"} dir={sortDir} />
                         </th>
                         <th
-                          className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                          className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
                           onClick={() => handleSort("maintenance")}
                         >
                           Next maintenance<SortIcon active={sortField === "maintenance"} dir={sortDir} />
                         </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Tags</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Notes</th>
                         {isAdmin && <th className="px-4 py-2.5" />}
                       </tr>
                     </thead>
@@ -563,7 +573,7 @@ export function KitsPage() {
                               {parseTags(kit.tags).length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {[...parseTags(kit.tags)].sort().map((tag) => (
-                                    <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                                       {tag}
                                     </span>
                                   ))}
@@ -646,7 +656,7 @@ export function KitsPage() {
 }
 
 function KitMaintPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">OK</span>;
+  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
+  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
+  return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }

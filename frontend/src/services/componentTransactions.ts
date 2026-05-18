@@ -2,6 +2,15 @@ import { pb } from "../lib/pocketbase";
 import type { Component, ComponentTransaction } from "../types";
 import { updateComponent, createComponent } from "./components";
 
+export async function listComponentTransactionsForKit(kitId: string): Promise<ComponentTransaction[]> {
+  return pb.collection("component_transactions").getFullList<ComponentTransaction>({
+    filter: pb.filter("to_kit = {:kitId} || from_kit = {:kitId}", { kitId }),
+    sort: "-timestamp,-created",
+    expand: "component,component.product",
+    requestKey: `comp-tx-for-kit-${kitId}`,
+  });
+}
+
 export async function listTransactionsForComponent(componentId: string): Promise<ComponentTransaction[]> {
   return pb.collection("component_transactions").getFullList<ComponentTransaction>({
     filter: pb.filter("component = {:id}", { id: componentId }),

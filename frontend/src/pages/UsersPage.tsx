@@ -227,7 +227,7 @@ export function UsersPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Administration</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Administration</p>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <UserCog className="h-6 w-6" />
             Users
@@ -274,7 +274,7 @@ export function UsersPage() {
                         {u.role === "denied" && u.denial_notes && (
                           <p className="text-xs italic text-red-500 mt-0.5">{u.denial_notes}</p>
                         )}
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{formatDate(u.created)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(u.created)}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 mt-0.5">
                         <button
