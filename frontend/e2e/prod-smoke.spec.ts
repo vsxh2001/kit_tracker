@@ -151,7 +151,7 @@ test.describe("Prod-build smoke — env-dependent URL bugs @smoke", () => {
       return auth ? JSON.parse(auth).token : null;
     });
 
-    expect(authToken).toBeTruthy("No auth token found in localStorage");
+    expect(authToken, "No auth token found in localStorage").toBeTruthy();
 
     // Call cascade preview endpoint in page context (relative URL resolves
     // against baseURL set in playwright.config, which is localhost:8090 in prod mode)
