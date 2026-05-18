@@ -148,7 +148,7 @@ export function AuditLogPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
             Administration
           </p>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
