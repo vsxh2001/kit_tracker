@@ -79,7 +79,7 @@ export function StatsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Analytics</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Analytics</p>
         <h1 className="text-2xl font-semibold tracking-tight">Utilization</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Fleet utilization and request analytics</p>
       </div>

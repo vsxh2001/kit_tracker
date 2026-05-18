@@ -39,7 +39,7 @@ function currentKitId(latestTx?: ComponentTransaction): string | null {
 
 function th(label: string) {
   return (
-    <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">
       {label}
     </th>
   );
@@ -76,12 +76,12 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                       {component.serial || "—"}
                     </span>
                   ) : (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
                       Qty × {component.quantity}
                     </Badge>
                   )}
                   {product && (
-                    <Badge variant="outline" className="text-[10px]">{product.name}</Badge>
+                    <Badge variant="outline" className="text-xs">{product.name}</Badge>
                   )}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -91,7 +91,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     <span>—</span>
                   )}
                   {!component.is_active && (
-                    <Badge variant="destructive" className="text-[10px]">Inactive</Badge>
+                    <Badge variant="destructive" className="text-xs">Inactive</Badge>
                   )}
                 </div>
               </div>
@@ -137,7 +137,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                       )}
                     </td>
                     {isSerializedSection ? (
-                      <td className="px-4 py-3 font-mono text-[11px] text-indigo-700 tabular-nums">
+                      <td className="px-4 py-3 font-mono text-xs text-indigo-700 tabular-nums">
                         {component.serial || <span className="text-muted-foreground opacity-40">—</span>}
                       </td>
                     ) : (
@@ -157,9 +157,9 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     </td>
                     <td className="px-4 py-3">
                       {component.is_active ? (
-                        <Badge variant="outline" className="text-[10px]">Active</Badge>
+                        <Badge variant="outline" className="text-xs">Active</Badge>
                       ) : (
-                        <Badge variant="destructive" className="text-[10px]">Inactive</Badge>
+                        <Badge variant="destructive" className="text-xs">Inactive</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -292,7 +292,7 @@ export function ComponentsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
           <h1 className="text-2xl font-semibold tracking-tight">Components</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {rows.length} component{rows.length !== 1 ? "s" : ""} registered
