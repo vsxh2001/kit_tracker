@@ -1,11 +1,23 @@
 import { useEffect, useState, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Trash } from "lucide-react";
+import { Trash, RotateCcw } from "lucide-react";
 import { listTransactionsForKit, getTransactionVia } from "../services/transactions";
 import { formatDate, formatDateOnly, entityTimelineColor } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import { CascadeDeleteDialog } from "./CascadeDeleteDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { toast } from "./ui/use-toast";
+import { revertLastTransaction } from "../services/admin";
 import type { AuditVia, Transaction } from "../types";
 
 interface Segment {
@@ -52,6 +64,8 @@ export function KitTimeline({ kitId }: Props) {
   const [nowMs, setNowMs] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
+  const [revertingTxId, setRevertingTxId] = useState<string | null>(null);
+  const [reverting, setReverting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -72,6 +86,24 @@ export function KitTimeline({ kitId }: Props) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { startTransition(() => load()); }, [kitId]);
+
+  const latestTxId = txs.length > 0 ? txs[txs.length - 1].id : null;
+
+  async function handleRevert() {
+    if (!revertingTxId) return;
+    setReverting(true);
+    try {
+      await revertLastTransaction(kitId, revertingTxId);
+      toast({ title: "Transaction reverted" });
+      setRevertingTxId(null);
+      startTransition(() => load());
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Revert failed";
+      toast({ title: "Revert failed", description: msg, variant: "destructive" });
+    } finally {
+      setReverting(false);
+    }
+  }
 
   const totalStart = txs.length > 0 ? new Date(txs[0].timestamp).getTime() : 0;
   const totalEnd = nowMs > 0 ? nowMs : totalStart + 1;
@@ -165,6 +197,17 @@ export function KitTimeline({ kitId }: Props) {
                         {via && <OriginBadge via={via} />}
                       </div>
                     </div>
+                    {isAdmin && tx.id === latestTxId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-600"
+                        title="Revert this transaction (hard delete)"
+                        onClick={() => setRevertingTxId(tx.id)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     {isAdmin && (
                       <Button
                         variant="ghost"
@@ -193,6 +236,25 @@ export function KitTimeline({ kitId }: Props) {
           startTransition(() => load());
         }}
       />
+
+      <AlertDialog open={!!revertingTxId} onOpenChange={(open) => { if (!open && !reverting) setRevertingTxId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revert last transaction?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the most recent move from history — cannot be undone.
+              Use only to correct mistakes. The transaction will be removed from the kit timeline
+              and an audit log row will record the revert.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRevert} disabled={reverting} className="bg-amber-600 hover:bg-amber-700">
+              {reverting ? "Reverting…" : "Revert"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
