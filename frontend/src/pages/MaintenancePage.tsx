@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Plus, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -17,6 +17,7 @@ type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
 
 export function MaintenancePage() {
   const { canDecideRequests, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -114,7 +115,11 @@ export function MaintenancePage() {
             {filtered.map((sched) => {
               const status = maintenanceStatus(sched.next_due_at);
               return (
-                <div key={sched.id} className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
+                <div
+                  key={sched.id}
+                  onClick={() => navigate(`/maintenance/${sched.id}`)}
+                  className="rounded-lg border bg-card px-4 py-3 space-y-1.5 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <span className="text-xs font-semibold">{sched.type}</span>
@@ -129,7 +134,7 @@ export function MaintenancePage() {
                     <span>Next: {sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
                   </div>
                   <button
-                    onClick={() => setRecordingSchedule(sched)}
+                    onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                     className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
                   >
                     Record done
@@ -156,7 +161,7 @@ export function MaintenancePage() {
                   {filtered.map((sched) => {
                     const status = maintenanceStatus(sched.next_due_at);
                     return (
-                      <tr key={sched.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                      <tr key={sched.id} onClick={() => navigate(`/maintenance/${sched.id}`)} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer">
                         <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
                           {sched.expand?.kit?.serial ?? sched.kit}
                         </td>
@@ -172,7 +177,7 @@ export function MaintenancePage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
-                            onClick={() => setRecordingSchedule(sched)}
+                            onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                             className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
                           >
                             Record done
