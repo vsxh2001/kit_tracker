@@ -33,6 +33,10 @@ export function EntitiesPage() {
   const [showImport, setShowImport] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"retire" | "activate" | null>(null);
+
   async function load() {
     setLoading(true);
     try {
@@ -94,9 +98,54 @@ export function EntitiesPage() {
     }
   }
 
+  async function confirmBulkAction() {
+    if (!bulkAction) return;
+    const ids = Array.from(selected);
+    const isRetire = bulkAction === "retire";
+    setBulkAction(null);
+    try {
+      await Promise.all(
+        ids.map((id) => updateEntity(id, { is_active: !isRetire }))
+      );
+      setSelected(new Set());
+      await load();
+      toast({
+        title: `${ids.length} ${ids.length === 1 ? "entity" : "entities"} ${isRetire ? "retired" : "activated"}`,
+        variant: "success",
+      });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast({ title: `Bulk ${bulkAction} failed`, description: err?.message, variant: "destructive" });
+    }
+  }
+
   const filtered = categoryFilter === "all"
     ? entities
     : entities.filter((e) => e.category === categoryFilter);
+
+  const selectedEntities = filtered.filter((e) => selected.has(e.id));
+  const anyActiveSelected = selectedEntities.some((e) => e.is_active);
+  const anyInactiveSelected = selectedEntities.some((e) => !e.is_active);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((e) => selected.has(e.id));
+  const someFilteredSelected = filtered.some((e) => selected.has(e.id));
+
+  function toggleSelectAll() {
+    if (allFilteredSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((e) => e.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -137,6 +186,26 @@ export function EntitiesPage() {
         </Select>
       </div>
 
+      {/* Bulk toolbar — desktop only, shown when >= 1 selected */}
+      {selected.size >= 1 && (
+        <div className="hidden md:flex items-center gap-3 rounded-lg border bg-slate-50 px-4 py-2.5 text-sm">
+          <span className="font-medium text-muted-foreground">{selected.size} selected</span>
+          {canDecideRequests && anyActiveSelected && (
+            <Button size="sm" variant="destructive" onClick={() => setBulkAction("retire")}>
+              Retire
+            </Button>
+          )}
+          {canDecideRequests && anyInactiveSelected && (
+            <Button size="sm" variant="outline" onClick={() => setBulkAction("activate")}>
+              Activate
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            Clear
+          </Button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
@@ -145,7 +214,7 @@ export function EntitiesPage() {
             <p className="text-muted-foreground text-sm text-center py-8">No entities.</p>
           )}
 
-          {/* Mobile card list */}
+          {/* Mobile card list — no checkboxes */}
           {filtered.length > 0 && (
             <div className="md:hidden space-y-2">
               {filtered.map((e) => (
@@ -186,6 +255,16 @@ export function EntitiesPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr className="border-b">
+                      <th className="p-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          ref={(el) => { if (el) el.indeterminate = someFilteredSelected && !allFilteredSelected; }}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all"
+                          className="cursor-pointer"
+                        />
+                      </th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Category</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Description</th>
@@ -196,6 +275,15 @@ export function EntitiesPage() {
                   <tbody>
                     {filtered.map((e) => (
                       <tr key={e.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => navigate(`/entities/${e.id}`)}>
+                        <td className="p-3" onClick={(ev) => ev.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selected.has(e.id)}
+                            onChange={() => toggleOne(e.id)}
+                            aria-label={`Select ${e.name}`}
+                            className="cursor-pointer"
+                          />
+                        </td>
                         <td className="p-3 font-medium">{e.name}</td>
                         <td className="p-3">
                           <Badge variant={e.category === "storage" ? "default" : "outline"} className="text-[10px]">
@@ -255,6 +343,30 @@ export function EntitiesPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={confirmAction}>
               Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkAction !== null} onOpenChange={(o) => !o && setBulkAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkAction === "retire" ? "Retire" : "Activate"} {selected.size} {selected.size === 1 ? "entity" : "entities"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkAction === "retire"
+                ? "Retired entities are hidden from new transactions but historical records remain."
+                : "Selected entities will be marked active and appear in entity lists."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant={bulkAction === "retire" ? "destructive" : "default"}
+              onClick={confirmBulkAction}
+            >
+              {bulkAction === "retire" ? "Retire" : "Activate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
