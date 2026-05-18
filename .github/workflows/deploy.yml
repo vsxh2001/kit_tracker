@@ -5,6 +5,11 @@ on:
     branches: [main]
 
 jobs:
+  # NOTE: prod-smoke job from ci.yml must pass before this deploy runs.
+  # CI workflow is separate, but branch protection rule should enforce:
+  #   Require status checks to pass before merging → ci/prod-smoke
+  # This ensures prod-build bugs (env-dependent URL rewrites) are caught
+  # before deployment to production (catch-22 solved: test prod-like env locally).
   deploy:
     runs-on: ubuntu-latest
     steps:

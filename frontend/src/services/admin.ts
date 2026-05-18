@@ -4,7 +4,7 @@ export function baseUrl(): string {
   return pb.baseUrl.replace(/\/+$/, "");
 }
 
-export type CascadeCollection = "kits" | "entities" | "components" | "transactions";
+export type CascadeCollection = "kits" | "entities" | "components" | "transactions" | "products";
 
 export interface CascadeBlocker {
   collection: string;
@@ -55,5 +55,19 @@ export async function cascadeDelete(
     Object.assign(err, body);
     throw err;
   }
+  return body;
+}
+
+export async function revertLastTransaction(
+  kitId: string,
+  transactionId: string,
+): Promise<{ deleted: boolean }> {
+  const res = await fetch(`${baseUrl()}/api/admin/revert-transaction`, {
+    method: "POST",
+    headers: { Authorization: pb.authStore.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ kit_id: kitId, transaction_id: transactionId }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error ?? `Revert failed: ${res.status}`);
   return body;
 }
