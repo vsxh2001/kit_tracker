@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, ArrowRight, Wrench, Plus, Download } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -33,11 +33,15 @@ import {
   AlertDialogCancel,
 } from "../components/ui/alert-dialog";
 import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
+import { KitSnapshotCard } from "../components/KitSnapshotCard";
 import type { Kit, Transaction, Component, KitMaintenanceSchedule } from "../types";
 
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const at = searchParams.get("at") ?? undefined;
+  const today = new Date().toISOString().slice(0, 10);
   const { canTransferKits, canDecideRequests, isAdmin } = useAuth();
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);
@@ -125,6 +129,36 @@ export function KitDetailPage() {
           {!kit.is_active && <Badge variant="destructive">Retired</Badge>}
         </div>
       </div>
+
+      {/* Time-machine date picker */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="text-sm font-medium text-muted-foreground shrink-0" htmlFor="kit-at-date">
+          View as of
+        </label>
+        <input
+          id="kit-at-date"
+          type="date"
+          max={today}
+          value={at ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val) setSearchParams({ at: val }, { replace: true });
+            else setSearchParams({}, { replace: true });
+          }}
+          className="border border-input rounded-md px-2 py-1 text-sm bg-background"
+        />
+        {at && (
+          <button
+            onClick={() => setSearchParams({}, { replace: true })}
+            className="text-xs text-indigo-600 hover:underline"
+          >
+            Now
+          </button>
+        )}
+      </div>
+
+      {/* Snapshot card — shown instead of current-state section when at is set */}
+      {at && <KitSnapshotCard kitId={kit.id} atDate={at} />}
 
       {/* Info card */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -240,11 +274,11 @@ export function KitDetailPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-slate-50/80">
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Time</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">From</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">To</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">By</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Time</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">From</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">To</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Notes</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">By</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -312,7 +346,7 @@ export function KitDetailPage() {
                       ) : (
                         <span className="text-xs font-medium text-muted-foreground">—</span>
                       )}
-                      {comp.serial && <span className="font-mono text-[11px] text-indigo-700 ml-2">{comp.serial}</span>}
+                      {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
@@ -335,8 +369,8 @@ export function KitDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Product / Type / Serial</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Product / Type / Serial</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
                       <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
@@ -351,7 +385,7 @@ export function KitDetailPage() {
                           ) : (
                             <div className="text-xs font-medium text-muted-foreground">—</div>
                           )}
-                          {comp.serial && <div className="font-mono text-[11px] text-indigo-700 mt-0.5">{comp.serial}</div>}
+                          {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
                         <td className="px-4 py-3 text-right">
@@ -452,11 +486,11 @@ export function KitDetailPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-slate-50/80">
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Description</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Interval</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Last done</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Next due</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Description</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Interval</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Last done</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Next due</th>
                       <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
@@ -658,9 +692,9 @@ export function KitDetailPage() {
 }
 
 function MaintStatusPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">OK</span>;
+  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
+  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
+  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
