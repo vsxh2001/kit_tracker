@@ -104,7 +104,7 @@ test.describe("Entity creation (admin)", () => {
     if (e) await deactivateEntity(e.id);
   });
 
-  test("admin can create a new entity via dialog", async ({ page }) => {
+  test("admin can create a new entity via dialog @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await page.getByRole("button", { name: /new entity/i }).click();
@@ -114,6 +114,11 @@ test.describe("Entity creation (admin)", () => {
     // EntityFormDialog uses plain <Label> components (not htmlFor-linked)
     // getByLabel works because Radix Label wraps the input element
     await page.getByLabel("Name").fill(ENTITY_NAME);
+
+    // Select category (required field — absence caused the prod-breaking 400)
+    await page.getByRole("combobox").click();
+    await page.getByRole("option", { name: "Storage" }).click();
+
     await page.getByLabel("Description").fill("Created by Playwright");
 
     await page.getByRole("button", { name: /^save$/i }).click();
