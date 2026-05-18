@@ -48,7 +48,7 @@ const VIA_STYLE: Record<AuditVia, string> = {
 function OriginBadge({ via }: { via: AuditVia }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${VIA_STYLE[via]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${VIA_STYLE[via]}`}
       data-testid="origin-badge"
       data-via={via}
     >
@@ -159,7 +159,7 @@ export function KitTimeline({ kitId }: Props) {
                 );
               })}
             </div>
-            <div className="flex justify-between mt-1 font-mono text-[10px] text-muted-foreground tabular-nums">
+            <div className="flex justify-between mt-1 font-mono text-xs text-muted-foreground tabular-nums">
               <span>{formatDateOnly(new Date(totalStart).toISOString())}</span>
               <span>{formatDateOnly(new Date(totalEnd).toISOString())}</span>
             </div>

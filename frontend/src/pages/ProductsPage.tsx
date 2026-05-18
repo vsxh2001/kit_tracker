@@ -160,7 +160,7 @@ export function ProductsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Catalog</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Catalog</p>
           <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{rows.length} product{rows.length !== 1 ? "s" : ""} registered</p>
         </div>
@@ -233,10 +233,10 @@ export function ProductsPage() {
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-medium text-sm">{product.name}</span>
                       <div className="flex items-center gap-1.5">
-                        <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-[10px]">
+                        <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
                           {product.is_serialized !== false ? "Serial" : "Bulk"}
                         </Badge>
-                        {!product.is_active && <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                        {!product.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -245,7 +245,7 @@ export function ProductsPage() {
                     </div>
                     {product.category && (
                       <div className="mt-1">
-                        <Badge variant="outline" className="text-[10px]">{product.category}</Badge>
+                        <Badge variant="outline" className="text-xs">{product.category}</Badge>
                       </div>
                     )}
                   </div>
@@ -315,13 +315,13 @@ export function ProductsPage() {
                             />
                           </th>
                         )}
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Name</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Category</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Type</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Manufacturer</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Model</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Components</th>
-                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Name</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Category</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Manufacturer</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Model</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Components</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -343,11 +343,11 @@ export function ProductsPage() {
                             <td className="px-4 py-3 font-medium text-xs">{product.name}</td>
                             <td className="px-4 py-3 text-xs">
                               {product.category
-                                ? <Badge variant="outline" className="text-[10px]">{product.category}</Badge>
+                                ? <Badge variant="outline" className="text-xs">{product.category}</Badge>
                                 : <span className="text-muted-foreground opacity-40">—</span>}
                             </td>
                             <td className="px-4 py-3 text-xs">
-                              <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-[10px]">
+                              <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
                                 {product.is_serialized !== false ? "Serial" : "Bulk"}
                               </Badge>
                             </td>
@@ -356,8 +356,8 @@ export function ProductsPage() {
                             <td className="px-4 py-3 tabular-nums text-xs">{componentCount}</td>
                             <td className="px-4 py-3">
                               {product.is_active
-                                ? <Badge variant="outline" className="text-[10px]">Active</Badge>
-                                : <Badge variant="destructive" className="text-[10px]">Inactive</Badge>}
+                                ? <Badge variant="outline" className="text-xs">Active</Badge>
+                                : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                             </td>
                           </tr>
                         );
