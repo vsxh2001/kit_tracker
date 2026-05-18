@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
-import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit } from "../services/kits";
+import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { Skeleton } from "../components/ui/skeleton";
@@ -35,6 +35,8 @@ interface KitRow {
 type SortField = "serial" | "delivery" | "maintenance";
 type SortDir = "asc" | "desc";
 
+type BulkAction = "retire" | "activate";
+
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return null;
   return dir === "asc" ? (
@@ -58,6 +60,11 @@ export function KitsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Kit | null>(null);
   const [sortField, setSortField] = useState<SortField>("serial");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -135,6 +142,65 @@ export function KitsPage() {
     }
   }
 
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll(ids: string[]) {
+    if (ids.every((id) => selected.has(id))) {
+      // all currently visible selected → deselect all
+      setSelected((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }
+
+  async function executeBulkAction(action: BulkAction) {
+    setBulkLoading(true);
+    const ids = Array.from(selected);
+    let succeeded = 0;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        if (action === "retire") {
+          await softDeleteKit(id);
+        } else {
+          await updateKit(id, { is_active: true });
+        }
+        succeeded++;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        if (!err?.isAbort) failed++;
+      }
+    }
+    setBulkLoading(false);
+    setBulkAction(null);
+    setSelected(new Set());
+    if (failed === 0) {
+      const label = action === "retire" ? "retired" : "activated";
+      toast({ title: `${succeeded} kit${succeeded !== 1 ? "s" : ""} ${label}`, variant: "success" });
+    } else {
+      toast({
+        title: `${succeeded} of ${ids.length} succeeded — ${failed} failed`,
+        variant: "destructive",
+      });
+    }
+    startTransition(() => load());
+  }
+
   const allTags = Array.from(
     new Set(rows.flatMap(({ kit }) => parseTags(kit.tags)))
   ).sort();
@@ -175,6 +241,17 @@ export function KitsPage() {
     const cmp = da.deliveryDate.localeCompare(db.deliveryDate);
     return sortDir === "asc" ? cmp : -cmp;
   });
+
+  const sortedIds = sorted.map((r) => r.kit.id);
+  const allVisibleSelected = sortedIds.length > 0 && sortedIds.every((id) => selected.has(id));
+  const someVisibleSelected = sortedIds.some((id) => selected.has(id));
+
+  const selectedKits = rows.filter((r) => selected.has(r.kit.id)).map((r) => r.kit);
+  const hasActiveSelected = selectedKits.some((k) => k.is_active);
+  const hasInactiveSelected = selectedKits.some((k) => !k.is_active);
+
+  const bulkRetireCount = selectedKits.filter((k) => k.is_active).length;
+  const bulkActivateCount = selectedKits.filter((k) => !k.is_active).length;
 
   return (
     <div className="space-y-5">
@@ -306,105 +383,172 @@ export function KitsPage() {
 
           {/* Desktop table */}
           {sorted.length > 0 && (
-            <Card className="overflow-hidden hidden md:block">
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-slate-50/80">
-                      <th
-                        className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
-                        onClick={() => handleSort("serial")}
+            <div className="hidden md:block space-y-2">
+              {/* Bulk action toolbar — only when rows selected */}
+              {canDecideRequests && selected.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50">
+                  <span className="text-sm font-medium text-indigo-800">{selected.size} selected</span>
+                  <div className="flex items-center gap-2 ml-auto">
+                    {hasActiveSelected && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkLoading}
+                        onClick={() => setBulkAction("retire")}
+                        className="border-red-200 text-red-700 hover:bg-red-50"
                       >
-                        Serial<SortIcon active={sortField === "serial"} dir={sortDir} />
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Current entity</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Last moved</th>
-                      <th
-                        className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
-                        onClick={() => handleSort("delivery")}
+                        Retire {bulkRetireCount > 0 ? `(${bulkRetireCount})` : ""}
+                      </Button>
+                    )}
+                    {hasInactiveSelected && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkLoading}
+                        onClick={() => executeBulkAction("activate")}
+                        className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                       >
-                        Next delivery<SortIcon active={sortField === "delivery"} dir={sortDir} />
-                      </th>
-                      <th
-                        className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
-                        onClick={() => handleSort("maintenance")}
-                      >
-                        Next maintenance<SortIcon active={sortField === "maintenance"} dir={sortDir} />
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
-                      {isAdmin && <th className="px-4 py-2.5" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sorted.map(({ kit, latest }) => {
-                      const upcoming = deliveries.get(kit.id);
-                      return (
-                        <tr key={kit.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/kits/${kit.id}`)}>
-                          <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</td>
-                          <td className="px-4 py-3">
-                            {latest?.expand?.to_entity?.name ? (
-                              <Badge variant="secondary">{latest.expand.to_entity.name}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground opacity-40">—</span>
+                        Activate {bulkActivateCount > 0 ? `(${bulkActivateCount})` : ""}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={bulkLoading}
+                      onClick={() => setSelected(new Set())}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-50/80">
+                        {canDecideRequests && (
+                          <th className="w-10 px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={allVisibleSelected}
+                              ref={(el) => {
+                                if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected;
+                              }}
+                              onChange={() => toggleAll(sortedIds)}
+                              aria-label="Select all"
+                              className="h-4 w-4 rounded border-gray-300 accent-indigo-600 cursor-pointer"
+                            />
+                          </th>
+                        )}
+                        <th
+                          className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                          onClick={() => handleSort("serial")}
+                        >
+                          Serial<SortIcon active={sortField === "serial"} dir={sortDir} />
+                        </th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Current entity</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Last moved</th>
+                        <th
+                          className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                          onClick={() => handleSort("delivery")}
+                        >
+                          Next delivery<SortIcon active={sortField === "delivery"} dir={sortDir} />
+                        </th>
+                        <th
+                          className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider cursor-pointer select-none"
+                          onClick={() => handleSort("maintenance")}
+                        >
+                          Next maintenance<SortIcon active={sortField === "maintenance"} dir={sortDir} />
+                        </th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Tags</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Notes</th>
+                        {isAdmin && <th className="px-4 py-2.5" />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map(({ kit, latest }) => {
+                        const upcoming = deliveries.get(kit.id);
+                        const isChecked = selected.has(kit.id);
+                        return (
+                          <tr key={kit.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/kits/${kit.id}`)}>
+                            {canDecideRequests && (
+                              <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleRow(kit.id)}
+                                  aria-label={`Select ${kit.serial}`}
+                                  className="h-4 w-4 rounded border-gray-300 accent-indigo-600 cursor-pointer"
+                                />
+                              </td>
                             )}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs tabular-nums">
-                            {latest ? formatDate(latest.timestamp) : <span className="opacity-40">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-xs tabular-nums">
-                            {upcoming ? (
-                              <span>{formatDateOnly(upcoming.deliveryDate)} → {upcoming.targetEntityName}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {(() => {
-                              const nextDue = getEarliestNextDue(kit.id);
-                              if (!nextDue) return <span className="text-muted-foreground text-xs">—</span>;
-                              const status = maintenanceStatus(nextDue);
-                              return (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs text-muted-foreground tabular-nums">{formatDateOnly(nextDue)}</span>
-                                  <KitMaintPill status={status} />
-                                </div>
-                              );
-                            })()}
-                          </td>
-                          <td className="px-4 py-3">
-                            {parseTags(kit.tags).length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {[...parseTags(kit.tags)].sort().map((tag) => (
-                                  <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground opacity-40">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
-                            <span className="line-clamp-2">{kit.notes ?? <span className="opacity-40">—</span>}</span>
-                          </td>
-                          {isAdmin && (
-                            <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => setDeleteTarget(kit)}
-                                className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                Deactivate
-                              </button>
+                            <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</td>
+                            <td className="px-4 py-3">
+                              {latest?.expand?.to_entity?.name ? (
+                                <Badge variant="secondary">{latest.expand.to_entity.name}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground opacity-40">—</span>
+                              )}
                             </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+                            <td className="px-4 py-3 text-muted-foreground font-mono text-xs tabular-nums">
+                              {latest ? formatDate(latest.timestamp) : <span className="opacity-40">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-xs tabular-nums">
+                              {upcoming ? (
+                                <span>{formatDateOnly(upcoming.deliveryDate)} → {upcoming.targetEntityName}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {(() => {
+                                const nextDue = getEarliestNextDue(kit.id);
+                                if (!nextDue) return <span className="text-muted-foreground text-xs">—</span>;
+                                const status = maintenanceStatus(nextDue);
+                                return (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs text-muted-foreground tabular-nums">{formatDateOnly(nextDue)}</span>
+                                    <KitMaintPill status={status} />
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-4 py-3">
+                              {parseTags(kit.tags).length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {[...parseTags(kit.tags)].sort().map((tag) => (
+                                    <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground opacity-40">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
+                              <span className="line-clamp-2">{kit.notes ?? <span className="opacity-40">—</span>}</span>
+                            </td>
+                            {isAdmin && (
+                              <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => setDeleteTarget(kit)}
+                                  className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  Deactivate
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </>
       )}
@@ -432,6 +576,24 @@ export function KitsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleDeleteKit}>Deactivate</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk retire confirm dialog */}
+      <AlertDialog open={bulkAction === "retire"} onOpenChange={(v) => !v && setBulkAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retire {bulkRetireCount} kit{bulkRetireCount !== 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This soft-deletes them — they can be reactivated later. Historical transactions remain intact.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => executeBulkAction("retire")}>
+              Retire
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
