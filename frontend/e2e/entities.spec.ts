@@ -127,7 +127,7 @@ test.describe("Entity creation (admin)", () => {
     await expect(
       page.getByRole("heading", { name: "New Entity" })
     ).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: ENTITY_NAME })).toBeVisible({
+    await expect(page.locator("table tbody").getByRole("cell", { name: ENTITY_NAME, exact: true })).toBeVisible({
       message: "Newly created entity should appear in the table",
     });
   });
