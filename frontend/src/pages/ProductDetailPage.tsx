@@ -235,8 +235,12 @@ export function ProductDetailPage() {
                   <thead>
                     <tr className="border-b bg-slate-50/80">
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Serial</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
+                      {!product.is_serialized && (
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Qty</th>
+                      )}
+                      {!product.is_serialized && (
+                        <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Bulk</th>
+                      )}
                       <th className="text-left px-4 py-2.5 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="px-4 py-2.5" />
                     </tr>
@@ -249,12 +253,16 @@ export function ProductDetailPage() {
                             ? <div className="font-mono text-[11px] text-indigo-700">{comp.serial}</div>
                             : <span className="text-muted-foreground opacity-40">—</span>}
                         </td>
-                        <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
-                        <td className="px-4 py-3">
-                          {comp.is_bulk
-                            ? <Badge variant="secondary" className="text-[10px]">Bulk</Badge>
-                            : <span className="text-muted-foreground opacity-40">—</span>}
-                        </td>
+                        {!product.is_serialized && (
+                          <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
+                        )}
+                        {!product.is_serialized && (
+                          <td className="px-4 py-3">
+                            {comp.is_bulk
+                              ? <Badge variant="secondary" className="text-[10px]">Bulk</Badge>
+                              : <span className="text-muted-foreground opacity-40">—</span>}
+                          </td>
+                        )}
                         <td className="px-4 py-3">
                           {comp.is_active
                             ? <Badge variant="outline" className="text-[10px]">Active</Badge>
