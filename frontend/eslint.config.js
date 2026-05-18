@@ -40,6 +40,11 @@ export default defineConfig([
           selector: "JSXElement[openingElement.name.name='SelectItem'] JSXAttribute[name.name='value'][value.value='']",
           message: "Radix <SelectItem> forbids empty-string value. Use a sentinel (e.g. value='all') and check for it in your filter logic.",
         },
+        // Rule 4: forbid arbitrary text size brackets — pin to Tailwind scale
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/text-\\[(?!none\\]|inherit)/]",
+          message: "Avoid arbitrary text size brackets. Use Tailwind's scale: text-xs (12px), text-sm (14px), text-base (16px), text-lg (18px), text-xl (20px), text-2xl (24px). If you genuinely need a custom size, propose it as a scale extension first.",
+        },
       ],
     },
   },

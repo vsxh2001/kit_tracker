@@ -20,6 +20,7 @@ import { PrintLabelsPage } from "./pages/PrintLabelsPage";
 import { StatsPage } from "./pages/StatsPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
+import { ScheduleDetailPage } from "./pages/ScheduleDetailPage";
 import { OnCallPage } from "./pages/OnCallPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProductsPage } from "./pages/ProductsPage";
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="components/:id" element={<RequireRole><ComponentDetailPage /></RequireRole>} />
             <Route path="kits/print" element={<AdminOnly><PrintLabelsPage /></AdminOnly>} />
             <Route path="maintenance" element={<CanDecideOnly><MaintenancePage /></CanDecideOnly>} />
+            <Route path="maintenance/:scheduleId" element={<ProtectedRoute><ScheduleDetailPage /></ProtectedRoute>} />
             <Route path="stats" element={<CanDecideOnly><StatsPage /></CanDecideOnly>} />
             <Route path="oncall" element={<RequireRole><OnCallPage /></RequireRole>} />
             <Route path="profile" element={<ProfilePage />} />

@@ -1099,7 +1099,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         record.set("product", productId);
         record.set("serial", serial);
         record.set("is_bulk", isBulk);
-        record.set("quantity", isBulk ? quantity : 0);
+        record.set("quantity", isBulk ? quantity : null);
         record.set("notes", args.notes ? String(args.notes) : "");
         record.set("is_active", true);
         dao.save(record);
