@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, ArrowRight, Wrench, Plus, Download } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -33,11 +33,15 @@ import {
   AlertDialogCancel,
 } from "../components/ui/alert-dialog";
 import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
+import { KitSnapshotCard } from "../components/KitSnapshotCard";
 import type { Kit, Transaction, Component, KitMaintenanceSchedule } from "../types";
 
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const at = searchParams.get("at") ?? undefined;
+  const today = new Date().toISOString().slice(0, 10);
   const { canTransferKits, canDecideRequests, isAdmin } = useAuth();
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);
@@ -125,6 +129,36 @@ export function KitDetailPage() {
           {!kit.is_active && <Badge variant="destructive">Retired</Badge>}
         </div>
       </div>
+
+      {/* Time-machine date picker */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="text-sm font-medium text-muted-foreground shrink-0" htmlFor="kit-at-date">
+          View as of
+        </label>
+        <input
+          id="kit-at-date"
+          type="date"
+          max={today}
+          value={at ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val) setSearchParams({ at: val }, { replace: true });
+            else setSearchParams({}, { replace: true });
+          }}
+          className="border border-input rounded-md px-2 py-1 text-sm bg-background"
+        />
+        {at && (
+          <button
+            onClick={() => setSearchParams({}, { replace: true })}
+            className="text-xs text-indigo-600 hover:underline"
+          >
+            Now
+          </button>
+        )}
+      </div>
+
+      {/* Snapshot card — shown instead of current-state section when at is set */}
+      {at && <KitSnapshotCard kitId={kit.id} atDate={at} />}
 
       {/* Info card */}
       <div className="grid md:grid-cols-2 gap-4">
