@@ -115,6 +115,11 @@ export function OnCallCalendar({ canDecideRequests }: Props) {
 
   const cells = monthDays(year, month);
   const todayStr = isoDate(now);
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+  const nowShifts = isCurrentMonth ? shiftsForDay(shifts, now) : [];
+  const nowLabel = nowShifts.length > 0
+    ? nowShifts.map(userLabel).join(", ")
+    : null;
 
   return (
     <div className="space-y-4">
@@ -133,6 +138,13 @@ export function OnCallCalendar({ canDecideRequests }: Props) {
           {MONTH_NAMES[month]} {year}
         </span>
       </div>
+
+      {/* On-call now caption */}
+      <p className="text-sm text-muted-foreground">
+        {nowLabel
+          ? <span>On call now: <span className="font-medium text-foreground">{nowLabel}</span></span>
+          : "No one on call"}
+      </p>
 
       {loading ? (
         <div className="space-y-2">
@@ -180,7 +192,7 @@ export function OnCallCalendar({ canDecideRequests }: Props) {
                     className={[
                       "text-xs font-medium self-end px-1",
                       isToday
-                        ? "bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"
+                        ? "bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] ring-2 ring-indigo-500 ring-offset-1"
                         : "text-muted-foreground",
                     ].join(" ")}
                   >
@@ -195,6 +207,7 @@ export function OnCallCalendar({ canDecideRequests }: Props) {
                         "w-full text-left text-[10px] font-medium px-1.5 py-0.5 rounded truncate",
                         userColor(s.user),
                         canDecideRequests ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default",
+                        isToday ? "shadow-md ring-1 ring-white" : "",
                       ].join(" ")}
                     >
                       {userLabel(s)}
