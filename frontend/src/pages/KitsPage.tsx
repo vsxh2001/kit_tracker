@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
 import { listAllActiveSchedules } from "../services/maintenance";
@@ -53,7 +54,8 @@ export function KitsPage() {
   const [deliveries, setDeliveries] = useState<Map<string, UpcomingDelivery>>(new Map());
   const [schedulesByKit, setSchedulesByKit] = useState<Map<string, KitMaintenanceSchedule[]>>(new Map());
   const [search, setSearch] = useState("");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"active" | "retired" | "all">("active");
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -70,7 +72,7 @@ export function KitsPage() {
     setLoading(true);
     try {
       const [kits, upcomingMap, allSchedules] = await Promise.all([
-        listKits(),
+        listKits(true),
         listUpcomingDeliveries(),
         listAllActiveSchedules(),
       ]);
@@ -205,10 +207,31 @@ export function KitsPage() {
     new Set(rows.flatMap(({ kit }) => parseTags(kit.tags)))
   ).sort();
 
+  const filtersActive = statusFilter !== "active" || selectedTags.size > 0;
+
+  function clearFilters() {
+    setStatusFilter("active");
+    setSelectedTags(new Set());
+  }
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag); else next.add(tag);
+      return next;
+    });
+  }
+
   const filtered = rows.filter((r) => {
     const matchesSearch = r.kit.serial.toLowerCase().includes(search.toLowerCase());
-    const matchesTag = activeTag === null || parseTags(r.kit.tags).includes(activeTag);
-    return matchesSearch && matchesTag;
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && r.kit.is_active) ||
+      (statusFilter === "retired" && !r.kit.is_active);
+    const matchesTags =
+      selectedTags.size === 0 ||
+      parseTags(r.kit.tags).some((t) => selectedTags.has(t));
+    return matchesSearch && matchesStatus && matchesTags;
   });
 
   function getEarliestNextDue(kitId: string): string | null {
@@ -259,7 +282,11 @@ export function KitsPage() {
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Inventory</p>
           <h1 className="text-2xl font-semibold tracking-tight">Kits</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{rows.length} kit{rows.length !== 1 ? "s" : ""} registered</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {filtersActive
+              ? `Showing ${filtered.length} of ${rows.length} kit${rows.length !== 1 ? "s" : ""}`
+              : `${rows.length} kit${rows.length !== 1 ? "s" : ""} registered`}
+          </p>
         </div>
         {canDecideRequests && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -285,25 +312,42 @@ export function KitsPage() {
         )}
       </div>
 
-      <Input
-        placeholder="Search by serial…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-xs"
-      />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input
+          placeholder="Search by serial…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-xs"
+        />
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "active" | "retired" | "all")}>
+          <SelectTrigger className="w-auto min-w-[110px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="retired">Retired</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+          </SelectContent>
+        </Select>
+        {filtersActive && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+      </div>
 
       {allTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 overflow-x-auto">
           {allTags.map((tag) => (
             <button
               key={tag}
-              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
-                activeTag === tag
-                  ? "bg-indigo-600 text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/70"
+              onClick={() => toggleTag(tag)}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors shrink-0 ${
+                selectedTags.has(tag)
+                  ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300"
+                  : "bg-slate-100 text-muted-foreground hover:bg-slate-200"
               }`}
-              aria-pressed={activeTag === tag}
+              aria-pressed={selectedTags.has(tag)}
             >
               {tag}
             </button>
