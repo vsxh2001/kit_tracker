@@ -103,7 +103,7 @@ export function OnCallPage() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
           <h1 className="text-2xl font-semibold tracking-tight">On-Call</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Scheduled on-call shifts</p>
         </div>
