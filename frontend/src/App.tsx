@@ -25,6 +25,7 @@ import { OnCallPage } from "./pages/OnCallPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { ProductDetailPage } from "./pages/ProductDetailPage";
+import { ScanPage } from "./pages/ScanPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -50,6 +51,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/scan/:kitId" element={<ScanPage />} />
           <Route
             path="/"
             element={
