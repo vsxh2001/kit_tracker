@@ -10,10 +10,26 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { createSchedule } from "../services/maintenance";
 import { listKits } from "../services/kits";
 import { toast } from "./ui/use-toast";
-import type { Kit } from "../types";
+import type { Kit, MaintenanceType } from "../types";
+
+const MAINTENANCE_TYPES: { value: MaintenanceType; label: string }[] = [
+  { value: "calibration",   label: "Calibration" },
+  { value: "inspection",    label: "Inspection" },
+  { value: "service",       label: "Service" },
+  { value: "replacement",   label: "Replacement" },
+  { value: "certification", label: "Certification" },
+  { value: "other",         label: "Other" },
+];
 
 interface Props {
   /** When provided, the kit picker is hidden and this kit is used. */
@@ -37,7 +53,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
         .catch((err: any) => { if (!err?.isAbort) console.error(err); });
     });
   }, [showKitPicker, open]);
-  const [type, setType] = useState("");
+  const [type, setType] = useState<MaintenanceType | "none">("none");
   const [description, setDescription] = useState("");
   const [intervalDays, setIntervalDays] = useState("30");
   const [lastDoneAt, setLastDoneAt] = useState("");
@@ -46,7 +62,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
   const [error, setError] = useState("");
 
   function reset() {
-    setType("");
+    setType("none");
     setDescription("");
     setIntervalDays("30");
     setLastDoneAt("");
@@ -69,7 +85,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
   async function handleSave() {
     const resolvedKitId = kitId ?? selectedKitId;
     if (showKitPicker && !resolvedKitId) { setError("Kit is required."); return; }
-    if (!type.trim()) { setError("Type is required."); return; }
+    if (type === "none") { setError("Type is required."); return; }
     const interval = parseInt(intervalDays, 10);
     if (!interval || interval < 1) { setError("Interval must be at least 1 day."); return; }
     setError("");
@@ -77,7 +93,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
     try {
       const payload: Record<string, unknown> = {
         kit: resolvedKitId,
-        type: type.trim(),
+        type,
         description: description.trim(),
         interval_days: interval,
         next_due_at: computeNextDue(),
@@ -87,7 +103,7 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
       if (lastDoneAt) payload.last_done_at = lastDoneAt;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await createSchedule(payload as any);
-      toast({ title: "Schedule created", description: type.trim(), variant: "success" });
+      toast({ title: "Schedule created", description: MAINTENANCE_TYPES.find(t => t.value === type)?.label ?? type, variant: "success" });
       reset();
       onSaved();
       onClose();
@@ -99,8 +115,8 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
     }
   }
 
-  function handleOpenChange(open: boolean) {
-    if (!open) { reset(); onClose(); }
+  function handleOpenChange(v: boolean) {
+    if (!v) { reset(); onClose(); }
   }
 
   return (
@@ -131,12 +147,16 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
           )}
           <div className="space-y-1.5">
             <Label htmlFor="sched-type">Type</Label>
-            <Input
-              id="sched-type"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              placeholder="e.g. Calibration, Battery check…"
-            />
+            <Select value={type} onValueChange={(v) => setType(v as MaintenanceType)}>
+              <SelectTrigger id="sched-type">
+                <SelectValue placeholder="Select type…" />
+              </SelectTrigger>
+              <SelectContent>
+                {MAINTENANCE_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sched-desc">Description</Label>
