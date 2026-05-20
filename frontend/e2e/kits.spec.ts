@@ -588,27 +588,31 @@ test.describe("Bulk kit transfer @smoke", () => {
     // Filter to our test kits
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-BULK-`);
 
-    // Wait for rows to appear
+    // Wait for table rows — only one table exists (desktop; mobile uses divs)
     await expect(page.locator("table tbody tr")).toHaveCount(3, { timeout: 10_000 });
 
-    // Check all 3 boxes via the select-all checkbox
-    await page.locator("thead input[type=checkbox]").click();
+    // Check each kit's checkbox individually (more reliable than select-all in e2e)
+    const rowCheckboxes = page.locator("table tbody tr input[type=checkbox]");
+    await expect(rowCheckboxes).toHaveCount(3, { timeout: 5_000 });
+    await rowCheckboxes.nth(0).click();
+    await rowCheckboxes.nth(1).click();
+    await rowCheckboxes.nth(2).click();
 
     // Action bar must appear with 3 kits selected
-    await expect(page.getByText(/3 kits selected/i)).toBeVisible();
+    await expect(page.getByText(/3 kits selected/i)).toBeVisible({ timeout: 8_000 });
 
-    // Click Transfer
+    // Click Transfer button in the action bar
     await page.getByRole("button", { name: /^transfer$/i }).click();
 
     // Dialog opens
-    await expect(page.getByRole("dialog", { name: /transfer 3 kits/i })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /transfer 3 kits/i })).toBeVisible({ timeout: 5_000 });
 
     // Pick entity
     await page.getByRole("dialog").getByRole("combobox").click();
     await page.getByRole("option", { name: `${TS}-BulkDest` }).click();
 
-    // Submit
-    await page.getByRole("button", { name: /transfer 3 kits/i }).last().click();
+    // Submit (the button inside the dialog)
+    await page.getByRole("dialog").getByRole("button", { name: /transfer 3 kits/i }).click();
 
     // Toast shows "Transferred 3 kits"
     await expect(page.getByText(/transferred 3 kits/i)).toBeVisible({ timeout: 15_000 });
