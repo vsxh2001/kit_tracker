@@ -591,12 +591,10 @@ test.describe("Bulk kit transfer @smoke", () => {
     // Wait for table rows — only one table exists (desktop; mobile uses divs)
     await expect(page.locator("table tbody tr")).toHaveCount(3, { timeout: 10_000 });
 
-    // Check each kit's checkbox individually (more reliable than select-all in e2e)
-    const rowCheckboxes = page.locator("table tbody tr input[type=checkbox]");
-    await expect(rowCheckboxes).toHaveCount(3, { timeout: 5_000 });
-    await rowCheckboxes.nth(0).click();
-    await rowCheckboxes.nth(1).click();
-    await rowCheckboxes.nth(2).click();
+    // Select each kit by aria-label (stable across re-renders)
+    await page.getByRole("checkbox", { name: `Select ${TS}-BULK-1` }).click();
+    await page.getByRole("checkbox", { name: `Select ${TS}-BULK-2` }).click();
+    await page.getByRole("checkbox", { name: `Select ${TS}-BULK-3` }).click();
 
     // Action bar must appear with 3 kits selected
     await expect(page.getByText(/3 kits selected/i)).toBeVisible({ timeout: 8_000 });
