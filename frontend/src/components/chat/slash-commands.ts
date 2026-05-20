@@ -4,18 +4,44 @@ import { listRequests } from "../../services/requests";
 import { getCurrentOnCallUsers } from "../../services/oncall";
 import { formatDate } from "../../lib/utils";
 import type { Kit, Transaction } from "../../types";
+import {
+  handleKit,
+  handleComp,
+  handleComps,
+  handleInKit,
+  handleAt,
+  handleUpcoming,
+  handleDue,
+  handleMe,
+  handleToday,
+  handleHistory,
+} from "./slash-commands/handlers";
 
 export type SlashResult =
   | { ok: true; text: string }
   | { ok: false; error: string };
 
 export const COMMANDS: Array<{ name: string; usage: string; help: string }> = [
-  { name: "help",   usage: "/help",           help: "Show available slash commands." },
-  { name: "kits",   usage: "/kits [@tag]",    help: "List active kits, optional tag filter." },
-  { name: "where",  usage: "/where <serial>", help: "Show current holder and last move for a kit." },
-  { name: "req",    usage: "/req",            help: "Show your open requests." },
-  { name: "oncall", usage: "/oncall",         help: "Show who is on call right now." },
+  { name: "help",    usage: "/help",                help: "Show available slash commands." },
+  { name: "kits",    usage: "/kits [@tag]",         help: "List active kits, optional tag filter." },
+  { name: "where",   usage: "/where <serial>",      help: "Show current holder and last move for a kit." },
+  { name: "req",     usage: "/req",                 help: "Show your open requests." },
+  { name: "oncall",  usage: "/oncall",              help: "Show who is on call right now." },
+  { name: "kit",     usage: "/kit <serial>",        help: "Full kit report: holder, components, maintenance, last 5 moves." },
+  { name: "comp",    usage: "/comp <serial>",       help: "Component report: product, location, last 3 moves." },
+  { name: "comps",   usage: "/comps <product>",     help: "List components of a product with current location." },
+  { name: "inkit",   usage: "/inkit <kit-serial>",  help: "All components currently inside a specific kit." },
+  { name: "at",      usage: "/at <entity-name>",    help: "All kits currently at an entity." },
+  { name: "upcoming",usage: "/upcoming",            help: "Next 30 days of approved/open requests with delivery date." },
+  { name: "due",     usage: "/due",                 help: "Maintenance schedules due in next 7 days." },
+  { name: "me",      usage: "/me",                  help: "Current user: role, open requests, on-call status." },
+  { name: "today",   usage: "/today",               help: "Daily standup: open req count, deliveries today, on-call, overdue maint." },
+  { name: "history", usage: "/history <serial>",    help: "All transactions for a kit, formatted as timeline." },
 ];
+
+const KIT_SERIAL_CMDS = new Set(["where", "kit", "inkit", "history"]);
+const ENTITY_NAME_CMDS = new Set(["at"]);
+const PRODUCT_NAME_CMDS = new Set(["comps"]);
 
 export function isSlashCommand(input: string): boolean {
   const trimmed = input.trim();
@@ -31,6 +57,15 @@ export function parseCommand(input: string): { name: string; args: string[] } | 
   const name = parts[0]?.toLowerCase() ?? "";
   if (!COMMANDS.some((c) => c.name === name)) return null;
   return { name, args: parts.slice(1) };
+}
+
+export function getArgResourceType(
+  commandName: string
+): "kit-serial" | "entity-name" | "product-name" | null {
+  if (KIT_SERIAL_CMDS.has(commandName)) return "kit-serial";
+  if (ENTITY_NAME_CMDS.has(commandName)) return "entity-name";
+  if (PRODUCT_NAME_CMDS.has(commandName)) return "product-name";
+  return null;
 }
 
 async function handleHelp(): Promise<SlashResult> {
@@ -123,11 +158,21 @@ async function handleOncall(): Promise<SlashResult> {
 
 export async function execute(parsed: { name: string; args: string[] }): Promise<SlashResult> {
   switch (parsed.name) {
-    case "help":   return handleHelp();
-    case "kits":   return handleKits(parsed.args);
-    case "where":  return handleWhere(parsed.args);
-    case "req":    return handleReq();
-    case "oncall": return handleOncall();
+    case "help":    return handleHelp();
+    case "kits":    return handleKits(parsed.args);
+    case "where":   return handleWhere(parsed.args);
+    case "req":     return handleReq();
+    case "oncall":  return handleOncall();
+    case "kit":     return handleKit(parsed.args);
+    case "comp":    return handleComp(parsed.args);
+    case "comps":   return handleComps(parsed.args);
+    case "inkit":   return handleInKit(parsed.args);
+    case "at":      return handleAt(parsed.args);
+    case "upcoming":return handleUpcoming();
+    case "due":     return handleDue();
+    case "me":      return handleMe();
+    case "today":   return handleToday();
+    case "history": return handleHistory(parsed.args);
     default:
       return { ok: false, error: `Unknown command. Type \`/help\` to see available commands.` };
   }

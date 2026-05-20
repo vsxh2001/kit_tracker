@@ -14,7 +14,7 @@
 // Shared hash helper (inlined per callback — Goja isolation)
 // ─────────────────────────────────────────
 
-var INVITE_SALT = "kit-tracker-invite-salt-v1";
+// INVITE_SALT inlined per callback below — Goja isolation makes module-level var invisible inside routerAdd callbacks.
 
 // ─────────────────────────────────────────
 // POST /api/invite/create  (admin only)
@@ -36,6 +36,7 @@ routerAdd("POST", "/api/invite/create", function(c) {
   var raw = $security.randomString(43); // URL-safe random string
 
   // Hash with HMAC-SHA256
+  var INVITE_SALT = "kit-tracker-invite-salt-v1";
   var hash = $security.hs256(raw, INVITE_SALT);
 
   // expires_at = now + 7 days
@@ -76,6 +77,7 @@ routerAdd("GET", "/api/invite/preview/:token", function(c) {
   var token = c.pathParam("token");
   if (!token) return c.json(400, { error: "missing token" });
 
+  var INVITE_SALT = "kit-tracker-invite-salt-v1";
   var hash = $security.hs256(token, INVITE_SALT);
   var dao = $app.dao();
   var inv;
@@ -111,6 +113,7 @@ routerAdd("POST", "/api/invite/accept", function(c) {
   if (!email || email.indexOf("@") === -1) return c.json(400, { error: "valid email required" });
   if (password.length < 8) return c.json(400, { error: "password must be at least 8 characters" });
 
+  var INVITE_SALT = "kit-tracker-invite-salt-v1";
   var hash = $security.hs256(token, INVITE_SALT);
   var dao = $app.dao();
   var inv;
@@ -158,7 +161,7 @@ routerAdd("POST", "/api/invite/accept", function(c) {
 
   // Issue auth token
   try {
-    var authToken = $tokens.recordAuthToken($app, user);
+    var authToken = $tokens.recordAuthToken(user);
     return c.json(200, {
       token: authToken,
       record: {
