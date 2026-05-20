@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { UserCog, Pencil } from "lucide-react";
+import { UserCog, Pencil, Link2 } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import {
   Select,
@@ -29,6 +29,7 @@ import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
 import type { PBUser, UserRole } from "../types";
 import { formatDate } from "../lib/utils";
+import { InviteDialog } from "../components/InviteDialog";
 
 const ROLE_OPTIONS: { value: UserRole | "none"; label: string }[] = [
   { value: "none", label: "Not assigned" },
@@ -49,6 +50,9 @@ export function UsersPage() {
   const [denialTarget, setDenialTarget] = useState<PBUser | null>(null);
   const [denialNotes, setDenialNotes] = useState("");
   const [denialSaving, setDenialSaving] = useState(false);
+
+  // Invite dialog
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Edit profile dialog (phone/title)
   const [editTarget, setEditTarget] = useState<PBUser | null>(null);
@@ -233,7 +237,15 @@ export function UsersPage() {
             Users
           </h1>
         </div>
+        {isAdmin && (
+          <Button onClick={() => setInviteOpen(true)} variant="outline" size="sm" className="flex items-center gap-1.5">
+            <Link2 className="h-4 w-4" />
+            Invite user
+          </Button>
+        )}
       </div>
+
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
 
       <input
         type="text"
