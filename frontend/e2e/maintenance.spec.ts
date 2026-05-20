@@ -113,7 +113,9 @@ test.describe("Maintenance — add schedule", () => {
     await page.getByRole("button", { name: "Add schedule" }).first().click();
 
     // Fill form
-    await page.getByLabel("Type").fill("Calibration");
+    // Type is a Radix Select, use combobox pattern
+    await page.getByRole("dialog").getByRole("combobox").click();
+    await page.getByRole("option", { name: "Calibration" }).click();
     await page.getByLabel("Interval (days)").fill("30");
 
     // Fill next due date (should be auto-calculated, but try to fill if field exists)
