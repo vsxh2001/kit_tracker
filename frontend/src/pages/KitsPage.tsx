@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
+import { BulkTransferDialog } from "../components/BulkTransferDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
 import type { UpcomingDelivery } from "../services/kits";
@@ -67,6 +68,7 @@ export function KitsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [showBulkTransfer, setShowBulkTransfer] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -441,8 +443,19 @@ export function KitsPage() {
               {/* Bulk action toolbar — only when rows selected */}
               {canDecideRequests && selected.size > 0 && (
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50">
-                  <span className="text-sm font-medium text-indigo-800">{selected.size} selected</span>
+                  <span className="text-sm font-medium text-indigo-800">{selected.size} kit{selected.size !== 1 ? "s" : ""} selected</span>
                   <div className="flex items-center gap-2 ml-auto">
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkLoading}
+                        onClick={() => setShowBulkTransfer(true)}
+                        className="border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                      >
+                        Transfer
+                      </Button>
+                    )}
                     {hasActiveSelected && (
                       <Button
                         size="sm"
@@ -633,6 +646,16 @@ export function KitsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkTransferDialog
+        kitIds={Array.from(selected)}
+        open={showBulkTransfer}
+        onClose={() => setShowBulkTransfer(false)}
+        onTransferred={() => {
+          setSelected(new Set());
+          startTransition(() => load());
+        }}
+      />
 
       {/* Bulk retire confirm dialog */}
       <AlertDialog open={bulkAction === "retire"} onOpenChange={(v) => !v && setBulkAction(null)}>

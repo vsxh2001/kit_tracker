@@ -1,6 +1,11 @@
 import { pb } from "../lib/pocketbase";
 import type { AuditVia, Transaction } from "../types";
 
+export interface BulkTransferResult {
+  ok: string[];
+  failed: { kitId: string; error: string }[];
+}
+
 export async function createTransaction(data: {
   kitId: string;
   fromEntityId?: string;
@@ -18,6 +23,53 @@ export async function createTransaction(data: {
     request: data.requestId ?? null,
     created_by: pb.authStore.model?.id,
   });
+}
+
+export async function bulkCreateTransfer({
+  kitIds,
+  toEntityId,
+  notes,
+}: {
+  kitIds: string[];
+  toEntityId: string;
+  notes?: string;
+}): Promise<BulkTransferResult> {
+  const results = await Promise.allSettled(
+    kitIds.map(async (kitId) => {
+      const latestResult = await pb.collection("transactions").getList<Transaction>(1, 1, {
+        filter: pb.filter("kit = {:kit}", { kit: kitId }),
+        sort: "-timestamp,-created",
+        requestKey: `bulk-transfer-latest-${kitId}`,
+      });
+      const fromEntityId = latestResult.items[0]?.to_entity ?? undefined;
+      await pb.collection("transactions").create<Transaction>({
+        kit: kitId,
+        from_entity: fromEntityId ?? null,
+        to_entity: toEntityId,
+        timestamp: new Date().toISOString(),
+        notes: notes ?? null,
+        request: null,
+        created_by: pb.authStore.model?.id,
+      }, { requestKey: `bulk-transfer-create-${kitId}` });
+      return kitId;
+    })
+  );
+
+  const ok: string[] = [];
+  const failed: { kitId: string; error: string }[] = [];
+
+  results.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      ok.push(result.value);
+    } else {
+      failed.push({
+        kitId: kitIds[i],
+        error: result.reason?.message ?? String(result.reason),
+      });
+    }
+  });
+
+  return { ok, failed };
 }
 
 export async function listRecentTransactions(limit = 10) {
