@@ -550,6 +550,83 @@ test.describe("Kit delete — API escape hatch", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Bulk kit transfer
+// ---------------------------------------------------------------------------
+
+test.describe("Bulk kit transfer @smoke", () => {
+  let kitId1: string;
+  let kitId2: string;
+  let kitId3: string;
+  let destEntityId: string;
+
+  test.beforeAll(async () => {
+    const [kit1, kit2, kit3, dest] = await Promise.all([
+      createTestKit(`${TS}-BULK-1`),
+      createTestKit(`${TS}-BULK-2`),
+      createTestKit(`${TS}-BULK-3`),
+      createTestEntity(`${TS}-BulkDest`),
+    ]);
+    kitId1 = kit1.id;
+    kitId2 = kit2.id;
+    kitId3 = kit3.id;
+    destEntityId = dest.id;
+  });
+
+  test.afterAll(async () => {
+    await Promise.all([
+      deleteKit(kitId1),
+      deleteKit(kitId2),
+      deleteKit(kitId3),
+      deactivateEntity(destEntityId),
+    ]);
+  });
+
+  test("admin selects 3 kits, transfers to entity, sees success toast @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/kits");
+
+    // Filter to our test kits
+    await page.getByPlaceholder(/search by serial/i).fill(`${TS}-BULK-`);
+
+    // Wait for rows to appear
+    await expect(page.locator("table tbody tr")).toHaveCount(3, { timeout: 10_000 });
+
+    // Check all 3 boxes via the select-all checkbox
+    await page.locator("thead input[type=checkbox]").click();
+
+    // Action bar must appear with 3 kits selected
+    await expect(page.getByText(/3 kits selected/i)).toBeVisible();
+
+    // Click Transfer
+    await page.getByRole("button", { name: /^transfer$/i }).click();
+
+    // Dialog opens
+    await expect(page.getByRole("dialog", { name: /transfer 3 kits/i })).toBeVisible();
+
+    // Pick entity
+    await page.getByRole("dialog").getByRole("combobox").click();
+    await page.getByRole("option", { name: `${TS}-BulkDest` }).click();
+
+    // Submit
+    await page.getByRole("button", { name: /transfer 3 kits/i }).last().click();
+
+    // Toast shows "Transferred 3 kits"
+    await expect(page.getByText(/transferred 3 kits/i)).toBeVisible({ timeout: 15_000 });
+
+    // Dialog closes
+    await expect(page.getByRole("dialog", { name: /transfer 3 kits/i })).not.toBeVisible({ timeout: 5_000 });
+  });
+
+  test("each kit holder updated to dest entity — verified via API @smoke", async () => {
+    for (const kitId of [kitId1, kitId2, kitId3]) {
+      const tx = await getLatestTransactionForKit(kitId);
+      expect(tx, `transaction should exist for kit ${kitId}`).not.toBeNull();
+      expect(tx!.to_entity, `kit ${kitId} should now be at dest entity`).toBe(destEntityId);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Origin badge — via WhatsApp appears in KitTimeline
 // ---------------------------------------------------------------------------
 
