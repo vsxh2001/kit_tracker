@@ -2,10 +2,15 @@
 // Email all admin users (+ current on-call) when a new user signs up with an empty role.
 // Hook fires after the record is saved — throwing here does NOT roll back the create,
 // but it does break the HTTP response. Always catch and log; never re-throw.
+//
+// Two trigger paths because PB v0.22 splits user creation:
+//   1. onRecordAfterCreateRequest — fires for HTTP create (email/password signup)
+//   2. onRecordAfterAuthWithOAuth2Request — fires for OAuth signup; record may
+//      be NEW (first sign-in) or existing (re-login). Notify only when
+//      e.isNewRecord === true.
+// Both paths call the same inlined notify(record) closure below.
 
-onRecordAfterCreateRequest((e) => {
-  const record = e.record;
-
+function _userSignupNotify_run(record) {
   // Only fire for pending users (role empty). Admin-created users with a pre-set role skip.
   const role = record.getString("role");
   if (role && role !== "") return;
@@ -119,4 +124,16 @@ onRecordAfterCreateRequest((e) => {
   } catch (outerErr) {
     console.log("[user_signup_notify] hook failed:", outerErr);
   }
+}
+
+// Path 1: email/password signup via HTTP create.
+onRecordAfterCreateRequest((e) => {
+  _userSignupNotify_run(e.record);
+}, "users");
+
+// Path 2: OAuth signup (Google). Hook fires on EVERY OAuth auth — gate on isNewRecord
+// so only the first sign-in (when PB created the user record) triggers the notification.
+onRecordAfterAuthWithOAuth2Request((e) => {
+  if (e.isNewRecord !== true) return;
+  _userSignupNotify_run(e.record);
 }, "users");
