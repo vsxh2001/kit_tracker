@@ -363,7 +363,7 @@ test.describe("Entity snapshot — time-machine @smoke", () => {
 
     // Dialog opens with title
     await expect(
-      page.getByRole("dialog").getByText(/Snapshot/i)
+      page.getByRole("dialog").getByRole("heading", { name: /Snapshot —/ })
     ).toBeVisible();
 
     // Explicitly set today's date in local TZ (YYYY-MM-DD) to avoid TZ skew
