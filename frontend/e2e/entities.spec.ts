@@ -366,6 +366,10 @@ test.describe("Entity snapshot — time-machine @smoke", () => {
       page.getByRole("dialog").getByText(/Snapshot/i)
     ).toBeVisible();
 
+    // Explicitly set today's date in local TZ (YYYY-MM-DD) to avoid TZ skew
+    const todayStr = new Date().toLocaleDateString("en-CA");
+    await page.getByRole("dialog").getByLabel("Snapshot date").fill(todayStr);
+
     // The Show button triggers fetch (dialog auto-loads on open with today's date)
     // Wait for loading to finish and kit serial to appear
     await expect(
