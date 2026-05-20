@@ -21,6 +21,9 @@ import {
   deleteEntityRecord,
   getEntityByName,
   getAdminToken,
+  createTestKit,
+  deleteKit,
+  createTestTransaction,
 } from "./helpers/api";
 
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
@@ -318,5 +321,55 @@ test.describe("Entity category — schema enforcement", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body?.data?.category?.code).toBe("validation_required");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Entity snapshot (time-machine)
+// ---------------------------------------------------------------------------
+
+test.describe("Entity snapshot — time-machine @smoke", () => {
+  const SNAP_ENTITY = `${TS}-SNAP-ENT`;
+  const SNAP_KIT = `SNAP-KIT-${Date.now()}`;
+  let entityId: string;
+  let kitId: string;
+  let txId: string;
+
+  test.beforeAll(async () => {
+    const e = await createTestEntity(SNAP_ENTITY, "snapshot test entity");
+    entityId = e.id;
+    const k = await createTestKit(SNAP_KIT, "snapshot kit notes");
+    kitId = k.id;
+    const tx = await createTestTransaction({ kitId, toEntityId: entityId });
+    txId = tx.id;
+  });
+
+  test.afterAll(async () => {
+    // soft-delete kit (transaction references it — cannot hard-delete)
+    await deleteKit(kitId);
+    await deactivateEntity(entityId);
+    void txId; // referenced for typing only
+  });
+
+  test("admin opens entity, clicks Snapshot, picks today, sees kit in table @smoke", async ({
+    page,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/entities/${entityId}`);
+
+    // Snapshot button must be visible
+    await expect(page.getByRole("button", { name: /snapshot/i })).toBeVisible();
+    await page.getByRole("button", { name: /snapshot/i }).click();
+
+    // Dialog opens with title
+    await expect(
+      page.getByRole("dialog").getByText(/Snapshot/i)
+    ).toBeVisible();
+
+    // The Show button triggers fetch (dialog auto-loads on open with today's date)
+    // Wait for loading to finish and kit serial to appear
+    await expect(
+      page.getByRole("dialog").getByText(SNAP_KIT)
+    ).toBeVisible({ timeout: 10000 });
   });
 });
