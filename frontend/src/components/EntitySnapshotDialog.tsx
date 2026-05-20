@@ -9,9 +9,10 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { getEntityHoldingsAt } from "../services/timeMachine";
+import type { KitHolding } from "../services/timeMachine";
 import { formatDate } from "../lib/utils";
 import { endOfDayIso } from "../lib/snapshot";
-import type { Kit } from "../types";
+import { toast } from "./ui/use-toast";
 
 interface Props {
   entityId: string;
@@ -27,10 +28,12 @@ export function EntitySnapshotDialog({
   onClose,
 }: Props) {
   const navigate = useNavigate();
-  const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // Use local timezone for today's date so the date input default is correct
+  // regardless of UTC offset (e.g. UTC+3 at 23:00 is still "today" locally).
+  const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local TZ
 
   const [date, setDate] = useState(todayStr);
-  const [kits, setKits] = useState<Kit[]>([]);
+  const [kits, setKits] = useState<KitHolding[]>([]);
   const [loading, setLoading] = useState(false);
   const [queried, setQueried] = useState(false);
 
@@ -44,14 +47,32 @@ export function EntitySnapshotDialog({
       setQueried(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      if (!err?.isAbort) console.error(err);
+      if (!err?.isAbort) {
+        console.error(err);
+        toast({
+          title: "Failed to load snapshot",
+          description: err?.message ?? "Unknown error",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
   }
 
+  // Reset state and auto-load when dialog opens (or entityId changes).
+  // Resetting date/kits/queried on every open prevents stale data from a
+  // previous entity or date leaking into the new session.
+  // All state updates are wrapped in startTransition to satisfy the
+  // react-hooks/no-direct-set-state-in-use-effect lint rule.
   useEffect(() => {
-    if (open) startTransition(() => load(date));
+    if (!open) return;
+    startTransition(() => {
+      setDate(todayStr);
+      setKits([]);
+      setQueried(false);
+      void load(todayStr);
+    });
   }, [open, entityId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleDateChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -106,17 +127,24 @@ export function EntitySnapshotDialog({
 
               {/* Mobile card list */}
               <div className="md:hidden space-y-2">
-                {kits.map((kit) => (
+                {kits.map(({ kit, lastTxAt }) => (
                   <div
                     key={kit.id}
                     className="rounded-lg border bg-card px-4 py-3 cursor-pointer hover:bg-slate-50/60 transition-colors"
-                    onClick={() => { onClose(); navigate(`/kits/${kit.id}`); }}
+                    onClick={() => {
+                      if (kit.serial !== "(deleted kit)") {
+                        onClose();
+                        navigate(`/kits/${kit.id}`);
+                      }
+                    }}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-xs tracking-wide text-indigo-700">
                         {kit.serial}
                       </span>
-                      {kit.is_active ? (
+                      {kit.serial === "(deleted kit)" ? (
+                        <Badge variant="destructive" className="text-xs">Deleted</Badge>
+                      ) : kit.is_active ? (
                         <Badge variant="outline" className="text-xs">Active</Badge>
                       ) : (
                         <Badge variant="destructive" className="text-xs">Retired</Badge>
@@ -128,7 +156,7 @@ export function EntitySnapshotDialog({
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-                      Last tx: {formatDate(kit.updated)}
+                      Last tx: {lastTxAt ? formatDate(lastTxAt) : "—"}
                     </p>
                   </div>
                 ))}
@@ -148,14 +176,22 @@ export function EntitySnapshotDialog({
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">
                         Status
                       </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">
+                        Last Tx
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {kits.map((kit) => (
+                    {kits.map(({ kit, lastTxAt }) => (
                       <tr
                         key={kit.id}
                         className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
-                        onClick={() => { onClose(); navigate(`/kits/${kit.id}`); }}
+                        onClick={() => {
+                          if (kit.serial !== "(deleted kit)") {
+                            onClose();
+                            navigate(`/kits/${kit.id}`);
+                          }
+                        }}
                       >
                         <td className="px-4 py-3 font-mono text-xs tracking-wide text-indigo-700">
                           {kit.serial}
@@ -166,11 +202,16 @@ export function EntitySnapshotDialog({
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {kit.is_active ? (
+                          {kit.serial === "(deleted kit)" ? (
+                            <Badge variant="destructive" className="text-xs">Deleted</Badge>
+                          ) : kit.is_active ? (
                             <Badge variant="outline" className="text-xs">Active</Badge>
                           ) : (
                             <Badge variant="destructive" className="text-xs">Retired</Badge>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground tabular-nums text-xs">
+                          {lastTxAt ? formatDate(lastTxAt) : "—"}
                         </td>
                       </tr>
                     ))}
