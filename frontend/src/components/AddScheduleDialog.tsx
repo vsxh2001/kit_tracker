@@ -34,13 +34,18 @@ const MAINTENANCE_TYPES: { value: MaintenanceType; label: string }[] = [
 interface Props {
   /** When provided, the kit picker is hidden and this kit is used. */
   kitId?: string;
+  /** When provided, schedules this component instead of a kit. Mutually exclusive with kitId. */
+  componentId?: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
-  const showKitPicker = !kitId;
+export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }: Props) {
+  if (kitId && componentId) {
+    throw new Error("AddScheduleDialog: kitId and componentId are mutually exclusive");
+  }
+  const showKitPicker = !kitId && !componentId;
   const [kits, setKits] = useState<Kit[]>([]);
   const [selectedKitId, setSelectedKitId] = useState("");
 
@@ -92,7 +97,6 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
     setLoading(true);
     try {
       const payload: Record<string, unknown> = {
-        kit: resolvedKitId,
         type,
         description: description.trim(),
         interval_days: interval,
@@ -100,6 +104,11 @@ export function AddScheduleDialog({ kitId, open, onClose, onSaved }: Props) {
         is_active: true,
         notes: notes.trim(),
       };
+      if (componentId) {
+        payload.component = componentId;
+      } else {
+        payload.kit = resolvedKitId;
+      }
       if (lastDoneAt) payload.last_done_at = lastDoneAt;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await createSchedule(payload as any);
