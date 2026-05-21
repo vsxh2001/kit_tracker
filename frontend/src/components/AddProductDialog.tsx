@@ -78,6 +78,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
         is_serialized: isSerialized,
       });
       toast({ title: "Product created", description: prod.name, variant: "success" });
+      window.dispatchEvent(new CustomEvent("kit-tracker:data-changed"));
       resetForm();
       onSuccess();
       onClose();
