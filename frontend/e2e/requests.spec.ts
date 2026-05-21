@@ -245,7 +245,7 @@ test.describe("Request detail — admin approve and reject", () => {
     });
   });
 
-  test("admin can approve an open request", async ({ page }) => {
+  test("admin can approve an open request @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${openRequestId}`);
 
@@ -269,7 +269,7 @@ test.describe("Request detail — admin approve and reject", () => {
     expect(req.status, "API should show status=approved").toBe("approved");
   });
 
-  test("admin can reject an open request", async ({ page }) => {
+  test("admin can reject an open request @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${rejectRequestId}`);
 
@@ -368,7 +368,7 @@ test.describe("Request fulfill — atomic transaction + status update", () => {
     // Request is in "fulfilled" terminal state — no cleanup needed
   });
 
-  test("admin can fulfill an approved request", async ({ page }) => {
+  test("admin can fulfill an approved request @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/requests/${requestId}`);
 
@@ -534,7 +534,7 @@ test.describe("Request cancellation by owner", () => {
     requestId = req.id;
   });
 
-  test("request owner (user role) can cancel their own open request", async ({
+  test("request owner (user role) can cancel their own open request @smoke", async ({
     page,
   }) => {
     await loginAs(page, "user");
