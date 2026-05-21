@@ -9,7 +9,8 @@ import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
 import { BulkTransferDialog } from "../components/BulkTransferDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
+import { listKits, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
+import { listLatestTxByKit } from "../services/transactions";
 import type { UpcomingDelivery } from "../services/kits";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { Skeleton } from "../components/ui/skeleton";
@@ -73,17 +74,16 @@ export function KitsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [kits, upcomingMap, allSchedules] = await Promise.all([
+      const [kits, upcomingMap, allSchedules, latestByKit] = await Promise.all([
         listKits(true),
         listUpcomingDeliveries(),
         listAllActiveSchedules(),
+        listLatestTxByKit(),
       ]);
-      const withLatest = await Promise.all(
-        kits.map(async (kit) => ({
-          kit,
-          latest: (await getLatestTransaction(kit.id)) ?? undefined,
-        }))
-      );
+      const withLatest = kits.map((kit) => ({
+        kit,
+        latest: latestByKit.get(kit.id),
+      }));
       setRows(withLatest);
       setDeliveries(upcomingMap);
       // Group schedules by kit
