@@ -234,6 +234,34 @@ export function KitsPage() {
     });
   }
 
+  // Prune selection when filters change — drop kits no longer visible
+  useEffect(() => {
+    if (selected.size === 0) return;
+    const visibleIds = new Set(
+      rows
+        .filter((r) => {
+          const matchesSearch = r.kit.serial.toLowerCase().includes(search.toLowerCase());
+          const matchesStatus =
+            statusFilter === "all" ||
+            (statusFilter === "active" && r.kit.is_active) ||
+            (statusFilter === "retired" && !r.kit.is_active);
+          const matchesTags =
+            selectedTags.size === 0 ||
+            parseTags(r.kit.tags).some((t) => selectedTags.has(t));
+          return matchesSearch && matchesStatus && matchesTags;
+        })
+        .map((r) => r.kit.id)
+    );
+    startTransition(() => {
+      setSelected((prev) => {
+        const next = new Set<string>();
+        prev.forEach((id) => { if (visibleIds.has(id)) next.add(id); });
+        return next.size === prev.size ? prev : next;
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, statusFilter, selectedTags, rows]);
+
   const filtered = rows.filter((r) => {
     const matchesSearch = r.kit.serial.toLowerCase().includes(search.toLowerCase());
     const matchesStatus =
@@ -648,7 +676,7 @@ export function KitsPage() {
       </AlertDialog>
 
       <BulkTransferDialog
-        kitIds={Array.from(selected)}
+        kits={selectedKits}
         open={showBulkTransfer}
         onClose={() => setShowBulkTransfer(false)}
         onTransferred={() => {
