@@ -49,6 +49,22 @@ export async function listKits(includeInactive = false) {
   return pb.collection("kits").getFullList<Kit>({ sort: "serial", filter });
 }
 
+export async function getKitBySerial(serial: string): Promise<Kit> {
+  return pb.collection("kits").getFirstListItem<Kit>(
+    pb.filter("serial = {:serial}", { serial }),
+    { requestKey: `get-kit-by-serial-${serial}` }
+  );
+}
+
+export async function listActiveKitSerials(): Promise<string[]> {
+  const kits = await pb.collection("kits").getFullList<Kit>({
+    filter: "is_active = true",
+    sort: "serial",
+    requestKey: "ac-kit-serials",
+  });
+  return kits.map((k) => k.serial);
+}
+
 export async function getKit(id: string) {
   return pb.collection("kits").getOne<Kit>(id);
 }

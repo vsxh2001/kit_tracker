@@ -101,6 +101,16 @@ export async function listTransactionsForKit(kitId: string): Promise<Transaction
   });
 }
 
+export async function listTransactionsByToEntity(entityId: string, limit = 200): Promise<Transaction[]> {
+  const result = await pb.collection("transactions").getList<Transaction>(1, limit, {
+    filter: pb.filter("to_entity = {:eid}", { eid: entityId }),
+    sort: "-timestamp,-created",
+    expand: "kit",
+    requestKey: `slash-at-txs-${entityId}`,
+  });
+  return result.items;
+}
+
 export async function getTransactionVia(
   transactionIds: string[]
 ): Promise<Record<string, AuditVia>> {

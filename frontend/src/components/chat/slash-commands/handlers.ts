@@ -1,11 +1,13 @@
 import { pb } from "../../../lib/pocketbase";
-import { getLatestTransaction, parseTags, getKitHistory } from "../../../services/kits";
-import { listEntities } from "../../../services/entities";
-import { listProducts, listComponentsForProduct } from "../../../services/products";
+import { getLatestTransaction, parseTags, getKitHistory, getKitBySerial, listActiveKitSerials } from "../../../services/kits";
+import { listEntities, findEntitiesByName } from "../../../services/entities";
+import { listProducts, listComponentsForProduct, findProductsByName } from "../../../services/products";
 import { listComponentsInKit, getLatestForComponent, listTransactionsForComponent } from "../../../services/componentTransactions";
 import { listRequests } from "../../../services/requests";
 import { listAllActiveSchedules } from "../../../services/maintenance";
 import { getCurrentOnCallUsers } from "../../../services/oncall";
+import { listTransactionsByToEntity } from "../../../services/transactions";
+import { getComponentBySerial } from "../../../services/components";
 import { formatDateOnly, maintenanceStatus } from "../../../lib/utils";
 import type { Kit, Entity, Component, Transaction } from "../../../types";
 
@@ -19,10 +21,7 @@ export async function handleKit(args: string[]): Promise<SlashResult> {
 
   let kit: Kit;
   try {
-    kit = await pb.collection("kits").getFirstListItem<Kit>(
-      pb.filter("serial = {:serial}", { serial }),
-      { requestKey: `slash-kit-${serial}` }
-    );
+    kit = await getKitBySerial(serial);
   } catch {
     return { ok: false, error: `No kit with serial '${serial}'.` };
   }
@@ -96,10 +95,7 @@ export async function handleComp(args: string[]): Promise<SlashResult> {
 
   let comp: Component;
   try {
-    comp = await pb.collection("components").getFirstListItem<Component>(
-      pb.filter("serial = {:serial}", { serial }),
-      { expand: "product", requestKey: `slash-comp-${serial}` }
-    );
+    comp = await getComponentBySerial(serial);
   } catch {
     return { ok: false, error: `No component with serial '${serial}'.` };
   }
@@ -141,21 +137,9 @@ export async function handleComps(args: string[]): Promise<SlashResult> {
   const productName = args.join(" ").trim();
   if (!productName) return { ok: false, error: "Usage: `/comps <product-name>`" };
 
-  // Try exact match first, fall back to substring
   let products;
   try {
-    const exact = await pb.collection("products").getFullList({
-      filter: pb.filter("name = {:n}", { n: productName }),
-      requestKey: `slash-comps-exact-${productName}`,
-    });
-    if (exact.length > 0) {
-      products = exact;
-    } else {
-      products = await pb.collection("products").getFullList({
-        filter: pb.filter("name ~ {:n}", { n: productName }),
-        requestKey: `slash-comps-lookup-${productName}`,
-      });
-    }
+    products = await findProductsByName(productName);
   } catch {
     return { ok: false, error: "Failed to search products." };
   }
@@ -201,10 +185,7 @@ export async function handleInKit(args: string[]): Promise<SlashResult> {
 
   let kit: Kit;
   try {
-    kit = await pb.collection("kits").getFirstListItem<Kit>(
-      pb.filter("serial = {:serial}", { serial }),
-      { requestKey: `slash-inkit-${serial}` }
-    );
+    kit = await getKitBySerial(serial);
   } catch {
     return { ok: false, error: `No kit with serial '${serial}'.` };
   }
@@ -232,21 +213,9 @@ export async function handleAt(args: string[]): Promise<SlashResult> {
   const entityName = args.join(" ").trim();
   if (!entityName) return { ok: false, error: "Usage: `/at <entity-name>`" };
 
-  // Resolve entity — exact match first, then substring
   let entities: Entity[];
   try {
-    const exact = await pb.collection("entities").getFullList<Entity>({
-      filter: pb.filter("name = {:n}", { n: entityName }),
-      requestKey: `slash-at-exact-${entityName}`,
-    });
-    if (exact.length > 0) {
-      entities = exact;
-    } else {
-      entities = await pb.collection("entities").getFullList<Entity>({
-        filter: pb.filter("name ~ {:n}", { n: entityName }),
-        requestKey: `slash-at-lookup-${entityName}`,
-      });
-    }
+    entities = await findEntitiesByName(entityName);
   } catch {
     return { ok: false, error: "Failed to search entities." };
   }
@@ -262,13 +231,7 @@ export async function handleAt(args: string[]): Promise<SlashResult> {
   // Hard-cap at 200 rows via getList (getFullList paginates internally, ignores perPage as hard cap)
   let candidateTxs: Transaction[];
   try {
-    const txPage = await pb.collection("transactions").getList<Transaction>(1, 200, {
-      filter: pb.filter("to_entity = {:eid}", { eid: entity.id }),
-      sort: "-timestamp,-created",
-      expand: "kit",
-      requestKey: `slash-at-txs-${entity.id}`,
-    });
-    candidateTxs = txPage.items;
+    candidateTxs = await listTransactionsByToEntity(entity.id, 200);
   } catch {
     return { ok: false, error: "Failed to query transactions." };
   }
@@ -433,10 +396,7 @@ export async function handleHistory(args: string[]): Promise<SlashResult> {
 
   let kit: Kit;
   try {
-    kit = await pb.collection("kits").getFirstListItem<Kit>(
-      pb.filter("serial = {:serial}", { serial }),
-      { requestKey: `slash-history-${serial}` }
-    );
+    kit = await getKitBySerial(serial);
   } catch {
     return { ok: false, error: `No kit with serial '${serial}'.` };
   }
@@ -494,14 +454,7 @@ function cached(key: string, fn: () => Promise<string[]>): Promise<string[]> {
 }
 
 export function fetchKitSerials(): Promise<string[]> {
-  return cached("kit-serials", async () => {
-    const kits = await pb.collection("kits").getFullList<Kit>({
-      filter: "is_active = true",
-      sort: "serial",
-      requestKey: "ac-kit-serials",
-    });
-    return kits.map((k: Kit) => k.serial);
-  });
+  return cached("kit-serials", () => listActiveKitSerials());
 }
 
 export function fetchEntityNames(): Promise<string[]> {
