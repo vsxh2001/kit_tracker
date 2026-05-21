@@ -281,7 +281,7 @@ test.describe("Maintenance — snooze schedule @smoke", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-SNZ`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "SnoozeTest", 30);
+    const sched = await createScheduleViaApi(kitId, "inspection", 30);
     schedId = sched.id;
     const data = await getSchedule(schedId);
     originalNextDue = data.next_due_at.slice(0, 10);
@@ -299,8 +299,8 @@ test.describe("Maintenance — snooze schedule @smoke", () => {
     // Wait for table to render
     await expect(page.getByRole("columnheader", { name: "Kit serial" })).toBeVisible({ timeout: 10_000 });
 
-    // Find Snooze button for our schedule row (SnoozeTest type visible in table)
-    const snoozeBtn = page.getByRole("row", { name: /SnoozeTest/ }).getByRole("button", { name: "Snooze" });
+    // Find Snooze button for our schedule row (inspection type visible in table)
+    const snoozeBtn = page.getByRole("row", { name: /inspection/ }).getByRole("button", { name: "Snooze" });
     await expect(snoozeBtn).toBeVisible({ timeout: 10_000 });
     await snoozeBtn.click();
 
