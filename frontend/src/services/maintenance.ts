@@ -19,7 +19,8 @@ export async function listSchedulesForComponent(componentId: string): Promise<Ki
 
 export async function getSchedule(id: string): Promise<KitMaintenanceSchedule> {
   return pb.collection("kit_maintenance_schedules").getOne<KitMaintenanceSchedule>(id, {
-    requestKey: `schedule-${id}`,
+    expand: "kit,component,component.product",
+    requestKey: `get-schedule-${id}`,
   });
 }
 
