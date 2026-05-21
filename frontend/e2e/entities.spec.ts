@@ -373,7 +373,11 @@ test.describe("Entity snapshot — time-machine @smoke", () => {
     // The Show button triggers fetch (dialog auto-loads on open with today's date)
     // Wait for loading to finish and kit serial to appear
     await expect(
-      page.getByRole("dialog").getByText(SNAP_KIT)
+      page
+        .getByRole("dialog")
+        .locator("table")
+        .getByRole("cell", { name: SNAP_KIT, exact: true })
+        .first()
     ).toBeVisible({ timeout: 10000 });
   });
 });
