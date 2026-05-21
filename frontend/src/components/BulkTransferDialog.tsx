@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -35,9 +35,12 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
   const [step, setStep] = useState<Step>("form");
   const [failedKits, setFailedKits] = useState<{ kitId: string; error: string }[]>([]);
   const [failedKitIds, setFailedKitIds] = useState<string[]>([]);
+  const stalenessRef = useRef(0);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
+      stalenessRef.current += 1;
       startTransition(() => {
         setToEntityId("");
         setNotes("");
@@ -45,6 +48,7 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
         setStep("form");
         setFailedKits([]);
         setFailedKitIds([]);
+        setLoading(false);
       });
       async function loadEntities() {
         try {
@@ -64,6 +68,9 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
   const kitIds = kits.map((k) => k.id);
 
   async function doTransfer(ids: string[]) {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    const myToken = stalenessRef.current;
     setError("");
     setLoading(true);
     try {
@@ -72,6 +79,7 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
         toEntityId,
         notes: notes.trim() || undefined,
       });
+      if (stalenessRef.current !== myToken) return;
       const entityName = entities.find((e) => e.id === toEntityId)?.name ?? toEntityId;
       if (result.failed.length === 0) {
         toast({
@@ -102,9 +110,13 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
+      if (stalenessRef.current !== myToken) return;
       setError(e?.message ?? "Failed to transfer kits.");
     } finally {
-      setLoading(false);
+      isSubmittingRef.current = false;
+      if (stalenessRef.current === myToken) {
+        setLoading(false);
+      }
     }
   }
 
