@@ -45,6 +45,8 @@ import {
   getAdminToken,
   getAdminUserId,
   getUserTokenByEmail,
+  createTestProduct,
+  deleteTestProduct,
 } from "./helpers/api";
 import { loginAs } from "./helpers/auth";
 
@@ -1379,5 +1381,83 @@ test.describe("T31: Serialized components have quantity=null in DB", () => {
     await expect(quantityLabel).not.toBeVisible({
       message: "Serialized component detail must NOT show a Quantity row",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-UI-CREATE: Admin creates component via "Add Component" dialog @smoke
+//
+// Verifies the full UI path: button → dialog → form fill → submit → row appears.
+// Uses a REST-seeded product so the product dropdown has a known selectable item.
+// ---------------------------------------------------------------------------
+
+test.describe("T-UI-CREATE: Add Component dialog UI @smoke", () => {
+  let productId: string;
+  let productName: string;
+  const SERIAL = `${TS}-UI-CREATE-SN`;
+
+  test.beforeAll(async () => {
+    productName = `${TS}-UICreate-Product`;
+    const prod = await createTestProduct({
+      name: productName,
+      is_serialized: true,
+    });
+    productId = prod.id;
+  });
+
+  test.afterAll(async () => {
+    // Deactivate any component created during this test via API cleanup
+    const token = await getAdminToken();
+    // Find and deactivate any component with the test serial
+    const res = await fetch(
+      `${PB_URL}/api/collections/components/records?filter=serial="${SERIAL}"`,
+      { headers: { Authorization: token } }
+    );
+    const data = await res.json();
+    for (const comp of data.items ?? []) {
+      await fetch(`${PB_URL}/api/collections/components/records/${comp.id}`, {
+        method: "PATCH",
+        headers: { Authorization: token, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      });
+    }
+    if (productId) await deleteTestProduct(productId);
+  });
+
+  test("admin creates serialized component via UI dialog — row appears in table @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/components");
+    await waitForComponentsPage(page);
+
+    // Click the "New component" button (only visible for admin/technician)
+    await page.getByRole("button", { name: /new component/i }).click();
+
+    // Dialog must open
+    const dialog = page.getByRole("dialog", { name: /add component/i });
+    await expect(dialog, "Add Component dialog must be visible after button click").toBeVisible({ timeout: 5000 });
+
+    // Select the product from the combobox — Radix Select pattern
+    const productTrigger = dialog.getByRole("combobox").first();
+    await productTrigger.click();
+    const productOption = page.getByRole("option", { name: productName });
+    await expect(productOption, `Product option '${productName}' must appear in dropdown`).toBeVisible({ timeout: 5000 });
+    await productOption.click();
+
+    // Fill the serial field (visible because is_serialized=true)
+    await dialog.getByLabel(/serial/i).fill(SERIAL);
+
+    // Submit
+    await dialog.getByRole("button", { name: /^create$/i }).click();
+
+    // Dialog must close
+    await expect(dialog, "Dialog must close after successful create").not.toBeVisible({ timeout: 8000 });
+
+    // New component must appear in the serialized table
+    // Search to isolate from other test data
+    await page.getByPlaceholder(/search by serial or product/i).fill(SERIAL);
+    await expect(
+      page.getByRole("cell", { name: new RegExp(SERIAL) }),
+      `Created component serial '${SERIAL}' must appear in components table`
+    ).toBeVisible({ timeout: 8000 });
   });
 });
