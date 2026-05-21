@@ -17,7 +17,7 @@ import type { KitMaintenanceSchedule } from "../types";
 type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
 
 export function MaintenancePage() {
-  const { canDecideRequests, loading: authLoading } = useAuth();
+  const { user, canDecideRequests, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,7 +143,7 @@ export function MaintenancePage() {
                     >
                       Record done
                     </button>
-                    {canDecideRequests && (
+                    {user?.role === "admin" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
                         className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
@@ -196,7 +196,7 @@ export function MaintenancePage() {
                             >
                               Record done
                             </button>
-                            {canDecideRequests && (
+                            {user?.role === "admin" && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
                                 className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"

@@ -16,7 +16,7 @@ import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 
 export function ScheduleDetailPage() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
-  const { canDecideRequests } = useAuth();
+  const { user, canDecideRequests } = useAuth();
   const [schedule, setSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,7 @@ export function ScheduleDetailPage() {
                 <p className="text-sm text-muted-foreground mt-0.5">{schedule.description}</p>
               )}
             </div>
-            {canDecideRequests && (
+            {user?.role === "admin" && (
               <Button size="sm" variant="outline" onClick={() => setEditingOpen(true)}>
                 Edit
               </Button>
