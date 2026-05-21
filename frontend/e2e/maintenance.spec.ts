@@ -357,7 +357,7 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await deleteKit(kitId);
   });
 
-  test("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves", async ({ page }) => {
+  test("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
@@ -510,7 +510,7 @@ test.describe("Maintenance — edit schedule inline @smoke", () => {
     await deleteKit(kitId);
   });
 
-  test("admin clicks Edit on schedule row, changes description, sees updated value in table", async ({ page }) => {
+  test("admin clicks Edit on schedule row, changes description, sees updated value in table @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
