@@ -396,6 +396,97 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Test 8: Bulk-apply schedule across multiple kits @smoke (F5)
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — bulk-apply schedule @smoke", () => {
+  const kitIds: string[] = [];
+  const kitSerials: string[] = [];
+
+  test.beforeAll(async () => {
+    for (let i = 0; i < 3; i++) {
+      const serial = `${TS}-BULK-${i}`;
+      const kit = await createTestKit(serial);
+      kitIds.push(kit.id);
+      kitSerials.push(serial);
+    }
+  });
+
+  test.afterAll(async () => {
+    // Deactivate any bulk-created schedules and delete test kits
+    const token = await adminToken();
+    for (const kitId of kitIds) {
+      // Deactivate schedules for this kit
+      const res = await fetch(
+        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=kit="${kitId}"&perPage=100`,
+        { headers: { Authorization: token } }
+      );
+      const data = await res.json();
+      for (const sched of data.items ?? []) {
+        await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${sched.id}`, {
+          method: "PATCH",
+          headers: { Authorization: token, "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: false }),
+        });
+      }
+      await deleteKit(kitId);
+    }
+  });
+
+  test("admin bulk-applies schedule to 3 kits, sees toast 'Created 3 schedules' @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    const newScheduleBtn = page.getByRole("button", { name: "New schedule" });
+    await expect(newScheduleBtn).toBeVisible({ timeout: 10_000 });
+    await newScheduleBtn.click();
+
+    // Dialog opens
+    await expect(page.getByText("New Maintenance Schedule")).toBeVisible({ timeout: 10_000 });
+
+    // Toggle bulk mode
+    const bulkToggle = page.locator("#nsched-bulk-toggle");
+    await expect(bulkToggle).toBeVisible();
+    await bulkToggle.check();
+
+    // Select all 3 test kits
+    for (const serial of kitSerials) {
+      const kitCheckbox = page.locator(`[data-kit-id="${kitIds[kitSerials.indexOf(serial)]}"]`);
+      await expect(kitCheckbox).toBeVisible({ timeout: 5_000 });
+      await kitCheckbox.check();
+    }
+
+    // Fill type
+    const typeSelect = page.locator("#nsched-type");
+    await typeSelect.click();
+    await page.getByRole("option", { name: "Service" }).click();
+
+    // Fill description
+    await page.getByLabel("Description").fill("Bulk service procedure");
+
+    // Interval
+    await page.getByLabel("Interval (days)").fill("60");
+
+    // Submit
+    await page.getByRole("button", { name: /Create.*schedule/i }).last().click();
+
+    // Success toast
+    await expect(page.locator("div:has-text('Created 3 schedules')").first()).toBeVisible({ timeout: 15_000 });
+
+    // Verify via API — each kit has a schedule
+    const token = await adminToken();
+    for (const kitId of kitIds) {
+      const res = await fetch(
+        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=kit="${kitId}" && is_active=true`,
+        { headers: { Authorization: token } }
+      );
+      const data = await res.json();
+      expect((data.items ?? []).length).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test 7: Admin edits a schedule inline from /maintenance hub @smoke
 // ---------------------------------------------------------------------------
 
