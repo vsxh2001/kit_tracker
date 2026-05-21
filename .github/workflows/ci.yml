@@ -168,7 +168,7 @@ jobs:
         run: ./pb/seed_test_users.sh ci@example.com CIpassword123!
 
       - name: Serve prod dist on 5174
-        run: cd frontend && npx serve dist -l 5174 &
+        run: cd frontend && npx serve dist -s -l 5174 &
 
       - name: Wait for dist server
         run: timeout 30 bash -c 'until curl -sf http://localhost:5174 > /dev/null 2>&1; do sleep 1; done'
