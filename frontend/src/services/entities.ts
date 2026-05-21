@@ -37,6 +37,18 @@ export async function getEntityTransactions(entityId: string) {
   });
 }
 
+export async function findEntitiesByName(name: string): Promise<Entity[]> {
+  const exact = await pb.collection("entities").getFullList<Entity>({
+    filter: pb.filter("name = {:n}", { n: name }),
+    requestKey: `slash-at-exact-${name}`,
+  });
+  if (exact.length > 0) return exact;
+  return pb.collection("entities").getFullList<Entity>({
+    filter: pb.filter("name ~ {:n}", { n: name }),
+    requestKey: `slash-at-lookup-${name}`,
+  });
+}
+
 export async function exportEntitiesCsv(): Promise<string> {
   const entities = await pb.collection("entities").getFullList<Entity>({
     sort: "name",
