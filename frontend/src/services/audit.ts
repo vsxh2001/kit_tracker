@@ -41,18 +41,34 @@ export function exportAuditLogCsv(rows: AuditLog[]): void {
 
 export async function listAuditLog(opts?: {
   collection?: string;
+  term?: string;
+  page?: number;
   limit?: number;
-}): Promise<AuditLog[]> {
-  const filter = opts?.collection
-    ? pb.filter("collection_name = {:c}", { c: opts.collection })
-    : "";
-  return pb
+}): Promise<{ items: AuditLog[]; totalItems: number }> {
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 50;
+
+  const parts: string[] = [];
+  if (opts?.collection) {
+    parts.push(pb.filter("collection_name = {:c}", { c: opts.collection }));
+  }
+  if (opts?.term) {
+    parts.push(
+      pb.filter("(actor.email ~ {:term} || record_id ~ {:term})", {
+        term: opts.term,
+      })
+    );
+  }
+  const filter = parts.join(" && ");
+
+  const result = await pb
     .collection("audit_log")
-    .getList(1, opts?.limit ?? 50, {
+    .getList(page, limit, {
       sort: "-created",
       expand: "actor",
-      filter,
-      requestKey: `audit-${opts?.collection ?? "all"}-${opts?.limit ?? 50}`,
-    })
-    .then((r) => r.items as unknown as AuditLog[]);
+      ...(filter ? { filter } : {}),
+      requestKey: `audit-list-${opts?.collection ?? "all"}-${opts?.term ?? ""}-p${page}`,
+    });
+
+  return { items: result.items as unknown as AuditLog[], totalItems: result.totalItems };
 }

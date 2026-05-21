@@ -1,5 +1,5 @@
-import { useEffect, useState, startTransition } from "react";
-import { ScrollText, Download, Loader2 } from "lucide-react";
+import { useEffect, useState, startTransition, useRef } from "react";
+import { ScrollText, Download, Loader2, Search } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import {
@@ -18,7 +18,6 @@ import {
 import { EmptyState } from "../components/EmptyState";
 import { Button } from "../components/ui/button";
 import { listAuditLog, exportAuditLogCsv } from "../services/audit";
-import { pb } from "../lib/pocketbase";
 import { formatDate } from "../lib/utils";
 import { cn } from "../lib/utils";
 import type { AuditLog, AuditVia } from "../types";
@@ -95,35 +94,89 @@ function ChipGroup<T extends string>({
 
 export function AuditLogPage() {
   const [entries, setEntries] = useState<AuditLog[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>("All");
   const [actionFilter, setActionFilter] = useState<ActionFilter>("All");
   const [viaFilter, setViaFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [committedTerm, setCommittedTerm] = useState("");
   const [selected, setSelected] = useState<AuditLog | null>(null);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     startTransition(() => {
       const col = collectionFilter === "All" ? undefined : collectionFilter;
       setLoading(true);
-      listAuditLog({ collection: col, limit: 50 })
-        .then((data) => setEntries(data))
+      setPage(1);
+      listAuditLog({ collection: col, term: committedTerm || undefined, page: 1, limit: 50 })
+        .then(({ items, totalItems: total }) => {
+          setEntries(items);
+          setTotalItems(total);
+        })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .catch((err: any) => { if (!err?.isAbort) console.error(err); })
         .finally(() => setLoading(false));
     });
-  }, [collectionFilter]);
+  }, [collectionFilter, committedTerm]);
+
+  function handleSearchChange(value: string) {
+    setSearchTerm(value);
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => {
+      setCommittedTerm(value);
+    }, 400);
+  }
+
+  async function handleLoadMore() {
+    const nextPage = page + 1;
+    const col = collectionFilter === "All" ? undefined : collectionFilter;
+    setLoadingMore(true);
+    try {
+      const { items, totalItems: total } = await listAuditLog({
+        collection: col,
+        term: committedTerm || undefined,
+        page: nextPage,
+        limit: 50,
+      });
+      setEntries((prev) => [...prev, ...items]);
+      setTotalItems(total);
+      setPage(nextPage);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function handleExport() {
     setExporting(true);
     try {
-      const allRows = await pb.collection("audit_log").getFullList({ sort: "-created", requestKey: "audit-export-all" });
+      const col = collectionFilter === "All" ? undefined : collectionFilter;
+      // Fetch all pages for export — iterate until exhausted
+      const allRows: AuditLog[] = [];
+      let p = 1;
+      while (true) {
+        const { items } = await listAuditLog({
+          collection: col,
+          term: committedTerm || undefined,
+          page: p,
+          limit: 200,
+        });
+        allRows.push(...items);
+        if (items.length < 200) break;
+        p++;
+      }
       const filteredAll = viaFilter !== "all"
         ? allRows.filter((r) => {
-            try { return JSON.parse((r as unknown as AuditLog).changes)?.via === viaFilter; } catch { return false; }
+            try { return JSON.parse(r.changes)?.via === viaFilter; } catch { return false; }
           })
         : allRows;
-      exportAuditLogCsv(filteredAll as unknown as AuditLog[]);
+      exportAuditLogCsv(filteredAll);
     } catch (err) {
       toast({ title: "Export failed", description: String(err), variant: "destructive" });
     } finally {
@@ -156,6 +209,17 @@ export function AuditLogPage() {
             Audit Log
           </h1>
         </div>
+      </div>
+
+      <div className="relative w-full max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input
+          type="search"
+          placeholder="Search by actor email or record ID…"
+          value={searchTerm}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
       </div>
 
       <div className="flex flex-wrap gap-4 items-end">
@@ -220,6 +284,9 @@ export function AuditLogPage() {
         />
       ) : (
         <>
+          <p className="text-xs text-muted-foreground">
+            Showing {filtered.length} of {totalItems} entries
+          </p>
           {/* Mobile card list */}
           <div className="md:hidden space-y-2">
             {filtered.map((e) => (
@@ -304,6 +371,21 @@ export function AuditLogPage() {
               </table>
             </CardContent>
           </Card>
+          {entries.length < totalItems && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore
+                  ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  : null}
+                Load more
+              </Button>
+            </div>
+          )}
         </>
       )}
 
