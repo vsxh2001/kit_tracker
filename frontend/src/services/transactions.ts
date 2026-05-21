@@ -72,6 +72,19 @@ export async function bulkCreateTransfer({
   return { ok, failed };
 }
 
+export async function listLatestTxByKit(): Promise<Map<string, Transaction>> {
+  const txs = await pb.collection("transactions").getFullList<Transaction>({
+    sort: "-timestamp,-created",
+    expand: "to_entity,from_entity,kit",
+    requestKey: "list-latest-tx-by-kit",
+  });
+  const m = new Map<string, Transaction>();
+  for (const tx of txs) {
+    if (!m.has(tx.kit)) m.set(tx.kit, tx);
+  }
+  return m;
+}
+
 export async function listRecentTransactions(limit = 10) {
   return pb.collection("transactions").getList<Transaction>(1, limit, {
     sort: "-timestamp,-created",
