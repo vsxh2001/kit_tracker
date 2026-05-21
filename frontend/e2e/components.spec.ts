@@ -1429,8 +1429,9 @@ test.describe("T-UI-CREATE: Add Component dialog UI @smoke", () => {
     await page.goto("/components");
     await waitForComponentsPage(page);
 
-    // Click the "New component" button (only visible for admin/technician)
-    await page.getByRole("button", { name: /new component/i }).click();
+    // Click the "New component" button in the header (only visible for admin/technician)
+    // Use .first() to avoid strict-mode violation when empty state button also renders
+    await page.getByRole("button", { name: /new component/i }).first().click();
 
     // Dialog must open
     const dialog = page.getByRole("dialog", { name: /add component/i });
