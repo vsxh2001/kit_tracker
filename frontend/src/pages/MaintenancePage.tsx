@@ -58,16 +58,18 @@ export function MaintenancePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
+      <div className="sticky top-0 z-10 bg-background md:static -mx-4 px-4 py-2 md:mx-0 md:px-0 md:py-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
+          </div>
+          <Button size="sm" className="min-h-[44px]" onClick={() => setShowAddSchedule(true)}>
+            <Plus className="h-4 w-4" />
+            New schedule
+          </Button>
         </div>
-        <Button size="sm" onClick={() => setShowAddSchedule(true)}>
-          <Plus className="h-4 w-4" />
-          New schedule
-        </Button>
       </div>
 
       {/* Filters */}
@@ -142,14 +144,14 @@ export function MaintenancePage() {
                   <div className="flex gap-1.5 flex-wrap">
                     <button
                       onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
-                      className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                      className="text-xs px-3 min-h-[44px] rounded border border-border hover:bg-slate-50 transition-colors"
                     >
                       Record done
                     </button>
                     {user?.role === "admin" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
-                        className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                        className="text-xs px-3 min-h-[44px] rounded border border-border hover:bg-slate-50 transition-colors"
                       >
                         Edit
                       </button>
@@ -157,7 +159,7 @@ export function MaintenancePage() {
                     {isAdmin && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setSnoozeSchedule(sched); }}
-                        className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                        className="text-xs px-3 min-h-[44px] rounded border border-border hover:bg-slate-50 transition-colors"
                       >
                         Snooze
                       </button>
