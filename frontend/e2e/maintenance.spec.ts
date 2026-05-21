@@ -418,7 +418,7 @@ test.describe("Maintenance — bulk-apply schedule @smoke", () => {
     for (const kitId of kitIds) {
       // Deactivate schedules for this kit
       const res = await fetch(
-        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=kit="${kitId}"&perPage=100`,
+        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=${encodeURIComponent(`kit="${kitId}"`)}&perPage=100`,
         { headers: { Authorization: token } }
       );
       const data = await res.json();
@@ -477,11 +477,11 @@ test.describe("Maintenance — bulk-apply schedule @smoke", () => {
     const token = await adminToken();
     for (const kitId of kitIds) {
       const res = await fetch(
-        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=kit="${kitId}" && is_active=true`,
+        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=${encodeURIComponent(`kit="${kitId}" && is_active=true`)}`,
         { headers: { Authorization: token } }
       );
       const data = await res.json();
-      expect((data.items ?? []).length).toBeGreaterThanOrEqual(1);
+      expect((data.items ?? []).length).toBe(1);
     }
   });
 });
