@@ -5,6 +5,8 @@ import { cn } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import { sendChatMessage, undoAction, AiRateLimitError, AiCostCapError } from "../services/ai";
 import type { Message, ToolResult, ClarificationRequest } from "../types/ai";
+import { COMMANDS, isSlashCommand, parseCommand, execute, getArgResourceType } from "./chat/slash-commands";
+import { fetchKitSerials, fetchEntityNames, fetchProductNames } from "./chat/slash-commands/handlers";
 
 let _msgCounter = 0;
 function genId() {
@@ -227,8 +229,65 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  const [acIndex, setAcIndex] = useState(0);
+  const [acDismissed, setAcDismissed] = useState(false);
+  // Field-aware arg suggestions (kit serials / entity names / product names)
+  const [argSuggestions, setArgSuggestions] = useState<string[]>([]);
+  const [argAcIndex, setArgAcIndex] = useState(0);
+  const [argAcDismissed, setArgAcDismissed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Autocomplete: show when input starts with "/" but isn't a fully-typed known command+args
+  const acItems = (() => {
+    if (acDismissed) return [];
+    const v = input.trimStart();
+    if (!v.startsWith("/")) return [];
+    const typed = v.slice(1).toLowerCase();
+    // Hide once a space appears (command fully entered)
+    if (typed.includes(" ")) return [];
+    return COMMANDS.filter((c) => c.name.startsWith(typed)).slice(0, 5);
+  })();
+
+  // Field-aware arg autocomplete: fetch resource list when command + space + partial arg typed.
+  // All setState calls happen inside the async .then() to satisfy react-hooks/set-state-in-effect.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function compute() {
+      if (argAcDismissed) { setArgSuggestions([]); return; }
+      const v = input.trimStart();
+      if (!v.startsWith("/")) { setArgSuggestions([]); return; }
+      const spaceIdx = v.indexOf(" ");
+      if (spaceIdx === -1) { setArgSuggestions([]); return; }
+      const cmdName = v.slice(1, spaceIdx).toLowerCase();
+      const typed = v.slice(spaceIdx + 1);
+      if (!typed) { setArgSuggestions([]); return; }
+      const resourceType = getArgResourceType(cmdName);
+      if (!resourceType) { setArgSuggestions([]); return; }
+
+      const fetchFn =
+        resourceType === "kit-serial" ? fetchKitSerials :
+        resourceType === "entity-name" ? fetchEntityNames :
+        fetchProductNames;
+
+      try {
+        const items = await fetchFn();
+        if (cancelled) return;
+        const lower = typed.toLowerCase();
+        const matches = items
+          .filter((s) => s.toLowerCase().startsWith(lower))
+          .slice(0, 5);
+        setArgSuggestions(matches);
+        setArgAcIndex(0);
+      } catch {
+        if (!cancelled) setArgSuggestions([]);
+      }
+    }
+
+    compute();
+    return () => { cancelled = true; };
+  }, [input, argAcDismissed]);
 
   useEffect(() => {
     if (open) {
@@ -262,6 +321,34 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+
+    // Slash command: resolve locally, skip LLM round-trip
+    if (isSlashCommand(msg)) {
+      const parsed = parseCommand(msg);
+      if (parsed) {
+        try {
+          const result = await execute(parsed);
+          const assistantMsg: Message = {
+            id: genId(),
+            role: "assistant",
+            content: result.ok ? result.text : result.error,
+            ts: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+        } catch (err: unknown) {
+          const assistantMsg: Message = {
+            id: genId(),
+            role: "assistant",
+            content: err instanceof Error ? err.message : "Command failed.",
+            ts: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+    }
 
     try {
       const res = await sendChatMessage(msg, sessionId);
@@ -315,7 +402,66 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     await sendMessage(msg);
   }, [input, sendMessage]);
 
+  function insertArgSuggestion(suggestion: string) {
+    const v = input.trimStart();
+    const spaceIdx = v.indexOf(" ");
+    if (spaceIdx === -1) return;
+    const prefix = v.slice(0, spaceIdx + 1); // "/cmd "
+    setInput(prefix + suggestion + " ");
+    setArgSuggestions([]);
+    setArgAcIndex(0);
+    setArgAcDismissed(false);
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Arg suggestions take priority when visible
+    if (argSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setArgAcIndex((i) => Math.min(i + 1, argSuggestions.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setArgAcIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        insertArgSuggestion(argSuggestions[argAcIndex] ?? argSuggestions[0]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setArgAcDismissed(true);
+        setArgSuggestions([]);
+        return;
+      }
+    }
+    if (acItems.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setAcIndex((i) => Math.min(i + 1, acItems.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setAcIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        const chosen = acItems[acIndex];
+        if (chosen) setInput(`/${chosen.name} `);
+        setAcIndex(0);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setAcDismissed(true);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -430,11 +576,65 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
 
         {/* Input */}
         <div className="px-4 py-3 border-t border-slate-800 shrink-0">
+          {/* Field-aware arg autocomplete (serials / entity names / product names) */}
+          {argSuggestions.length > 0 && (
+            <div className="mb-2 rounded-md border border-indigo-700/60 bg-slate-800 overflow-hidden">
+              {argSuggestions.map((s, i) => {
+                const typedLen = (() => {
+                  const spaceIdx = input.indexOf(" ");
+                  return spaceIdx === -1 ? 0 : input.slice(spaceIdx + 1).length;
+                })();
+                const prefix = s.slice(0, typedLen);
+                const suffix = s.slice(typedLen);
+                return (
+                  <button
+                    key={s}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      insertArgSuggestion(s);
+                      textareaRef.current?.focus();
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 text-xs font-mono",
+                      i === argAcIndex ? "bg-indigo-900/60 text-white" : "text-slate-300 hover:bg-slate-700"
+                    )}
+                  >
+                    <span className="font-bold text-indigo-300">{prefix}</span>
+                    <span className="text-slate-400">{suffix}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {/* Slash command name autocomplete */}
+          {acItems.length > 0 && (
+            <div className="mb-2 rounded-md border border-slate-700 bg-slate-800 overflow-hidden">
+              {acItems.map((cmd, i) => (
+                <button
+                  key={cmd.name}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setInput(`/${cmd.name} `);
+                    setAcIndex(0);
+                    setAcDismissed(false);
+                    textareaRef.current?.focus();
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 text-xs flex gap-2",
+                    i === acIndex ? "bg-accent text-accent-foreground" : "text-slate-300 hover:bg-slate-700"
+                  )}
+                >
+                  <span className="font-mono text-indigo-400 shrink-0">{cmd.usage}</span>
+                  <span className="text-slate-400">{cmd.help}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 items-end">
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); setAcDismissed(false); setAcIndex(0); setArgAcDismissed(false); }}
               onKeyDown={handleKeyDown}
               placeholder="Ask something… (Enter to send, Shift+Enter for newline)"
               rows={1}

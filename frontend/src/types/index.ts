@@ -124,10 +124,18 @@ export interface AuditLog {
   expand?: { actor?: PBUser };
 }
 
+export type MaintenanceType =
+  | "calibration"
+  | "inspection"
+  | "service"
+  | "replacement"
+  | "certification"
+  | "other";
+
 export interface KitMaintenanceSchedule {
   id: string;
   kit: string;
-  type: string;
+  type: MaintenanceType;
   description: string;
   interval_days: number;
   last_done_at: string;       // PB date "YYYY-MM-DD ..." or empty

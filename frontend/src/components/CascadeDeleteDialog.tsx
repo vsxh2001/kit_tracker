@@ -31,6 +31,7 @@ function toSingular(collection: CascadeCollection): string {
     entities: "entity",
     components: "component",
     transactions: "transaction",
+    products: "product",
   };
   return map[collection];
 }

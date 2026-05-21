@@ -53,6 +53,7 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
       } else {
         await createKit({ serial: serial.trim(), notes: notes.trim(), tags });
         toast({ title: "Kit created", variant: "success" });
+        window.dispatchEvent(new CustomEvent("kit-tracker:data-changed"));
       }
       onSaved();
       onClose();
