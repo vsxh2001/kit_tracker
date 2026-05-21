@@ -1,10 +1,11 @@
 import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, Clock } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
+import { EntitySnapshotDialog } from "../components/EntitySnapshotDialog";
 import { getEntity, getEntityTransactions } from "../services/entities";
 import { listComponentsAtEntity } from "../services/componentTransactions";
 import { MoveComponentDialog } from "../components/MoveComponentDialog";
@@ -28,6 +29,7 @@ export function EntityDetailPage() {
   const [showAddComp, setShowAddComp] = useState(false);
   const [movingComponent, setMovingComponent] = useState<Component | null>(null);
   const [showCascadeDelete, setShowCascadeDelete] = useState(false);
+  const [showSnapshot, setShowSnapshot] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -80,12 +82,18 @@ export function EntityDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{entity.name}</h1>
           {!entity.is_active && <Badge variant="destructive">Inactive</Badge>}
         </div>
-        {canDecideRequests && (
-          <Button size="sm" variant="outline" className="ml-auto" onClick={() => setShowEdit(true)}>
-            <Pencil className="h-4 w-4" />
-            Edit
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowSnapshot(true)}>
+            <Clock className="h-4 w-4" />
+            Snapshot
           </Button>
-        )}
+          {canDecideRequests && (
+            <Button size="sm" variant="outline" onClick={() => setShowEdit(true)}>
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Current kits */}
@@ -308,6 +316,12 @@ export function EntityDetailPage() {
         )}
       </div>
 
+      <EntitySnapshotDialog
+        entityId={entity.id}
+        entityName={entity.name}
+        open={showSnapshot}
+        onClose={() => setShowSnapshot(false)}
+      />
       <EntityFormDialog
         entity={entity}
         open={showEdit}
