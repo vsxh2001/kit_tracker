@@ -7,6 +7,7 @@
 
 import { test, expect } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
+import { createTestUser as createTestUserApi, deleteTestUser as deleteTestUserApi, getUserById as getUserByIdApi } from "./helpers/api";
 
 const PB_URL = "http://127.0.0.1:8090";
 
@@ -366,6 +367,66 @@ test.describe("Users management — multi-user table", () => {
       ).toContainText("Not assigned");
     } finally {
       if (userId) await deleteTestUser(userId);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group 4 — Role-change hook (smoke gate)
+//
+// Exercises the role_change_check.pb.js hook via the UI. Admin promotes a
+// freshly created user from 'user' → 'technician'. The hook is the critical
+// guard against self-promotion by non-admins; verifying the happy path
+// confirms the hook is loaded and the collection updateRule accepts admin writes.
+// ---------------------------------------------------------------------------
+
+test.describe("Users management — role-change hook @smoke", () => {
+  test("admin promotes user→technician via UI — role persists in PocketBase @smoke", async ({ page }) => {
+    const ts = Date.now();
+    const email = `smoke-rolechange-${ts}@test.local`;
+
+    const created = await createTestUserApi(email, "user");
+    const userId = created.id;
+
+    try {
+      await loginAs(page, "admin");
+      await page.goto("/users");
+
+      await expect(page.getByText("Loading…")).not.toBeVisible({
+        timeout: 8_000,
+      });
+
+      // Locate the target user's row — listRule allows admin to see all users
+      const targetRow = page.getByRole("row").filter({ hasText: email });
+      await expect(
+        targetRow,
+        `Row for ${email} must be visible to admin (listRule = admin OR self)`
+      ).toBeVisible({ timeout: 8_000 });
+
+      // The role dropdown must currently show "User"
+      await expect(
+        targetRow.getByRole("combobox"),
+        "Role select must show 'User' before promotion"
+      ).toContainText("User");
+
+      // Promote to Technician
+      await targetRow.getByRole("combobox").click();
+      await page.getByRole("option", { name: "Technician" }).click();
+
+      // Success toast must appear
+      await expect(
+        page.getByText("Role updated", { exact: true }),
+        "Success toast must appear after role promotion"
+      ).toBeVisible({ timeout: 8_000 });
+
+      // Verify persisted via API — hook must not have blocked the admin write
+      const updated = await getUserByIdApi(userId);
+      expect(
+        updated?.role,
+        "Role must be 'technician' in PocketBase after admin promotion"
+      ).toBe("technician");
+    } finally {
+      if (userId) await deleteTestUserApi(userId);
     }
   });
 });
