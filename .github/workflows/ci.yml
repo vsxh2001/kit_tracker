@@ -141,7 +141,7 @@ jobs:
         run: cd frontend && npx playwright install chromium --with-deps
 
       - name: Build frontend with prod-like env
-        run: cd frontend && VITE_PB_URL="/" npm run build
+        run: cd frontend && VITE_PB_URL="http://127.0.0.1:8090" npm run build
 
       - name: Download PocketBase
         run: |
