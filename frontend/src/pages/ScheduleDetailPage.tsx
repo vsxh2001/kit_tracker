@@ -6,6 +6,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { EditScheduleDialog } from "../components/EditScheduleDialog";
+import { SnoozeScheduleDialog } from "../components/SnoozeScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { getSchedule, listRecordsForSchedule } from "../services/maintenance";
 import { baseUrl } from "../services/admin";
@@ -17,11 +18,13 @@ import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 export function ScheduleDetailPage() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
   const { user, canDecideRequests } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [schedule, setSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [recordingOpen, setRecordingOpen] = useState(false);
   const [editingOpen, setEditingOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
 
   async function load() {
     if (!scheduleId) return;
@@ -119,11 +122,18 @@ export function ScheduleDetailPage() {
           {/* History */}
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">History</h2>
-            {canDecideRequests && (
-              <Button size="sm" variant="outline" onClick={() => setRecordingOpen(true)}>
-                Record done
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {isAdmin && (
+                <Button size="sm" variant="outline" onClick={() => setSnoozeOpen(true)}>
+                  Snooze
+                </Button>
+              )}
+              {canDecideRequests && (
+                <Button size="sm" variant="outline" onClick={() => setRecordingOpen(true)}>
+                  Record done
+                </Button>
+              )}
+            </div>
           </div>
 
           {records.length === 0 ? (
@@ -224,6 +234,12 @@ export function ScheduleDetailPage() {
           onSaved={() => { setEditingOpen(false); load(); }}
         />
       )}
+
+      <SnoozeScheduleDialog
+        schedule={snoozeOpen ? schedule : null}
+        onClose={() => setSnoozeOpen(false)}
+        onSnoozed={() => { setSnoozeOpen(false); load(); }}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { NewMaintenanceScheduleDialog } from "../components/NewMaintenanceScheduleDialog";
 import { EditScheduleDialog } from "../components/EditScheduleDialog";
+import { SnoozeScheduleDialog } from "../components/SnoozeScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { useAuth } from "../context/AuthContext";
@@ -18,6 +19,7 @@ type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
 
 export function MaintenancePage() {
   const { user, canDecideRequests, loading: authLoading } = useAuth();
+  const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,7 @@ export function MaintenancePage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
+  const [snoozeSchedule, setSnoozeSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [showAddSchedule, setShowAddSchedule] = useState(false);
 
   async function load() {
@@ -136,7 +139,7 @@ export function MaintenancePage() {
                     <span>Last: {sched.last_done_at ? formatDateOnly(sched.last_done_at) : "—"}</span>
                     <span>Next: {sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 flex-wrap">
                     <button
                       onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                       className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
@@ -149,6 +152,14 @@ export function MaintenancePage() {
                         className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
                       >
                         Edit
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSnoozeSchedule(sched); }}
+                        className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                      >
+                        Snooze
                       </button>
                     )}
                   </div>
@@ -189,7 +200,7 @@ export function MaintenancePage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex gap-2 justify-end">
+                          <div className="inline-flex gap-1.5">
                             <button
                               onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                               className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
@@ -202,6 +213,14 @@ export function MaintenancePage() {
                                 className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
                               >
                                 Edit
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSnoozeSchedule(sched); }}
+                                className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
+                              >
+                                Snooze
                               </button>
                             )}
                           </div>
@@ -235,6 +254,12 @@ export function MaintenancePage() {
         schedule={editingSchedule}
         onClose={() => setEditingSchedule(null)}
         onSaved={() => { setEditingSchedule(null); load(); }}
+      />
+
+      <SnoozeScheduleDialog
+        schedule={snoozeSchedule}
+        onClose={() => setSnoozeSchedule(null)}
+        onSnoozed={() => { setSnoozeSchedule(null); load(); }}
       />
     </div>
   );

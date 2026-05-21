@@ -270,7 +270,68 @@ test.describe("Maintenance — permission gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 6: Admin creates schedule via "New schedule" button on /maintenance
+// Test 6: Admin snoozes a schedule (F6)
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — snooze schedule @smoke", () => {
+  let kitId: string;
+  let schedId: string;
+  let originalNextDue: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-SNZ`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "SnoozeTest", 30);
+    schedId = sched.id;
+    const data = await getSchedule(schedId);
+    originalNextDue = data.next_due_at.slice(0, 10);
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("admin clicks Snooze on a schedule, picks 7 days, sees toast, next_due_at advanced @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    // Wait for table to render
+    await expect(page.getByRole("columnheader", { name: "Kit serial" })).toBeVisible({ timeout: 10_000 });
+
+    // Find Snooze button for our schedule row (SnoozeTest type visible in table)
+    const snoozeBtn = page.getByRole("row", { name: /SnoozeTest/ }).getByRole("button", { name: "Snooze" });
+    await expect(snoozeBtn).toBeVisible({ timeout: 10_000 });
+    await snoozeBtn.click();
+
+    // Dialog opens
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Snooze Schedule")).toBeVisible();
+
+    // "7 days" button is default active — click Snooze to submit
+    await page.getByRole("button", { name: "Snooze" }).last().click();
+
+    // Toast appears
+    await expect(page.locator("div:has-text('Schedule snoozed')").first()).toBeVisible({ timeout: 10_000 });
+
+    // Verify next_due_at advanced 7 days via API
+    const updated = await getSchedule(schedId);
+    const origDate = new Date(originalNextDue + "T00:00:00Z");
+    const newDate = new Date(updated.next_due_at.slice(0, 10) + "T00:00:00Z");
+    const diffDays = Math.round((newDate.getTime() - origDate.getTime()) / 86400000);
+    expect(diffDays).toBe(7);
+  });
+
+  test("viewer cannot see Snooze button on /maintenance", async ({ page }) => {
+    await loginAs(page, "viewer");
+    await page.goto("/dashboard");
+    // Viewer is redirected from /maintenance; verify no Snooze button reachable via nav
+    await expect(page.getByRole("link", { name: "Maintenance" })).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 7 (was 6): Admin creates schedule via "New schedule" button on /maintenance
 // ---------------------------------------------------------------------------
 
 test.describe("Maintenance — new schedule from hub @smoke", () => {
