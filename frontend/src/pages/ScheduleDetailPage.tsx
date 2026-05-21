@@ -89,17 +89,36 @@ export function ScheduleDetailPage() {
           <Card>
             <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Kit</p>
-                {schedule.expand?.kit ? (
-                  <Link
-                    to={`/kits/${schedule.kit}`}
-                    className="font-mono font-medium text-indigo-700 hover:underline"
-                  >
-                    {schedule.expand.kit.serial}
-                  </Link>
-                ) : (
-                  <span className="font-mono text-xs">{schedule.kit}</span>
-                )}
+                {schedule.kit ? (
+                  <>
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Kit</p>
+                    {schedule.expand?.kit ? (
+                      <Link
+                        to={`/kits/${schedule.kit}`}
+                        className="font-mono font-medium text-indigo-700 hover:underline"
+                      >
+                        {schedule.expand.kit.serial}
+                      </Link>
+                    ) : (
+                      <span className="font-mono text-xs">{schedule.kit}</span>
+                    )}
+                  </>
+                ) : schedule.component ? (
+                  <>
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Component</p>
+                    <Link
+                      to={`/components/${schedule.component}`}
+                      className="font-mono font-medium text-indigo-700 hover:underline"
+                    >
+                      {schedule.expand?.component?.serial ?? schedule.component}
+                    </Link>
+                    {schedule.expand?.component?.expand?.product?.name && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {schedule.expand.component.expand.product.name}
+                      </p>
+                    )}
+                  </>
+                ) : null}
               </div>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Interval</p>
