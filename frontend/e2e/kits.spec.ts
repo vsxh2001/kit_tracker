@@ -349,7 +349,7 @@ test.describe("Kit edit", () => {
     if (kit) await deleteKit(kit.id);
   });
 
-  test("admin can edit kit serial and notes", async ({ page }) => {
+  test("admin can edit kit serial and notes @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
     await page.getByRole("button", { name: /^edit$/i }).click();
