@@ -5,6 +5,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
+import { EditScheduleDialog } from "../components/EditScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { getSchedule, listRecordsForSchedule } from "../services/maintenance";
 import { baseUrl } from "../services/admin";
@@ -20,6 +21,7 @@ export function ScheduleDetailPage() {
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [recordingOpen, setRecordingOpen] = useState(false);
+  const [editingOpen, setEditingOpen] = useState(false);
 
   async function load() {
     if (!scheduleId) return;
@@ -65,11 +67,18 @@ export function ScheduleDetailPage() {
       ) : (
         <>
           {/* Header */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Maintenance</p>
-            <h1 className="text-2xl font-semibold tracking-tight">{schedule.type}</h1>
-            {schedule.description && (
-              <p className="text-sm text-muted-foreground mt-0.5">{schedule.description}</p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Maintenance</p>
+              <h1 className="text-2xl font-semibold tracking-tight">{schedule.type}</h1>
+              {schedule.description && (
+                <p className="text-sm text-muted-foreground mt-0.5">{schedule.description}</p>
+              )}
+            </div>
+            {canDecideRequests && (
+              <Button size="sm" variant="outline" onClick={() => setEditingOpen(true)}>
+                Edit
+              </Button>
             )}
           </div>
 
@@ -205,6 +214,14 @@ export function ScheduleDetailPage() {
           open={recordingOpen}
           onClose={() => setRecordingOpen(false)}
           onRecorded={() => { setRecordingOpen(false); load(); }}
+        />
+      )}
+
+      {editingOpen && (
+        <EditScheduleDialog
+          schedule={schedule}
+          onClose={() => setEditingOpen(false)}
+          onSaved={() => { setEditingOpen(false); load(); }}
         />
       )}
     </div>
