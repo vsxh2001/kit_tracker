@@ -13,22 +13,28 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { listEntities } from "../services/entities";
 import { bulkCreateTransfer } from "../services/transactions";
-import type { Entity } from "../types";
+import type { Entity, Kit } from "../types";
 
 interface Props {
-  kitIds: string[];
+  kits: Kit[];
   open: boolean;
   onClose: () => void;
   onTransferred: () => void;
 }
 
-export function BulkTransferDialog({ kitIds, open, onClose, onTransferred }: Props) {
+type Step = "form" | "confirm";
+
+const CONFIRM_THRESHOLD = 5;
+
+export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props) {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [toEntityId, setToEntityId] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<Step>("form");
   const [failedKits, setFailedKits] = useState<{ kitId: string; error: string }[]>([]);
+  const [failedKitIds, setFailedKitIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -36,20 +42,33 @@ export function BulkTransferDialog({ kitIds, open, onClose, onTransferred }: Pro
         setToEntityId("");
         setNotes("");
         setError("");
+        setStep("form");
         setFailedKits([]);
+        setFailedKitIds([]);
       });
-      listEntities().then(setEntities).catch(() => setError("Failed to load entities."));
+      async function loadEntities() {
+        try {
+          setEntities(await listEntities());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (err: any) {
+          if (!err?.isAbort) {
+            console.error(err);
+            setError("Failed to load entities.");
+          }
+        }
+      }
+      startTransition(() => loadEntities());
     }
   }, [open]);
 
-  async function handleTransfer() {
-    if (!toEntityId) { setError("Select destination entity."); return; }
+  const kitIds = kits.map((k) => k.id);
+
+  async function doTransfer(ids: string[]) {
     setError("");
-    setFailedKits([]);
     setLoading(true);
     try {
       const result = await bulkCreateTransfer({
-        kitIds,
+        kitIds: ids,
         toEntityId,
         notes: notes.trim() || undefined,
       });
@@ -62,22 +81,23 @@ export function BulkTransferDialog({ kitIds, open, onClose, onTransferred }: Pro
         onTransferred();
         onClose();
       } else {
-        setFailedKits(result.failed);
+        const newFailed = result.failed;
+        setFailedKits(newFailed);
+        setFailedKitIds(newFailed.map((f) => f.kitId));
+        setStep("form");
         if (result.ok.length > 0) {
           toast({
-            title: `${result.failed.length} of ${kitIds.length} failed`,
+            title: `${result.failed.length} of ${ids.length} failed`,
             description: `${result.ok.length} kit${result.ok.length !== 1 ? "s" : ""} transferred successfully.`,
             variant: "destructive",
           });
+          onTransferred();
         } else {
           toast({
             title: "Transfer failed",
-            description: `All ${kitIds.length} kits failed to transfer.`,
+            description: `All ${ids.length} kits failed to transfer.`,
             variant: "destructive",
           });
-        }
-        if (result.ok.length > 0) {
-          onTransferred();
         }
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,60 +108,122 @@ export function BulkTransferDialog({ kitIds, open, onClose, onTransferred }: Pro
     }
   }
 
+  function handleTransferClick() {
+    if (!toEntityId) { setError("Select destination entity."); return; }
+    setError("");
+    if (kits.length >= CONFIRM_THRESHOLD) {
+      setStep("confirm");
+    } else {
+      doTransfer(kitIds);
+    }
+  }
+
+  function handleRetry() {
+    doTransfer(failedKitIds);
+  }
+
+  const entityName = entities.find((e) => e.id === toEntityId)?.name ?? toEntityId;
+  const previewSerials = kits.slice(0, 5).map((k) => k.serial);
+  const overflowCount = kits.length - 5;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Transfer {kitIds.length} kit{kitIds.length !== 1 ? "s" : ""}</DialogTitle>
+          <DialogTitle>
+            {step === "confirm"
+              ? `Confirm transfer of ${kits.length} kit${kits.length !== 1 ? "s" : ""}`
+              : `Transfer ${kits.length} kit${kits.length !== 1 ? "s" : ""}`}
+          </DialogTitle>
           <DialogDescription className="sr-only">
             Transfer selected kits to another entity. Creates one transaction per kit.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <Label>Transfer to</Label>
-            <Select value={toEntityId} onValueChange={setToEntityId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select entity…" />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes…"
-              rows={2}
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {failedKits.length > 0 && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
-              <p className="text-sm font-medium text-destructive">{failedKits.length} kit{failedKits.length !== 1 ? "s" : ""} failed:</p>
-              <ul className="text-xs text-destructive space-y-0.5">
-                {failedKits.map(({ kitId, error: err }) => (
-                  <li key={kitId} className="font-mono">{kitId}: {err}</li>
+
+        {step === "confirm" ? (
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Transfer{" "}
+              <span className="font-medium text-foreground">{kits.length} kit{kits.length !== 1 ? "s" : ""}</span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">{entityName}</span>?
+              This creates {kits.length} transaction record{kits.length !== 1 ? "s" : ""} that cannot be deleted.
+            </p>
+            <div className="rounded-md border bg-muted/40 px-3 py-2 space-y-1">
+              <ul className="text-xs font-mono space-y-0.5 text-muted-foreground">
+                {previewSerials.map((serial) => (
+                  <li key={serial}>{serial}</li>
                 ))}
               </ul>
+              {overflowCount > 0 && (
+                <p className="text-xs text-muted-foreground italic">…and {overflowCount} more</p>
+              )}
             </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleTransfer} disabled={loading || !toEntityId}>
-              {loading
-                ? "Transferring…"
-                : `Transfer ${kitIds.length} kit${kitIds.length !== 1 ? "s" : ""}`}
-            </Button>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStep("form")} disabled={loading}>Back</Button>
+              <Button onClick={() => doTransfer(kitIds)} disabled={loading}>
+                {loading ? "Transferring…" : "Confirm transfer"}
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Transfer to</Label>
+              <Select value={toEntityId} onValueChange={setToEntityId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select entity…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entities.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Notes</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Optional notes…"
+                rows={2}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {failedKits.length > 0 && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                <p className="text-sm font-medium text-destructive">
+                  {failedKits.length} of {kitIds.length} failed:
+                </p>
+                <ul className="text-xs text-destructive space-y-0.5">
+                  {failedKits.map(({ kitId, error: err }) => {
+                    const serial = kits.find((k) => k.id === kitId)?.serial ?? kitId;
+                    return (
+                      <li key={kitId} className="font-mono">{serial}: {err}</li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              {failedKitIds.length > 0 && (
+                <Button variant="outline" onClick={handleRetry} disabled={loading || !toEntityId}>
+                  {loading ? "Retrying…" : `Retry failed (${failedKitIds.length})`}
+                </Button>
+              )}
+              <Button onClick={handleTransferClick} disabled={loading || !toEntityId}>
+                {loading
+                  ? "Transferring…"
+                  : `Transfer ${kits.length} kit${kits.length !== 1 ? "s" : ""}`}
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
