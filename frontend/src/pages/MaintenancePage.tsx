@@ -6,6 +6,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { NewMaintenanceScheduleDialog } from "../components/NewMaintenanceScheduleDialog";
+import { EditScheduleDialog } from "../components/EditScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { useAuth } from "../context/AuthContext";
@@ -23,6 +24,7 @@ export function MaintenancePage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [showAddSchedule, setShowAddSchedule] = useState(false);
 
   async function load() {
@@ -134,12 +136,22 @@ export function MaintenancePage() {
                     <span>Last: {sched.last_done_at ? formatDateOnly(sched.last_done_at) : "—"}</span>
                     <span>Next: {sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
-                    className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
-                  >
-                    Record done
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
+                      className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                    >
+                      Record done
+                    </button>
+                    {canDecideRequests && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
+                        className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -177,12 +189,22 @@ export function MaintenancePage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
-                            className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
-                          >
-                            Record done
-                          </button>
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
+                              className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
+                            >
+                              Record done
+                            </button>
+                            {canDecideRequests && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
+                                className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -207,6 +229,12 @@ export function MaintenancePage() {
         open={showAddSchedule}
         onClose={() => setShowAddSchedule(false)}
         onSaved={() => { setShowAddSchedule(false); load(); }}
+      />
+
+      <EditScheduleDialog
+        schedule={editingSchedule}
+        onClose={() => setEditingSchedule(null)}
+        onSaved={() => { setEditingSchedule(null); load(); }}
       />
     </div>
   );

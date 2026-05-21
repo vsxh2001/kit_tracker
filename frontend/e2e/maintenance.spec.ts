@@ -333,3 +333,62 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await expect(page.locator("tbody").getByText("Calibration").first()).toBeVisible({ timeout: 5000 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Test 7: Admin edits a schedule inline from /maintenance hub @smoke
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — edit schedule inline @smoke", () => {
+  let kitId: string;
+  let schedId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-EDIT`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "inspection", 60);
+    schedId = sched.id;
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("admin clicks Edit on schedule row, changes description, sees updated value in table", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible({ timeout: 10_000 });
+
+    // Find the Edit button in the row for our kit (desktop table)
+    // The row has the kit serial in it; click the Edit button within that row
+    const row = page.locator("tr").filter({ hasText: `${TS}-EDIT` });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await row.getByRole("button", { name: "Edit" }).click();
+
+    // Dialog opens
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Edit Maintenance Schedule")).toBeVisible();
+
+    // Change description
+    const descField = page.getByLabel("Description");
+    await descField.clear();
+    await descField.fill("Updated description for test");
+
+    // Save
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    // Success toast
+    await expect(page.locator("div:has-text('Schedule updated')").first()).toBeVisible({ timeout: 10_000 });
+
+    // Verify via API that description changed and other fields unchanged
+    const token = await adminToken();
+    const res = await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${schedId}`, {
+      headers: { Authorization: token },
+    });
+    const updated = await res.json();
+    expect(updated.description).toBe("Updated description for test");
+    expect(updated.type).toBe("inspection");
+    expect(updated.interval_days).toBe(60);
+  });
+});
