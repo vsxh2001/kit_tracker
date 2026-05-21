@@ -51,6 +51,7 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
       } else {
         await createEntity({ name: name.trim(), description: description.trim(), category });
         toast({ title: "Entity created", variant: "success" });
+        window.dispatchEvent(new CustomEvent("kit-tracker:data-changed"));
       }
       onSaved();
       onClose();
