@@ -79,7 +79,7 @@ export function ScheduleDetailPage() {
               )}
             </div>
             {user?.role === "admin" && (
-              <Button size="sm" variant="outline" onClick={() => setEditingOpen(true)}>
+              <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => setEditingOpen(true)}>
                 Edit
               </Button>
             )}
@@ -124,12 +124,12 @@ export function ScheduleDetailPage() {
             <h2 className="text-base font-semibold">History</h2>
             <div className="flex gap-2">
               {isAdmin && (
-                <Button size="sm" variant="outline" onClick={() => setSnoozeOpen(true)}>
+                <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => setSnoozeOpen(true)}>
                   Snooze
                 </Button>
               )}
               {canDecideRequests && (
-                <Button size="sm" variant="outline" onClick={() => setRecordingOpen(true)}>
+                <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => setRecordingOpen(true)}>
                   Record done
                 </Button>
               )}
