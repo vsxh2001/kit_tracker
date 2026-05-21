@@ -163,7 +163,7 @@ export async function handleComps(args: string[]): Promise<SlashResult> {
   if (products.length === 0) return { ok: false, error: `No product matching '${productName}'.` };
   if (products.length >= 2) {
     const names = products.slice(0, 5).map((p) => p.name).join(", ");
-    return { ok: false, error: `Multiple matches: ${names}. Be more specific.` };
+    return { ok: false, error: `Multiple matches for "${productName}": ${names}. Be more specific.` };
   }
   const product = products[0];
 
@@ -254,21 +254,21 @@ export async function handleAt(args: string[]): Promise<SlashResult> {
   if (entities.length === 0) return { ok: false, error: `No entity matching '${entityName}'.` };
   if (entities.length >= 2) {
     const names = entities.slice(0, 5).map((e) => e.name).join(", ");
-    return { ok: false, error: `Multiple matches: ${names}. Be more specific.` };
+    return { ok: false, error: `Multiple matches for "${entityName}": ${names}. Be more specific.` };
   }
   const entity = entities[0];
 
   // Query transactions landing at this entity — dedupe by kit (keep first = latest per sort)
-  // Cap at 200 rows: enough to cover 50 displayed kits with duplicates filtered
+  // Hard-cap at 200 rows via getList (getFullList paginates internally, ignores perPage as hard cap)
   let candidateTxs: Transaction[];
   try {
-    candidateTxs = await pb.collection("transactions").getFullList<Transaction>({
+    const txPage = await pb.collection("transactions").getList<Transaction>(1, 200, {
       filter: pb.filter("to_entity = {:eid}", { eid: entity.id }),
       sort: "-timestamp,-created",
       expand: "kit",
       requestKey: `slash-at-txs-${entity.id}`,
-      perPage: 200,
     });
+    candidateTxs = txPage.items;
   } catch {
     return { ok: false, error: "Failed to query transactions." };
   }
@@ -283,9 +283,12 @@ export async function handleAt(args: string[]): Promise<SlashResult> {
     candidates.push({ kitId: tx.kit, kitSerial: serial, txId: tx.id, timestamp: tx.timestamp });
   }
 
+  // Cap candidates before Promise.all — output is already ≤50, pre-cap avoids N-50 wasted requests
+  const cappedCandidates = candidates.slice(0, 50);
+
   // Verify each candidate: confirm its absolute latest tx is still to this entity
   const verified = await Promise.all(
-    candidates.map(async (c) => {
+    cappedCandidates.map(async (c) => {
       const latest = await getLatestTransaction(c.kitId).catch(() => null);
       if (!latest || latest.to_entity !== entity.id) return null;
       return { serial: c.kitSerial, since: formatDateOnly(latest.timestamp) };
