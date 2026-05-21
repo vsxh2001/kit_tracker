@@ -14,10 +14,11 @@ import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
 import { cn, formatDate } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
+import { getSmtpStatus } from "../services/health";
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { user, canDecideRequests } = useAuth();
+  const { user, isAdmin, canDecideRequests } = useAuth();
   const [kits, setKits] = useState<Kit[]>([]);
   const [requests, setRequests] = useState<KitRequest[]>([]);
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
@@ -26,6 +27,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [oncallShifts, setOncallShifts] = useState<OnCallShift[]>([]);
   const [oncallLoading, setOncallLoading] = useState(true);
+  const [smtpEnabled, setSmtpEnabled] = useState<boolean | null>(null);
 
   const pendingApproval = !user?.role;
 
@@ -74,6 +76,21 @@ export function DashboardPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    startTransition(() => {
+      async function loadSmtp() {
+        try {
+          const status = await getSmtpStatus();
+          setSmtpEnabled(status.enabled);
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        }
+      }
+      loadSmtp();
+    });
+  }, [isAdmin]);
+
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
 
@@ -117,6 +134,12 @@ export function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Equipment overview and recent activity</p>
       </div>
+
+      {isAdmin && smtpEnabled === false && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          SMTP not configured — maintenance reminders are disabled. Set SMTP_HOST + credentials via Fly secrets (see CLAUDE.md → Email notifications setup).
+        </div>
+      )}
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading…</p>
