@@ -15,4 +15,4 @@ routerAdd("GET", "/api/health/smtp", function(e) {
   var settings = $app.settings();
   var enabled = settings.smtp && settings.smtp.enabled === true;
   return e.json(200, { enabled: enabled });
-}, $apis.requireAuth());
+});
