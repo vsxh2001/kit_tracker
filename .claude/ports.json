@@ -35,9 +35,11 @@
     "feat-user-signup-notify": 32,
     "feat-deny-users": 33,
     "feat-user-profile": 34,
-    "agent-aea00f8651f458f28": 35
+    "agent-aea00f8651f458f28": 35,
+    "agent-adee7368a418a2e79": 36,
+    "agent-a6e190553b06f611c": 37
   },
-  "next_offset": 36,
+  "next_offset": 38,
   "port_base": {
     "PB_HOST_PORT": 8090,
     "VITE_PORT": 5173,
