@@ -5,7 +5,7 @@
 // for QR-code scan landing pages. Lookup by PB record ID or serial number.
 // Resolves current holder via latest transaction (DAO bypass of collection rules).
 //
-// Returns: { serial, holder, tags, notes }
+// Returns: { serial, holder, tags }
 // 404 if kit not found or retired.
 //
 // NOTE: PB v0.22 Goja isolation — all logic is inlined in one routerAdd callback.
@@ -56,6 +56,5 @@ routerAdd("GET", "/api/scan/:kitId", function(c) {
     serial: kit.getString("serial"),
     holder: holderName,
     tags: kit.getString("tags") || "",
-    notes: kit.getString("notes") || "",
   });
 });
