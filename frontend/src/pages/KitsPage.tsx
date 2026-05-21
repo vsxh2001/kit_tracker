@@ -89,6 +89,7 @@ export function KitsPage() {
       // Group schedules by kit
       const byKit = new Map<string, KitMaintenanceSchedule[]>();
       for (const s of allSchedules) {
+        if (!s.kit) continue;
         const arr = byKit.get(s.kit) ?? [];
         arr.push(s);
         byKit.set(s.kit, arr);

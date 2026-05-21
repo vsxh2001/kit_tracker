@@ -136,6 +136,9 @@ export function MaintenancePage() {
                       {sched.expand?.kit?.serial && (
                         <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand.kit.serial}</span>
                       )}
+                      {!sched.kit && sched.component && (
+                        <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand?.component?.serial ?? sched.component} <span className="font-sans font-normal text-muted-foreground">(component)</span></span>
+                      )}
                     </div>
                     <MaintStatusPill status={status} />
                   </div>
@@ -178,7 +181,7 @@ export function MaintenancePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-slate-50/80">
-                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Kit serial</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Target</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Last done</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Next due</th>
@@ -191,7 +194,10 @@ export function MaintenancePage() {
                     return (
                       <tr key={sched.id} onClick={() => navigate(`/maintenance/${sched.id}`)} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer">
                         <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
-                          {sched.expand?.kit?.serial ?? sched.kit}
+                          {sched.expand?.kit?.serial ?? (sched.kit ? sched.kit : null) ?? (sched.expand?.component?.serial ? sched.expand.component.serial : sched.component ?? "—")}
+                          {sched.component && !sched.kit && (
+                            <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-xs font-medium">{sched.type}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
