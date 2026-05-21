@@ -8,11 +8,10 @@
 // Token storage: server-side HMAC-SHA256 with static salt.
 // Raw token only lives in the URL the admin copies — never stored.
 //
+// Security: when invite.email is set the accepter must supply the same email
+// (case-insensitive). Legacy invites (email = null) allow any email.
+//
 // NOTE: PB v0.22 Goja isolation — all logic inlined inside each routerAdd callback.
-
-// ─────────────────────────────────────────
-// Shared hash helper (inlined per callback — Goja isolation)
-// ─────────────────────────────────────────
 
 // INVITE_SALT inlined per callback below — Goja isolation makes module-level var invisible inside routerAdd callbacks.
 
@@ -31,6 +30,9 @@ routerAdd("POST", "/api/invite/create", function(c) {
   if (!validRoles[role]) {
     return c.json(400, { error: "role must be one of: admin, technician, user, viewer" });
   }
+
+  // Optional email binding — stored lowercase for case-insensitive comparison on accept
+  var inviteEmail = (body.email || "").toString().trim().toLowerCase();
 
   // Generate raw token (32 random bytes → hex string via $security)
   var raw = $security.randomString(43); // URL-safe random string
@@ -51,6 +53,9 @@ routerAdd("POST", "/api/invite/create", function(c) {
   inv.set("created_by", info.authRecord.id);
   inv.set("role", role);
   inv.set("expires_at", expiresAt);
+  if (inviteEmail) {
+    inv.set("email", inviteEmail);
+  }
 
   try {
     dao.saveRecord(inv);
@@ -94,6 +99,9 @@ routerAdd("GET", "/api/invite/preview/:token", function(c) {
     return c.json(410, { error: "This link expired on " + inv.getString("expires_at") });
   }
 
+  // NOTE: intentionally NOT returning invite.email — preview is unauthenticated.
+  // Exposing the target email to anyone with the token URL would re-introduce the
+  // enumeration risk this feature is designed to prevent.
   return c.json(200, { role: inv.getString("role"), expires_at: inv.getString("expires_at") });
 });
 
@@ -127,6 +135,12 @@ routerAdd("POST", "/api/invite/accept", function(c) {
   if (inv.getString("revoked_at")) return c.json(410, { error: "Link revoked." });
   if (inv.getString("used_at"))    return c.json(410, { error: "Link already used." });
   if (inv.getString("expires_at") < now) return c.json(410, { error: "Link expired." });
+
+  // Email binding check — only enforced when invite has an email set (case-insensitive)
+  var inviteEmail = inv.getString("email");
+  if (inviteEmail && inviteEmail !== email) {
+    return c.json(403, { error: "email does not match invite" });
+  }
 
   var role = inv.getString("role");
 
