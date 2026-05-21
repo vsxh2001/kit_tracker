@@ -612,8 +612,8 @@ test.describe("Bulk kit transfer @smoke", () => {
     // Submit (the button inside the dialog)
     await page.getByRole("dialog").getByRole("button", { name: /transfer 3 kits/i }).click();
 
-    // Toast shows "Transferred 3 kits"
-    await expect(page.getByText(/transferred 3 kits/i)).toBeVisible({ timeout: 15_000 });
+    // Toast shows "Transferred 3 kits" — target the visible toast, not aria-live region
+    await expect(page.getByText(/transferred 3 kits/i).first()).toBeVisible({ timeout: 15_000 });
 
     // Dialog closes
     await expect(page.getByRole("dialog", { name: /transfer 3 kits/i })).not.toBeVisible({ timeout: 5_000 });
