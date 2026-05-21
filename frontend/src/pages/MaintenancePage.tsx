@@ -65,10 +65,12 @@ export function MaintenancePage() {
             <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
           </div>
-          <Button size="sm" className="min-h-[44px]" onClick={() => setShowAddSchedule(true)}>
-            <Plus className="h-4 w-4" />
-            New schedule
-          </Button>
+          {isAdmin && (
+            <Button size="sm" className="min-h-[44px]" onClick={() => setShowAddSchedule(true)}>
+              <Plus className="h-4 w-4" />
+              New schedule
+            </Button>
+          )}
         </div>
       </div>
 

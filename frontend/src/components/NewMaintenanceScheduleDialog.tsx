@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,7 @@ export function NewMaintenanceScheduleDialog({ open, onClose, onSaved }: Props) 
   const [error, setError] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<Array<{ kitId: string; serial: string; error: string }>>([]);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -101,10 +102,13 @@ export function NewMaintenanceScheduleDialog({ open, onClose, onSaved }: Props) 
   }
 
   async function handleSave() {
+    if (isSubmittingRef.current) return;
     if (type === "none") { setError("Type is required."); return; }
     if (!description.trim()) { setError("Description is required."); return; }
     const interval = parseInt(intervalDays, 10);
     if (!interval || interval < 1) { setError("Interval must be at least 1 day."); return; }
+    isSubmittingRef.current = true;
+    try {
 
     if (bulkMode) {
       if (selectedKitIds.size === 0) { setError("Select at least one kit."); return; }
@@ -188,6 +192,9 @@ export function NewMaintenanceScheduleDialog({ open, onClose, onSaved }: Props) 
       } finally {
         setLoading(false);
       }
+    }
+    } finally {
+      isSubmittingRef.current = false;
     }
   }
 
