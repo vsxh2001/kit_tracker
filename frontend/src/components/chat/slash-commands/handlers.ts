@@ -1,5 +1,5 @@
 import { pb } from "../../../lib/pocketbase";
-import { listKits, getLatestTransaction, parseTags, getKitHistory } from "../../../services/kits";
+import { getLatestTransaction, parseTags, getKitHistory } from "../../../services/kits";
 import { listEntities } from "../../../services/entities";
 import { listProducts, listComponentsForProduct } from "../../../services/products";
 import { listComponentsInKit, getLatestForComponent, listTransactionsForComponent } from "../../../services/componentTransactions";
@@ -141,17 +141,30 @@ export async function handleComps(args: string[]): Promise<SlashResult> {
   const productName = args.join(" ").trim();
   if (!productName) return { ok: false, error: "Usage: `/comps <product-name>`" };
 
+  // Try exact match first, fall back to substring
   let products;
   try {
-    products = await pb.collection("products").getFullList({
-      filter: pb.filter("name ~ {:n}", { n: productName }),
-      requestKey: `slash-comps-lookup-${productName}`,
+    const exact = await pb.collection("products").getFullList({
+      filter: pb.filter("name = {:n}", { n: productName }),
+      requestKey: `slash-comps-exact-${productName}`,
     });
+    if (exact.length > 0) {
+      products = exact;
+    } else {
+      products = await pb.collection("products").getFullList({
+        filter: pb.filter("name ~ {:n}", { n: productName }),
+        requestKey: `slash-comps-lookup-${productName}`,
+      });
+    }
   } catch {
     return { ok: false, error: "Failed to search products." };
   }
 
   if (products.length === 0) return { ok: false, error: `No product matching '${productName}'.` };
+  if (products.length >= 2) {
+    const names = products.slice(0, 5).map((p) => p.name).join(", ");
+    return { ok: false, error: `Multiple matches: ${names}. Be more specific.` };
+  }
   const product = products[0];
 
   const components = await listComponentsForProduct(product.id).catch(() => [] as Component[]);
@@ -219,39 +232,75 @@ export async function handleAt(args: string[]): Promise<SlashResult> {
   const entityName = args.join(" ").trim();
   if (!entityName) return { ok: false, error: "Usage: `/at <entity-name>`" };
 
+  // Resolve entity — exact match first, then substring
   let entities: Entity[];
   try {
-    entities = await pb.collection("entities").getFullList<Entity>({
-      filter: pb.filter("name ~ {:n}", { n: entityName }),
-      requestKey: `slash-at-lookup-${entityName}`,
+    const exact = await pb.collection("entities").getFullList<Entity>({
+      filter: pb.filter("name = {:n}", { n: entityName }),
+      requestKey: `slash-at-exact-${entityName}`,
     });
+    if (exact.length > 0) {
+      entities = exact;
+    } else {
+      entities = await pb.collection("entities").getFullList<Entity>({
+        filter: pb.filter("name ~ {:n}", { n: entityName }),
+        requestKey: `slash-at-lookup-${entityName}`,
+      });
+    }
   } catch {
     return { ok: false, error: "Failed to search entities." };
   }
 
   if (entities.length === 0) return { ok: false, error: `No entity matching '${entityName}'.` };
+  if (entities.length >= 2) {
+    const names = entities.slice(0, 5).map((e) => e.name).join(", ");
+    return { ok: false, error: `Multiple matches: ${names}. Be more specific.` };
+  }
   const entity = entities[0];
 
-  // Get all kits' latest transactions and find those at this entity
-  const allKits = await listKits(false).catch(() => [] as Kit[]);
-  const results: Array<{ kit: Kit; since: string }> = [];
+  // Query transactions landing at this entity — dedupe by kit (keep first = latest per sort)
+  // Cap at 200 rows: enough to cover 50 displayed kits with duplicates filtered
+  let candidateTxs: Transaction[];
+  try {
+    candidateTxs = await pb.collection("transactions").getFullList<Transaction>({
+      filter: pb.filter("to_entity = {:eid}", { eid: entity.id }),
+      sort: "-timestamp,-created",
+      expand: "kit",
+      requestKey: `slash-at-txs-${entity.id}`,
+      perPage: 200,
+    });
+  } catch {
+    return { ok: false, error: "Failed to query transactions." };
+  }
 
-  await Promise.all(
-    allKits.map(async (kit) => {
-      const tx = await getLatestTransaction(kit.id).catch(() => null);
-      if (tx && tx.to_entity === entity.id) {
-        results.push({ kit, since: formatDateOnly(tx.timestamp) });
-      }
+  // Dedupe: first occurrence per kit.id is the most-recent tx to this entity
+  const seenKit = new Set<string>();
+  const candidates: Array<{ kitId: string; kitSerial: string; txId: string; timestamp: string }> = [];
+  for (const tx of candidateTxs) {
+    if (!tx.kit || seenKit.has(tx.kit)) continue;
+    seenKit.add(tx.kit);
+    const serial = (tx.expand?.kit as Kit | undefined)?.serial ?? tx.kit;
+    candidates.push({ kitId: tx.kit, kitSerial: serial, txId: tx.id, timestamp: tx.timestamp });
+  }
+
+  // Verify each candidate: confirm its absolute latest tx is still to this entity
+  const verified = await Promise.all(
+    candidates.map(async (c) => {
+      const latest = await getLatestTransaction(c.kitId).catch(() => null);
+      if (!latest || latest.to_entity !== entity.id) return null;
+      return { serial: c.kitSerial, since: formatDateOnly(latest.timestamp) };
     })
   );
+
+  const results = verified.filter((r): r is { serial: string; since: string } => r !== null);
 
   if (results.length === 0) {
     return { ok: true, text: `No kits currently at **${entity.name}**.` };
   }
 
-  const shown = results.slice(0, 5);
+  const shown = results.slice(0, 50);
   const rest = results.length - shown.length;
-  const items = shown.map(({ kit, since }) => `- \`${kit.serial}\` (since ${since})`);
+  const items = shown.map(({ serial, since }) => `- \`${serial}\` (since ${since})`);
   if (rest > 0) items.push(`- +${rest} more`);
 
   return { ok: true, text: `**Kits at ${entity.name}** (${results.length}):\n${items.join("\n")}` };
@@ -408,19 +457,46 @@ export async function handleHistory(args: string[]): Promise<SlashResult> {
 }
 
 // ─── Field autocomplete resource fetchers ────────────────────────────────────
-// Cache per session — Map<cacheKey, Promise> so concurrent keystroke events
-// reuse the same in-flight promise rather than firing duplicate requests.
+// Cache per session — Map<cacheKey, { promise, fetchedAt }> so concurrent
+// keystroke events reuse the same in-flight promise. Invalidated on
+// 'kit-tracker:data-changed' events (dispatched by create/update dialogs).
 
-const _cache = new Map<string, Promise<string[]>>();
+const _CACHE_TTL_MS = 60_000;
+
+interface CacheEntry {
+  promise: Promise<string[]>;
+  fetchedAt: number;
+}
+
+const _cache = new Map<string, CacheEntry>();
+
+export function clearAcCache(): void {
+  _cache.clear();
+}
+
+// Invalidate when the user creates/updates data in the same session
+if (typeof window !== "undefined") {
+  window.addEventListener("kit-tracker:data-changed", () => _cache.clear());
+}
 
 function cached(key: string, fn: () => Promise<string[]>): Promise<string[]> {
-  if (!_cache.has(key)) _cache.set(key, fn());
-  return _cache.get(key)!;
+  const entry = _cache.get(key);
+  const now = Date.now();
+  if (entry && now - entry.fetchedAt < _CACHE_TTL_MS) {
+    return entry.promise;
+  }
+  const promise = fn();
+  _cache.set(key, { promise, fetchedAt: now });
+  return promise;
 }
 
 export function fetchKitSerials(): Promise<string[]> {
   return cached("kit-serials", async () => {
-    const kits = await listKits(false);
+    const kits = await pb.collection("kits").getFullList<Kit>({
+      filter: "is_active = true",
+      sort: "serial",
+      requestKey: "ac-kit-serials",
+    });
     return kits.map((k: Kit) => k.serial);
   });
 }
