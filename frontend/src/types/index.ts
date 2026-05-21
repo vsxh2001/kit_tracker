@@ -134,7 +134,8 @@ export type MaintenanceType =
 
 export interface KitMaintenanceSchedule {
   id: string;
-  kit: string;
+  kit?: string;
+  component?: string;
   type: MaintenanceType;
   description: string;
   interval_days: number;
@@ -144,7 +145,7 @@ export interface KitMaintenanceSchedule {
   notes: string;
   created: string;
   updated: string;
-  expand?: { kit?: Kit };
+  expand?: { kit?: Kit; component?: Component };
 }
 
 export interface MaintenanceRecord {

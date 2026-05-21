@@ -9,6 +9,14 @@ export async function listSchedulesForKit(kitId: string): Promise<KitMaintenance
   });
 }
 
+export async function listSchedulesForComponent(componentId: string): Promise<KitMaintenanceSchedule[]> {
+  return pb.collection("kit_maintenance_schedules").getFullList<KitMaintenanceSchedule>({
+    filter: pb.filter("component = {:comp} && is_active = true", { comp: componentId }),
+    sort: "next_due_at",
+    requestKey: `schedules-component-${componentId}`,
+  });
+}
+
 export async function getSchedule(id: string): Promise<KitMaintenanceSchedule> {
   return pb.collection("kit_maintenance_schedules").getOne<KitMaintenanceSchedule>(id, {
     requestKey: `schedule-${id}`,
@@ -53,7 +61,7 @@ export async function listAllActiveSchedules(opts?: { filter?: string }): Promis
   return pb.collection("kit_maintenance_schedules").getFullList<KitMaintenanceSchedule>({
     filter,
     sort: "next_due_at",
-    expand: "kit",
+    expand: "kit,component,component.product",
     requestKey: `all-active-schedules-${opts?.filter ?? "all"}`,
   });
 }
