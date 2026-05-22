@@ -67,3 +67,15 @@ export async function listComponentsForProduct(productId: string): Promise<Compo
     requestKey: `list-components-for-product-${productId}`,
   });
 }
+
+export async function findProductsByName(name: string): Promise<Product[]> {
+  const exact = await pb.collection("products").getFullList<Product>({
+    filter: pb.filter("name = {:n}", { n: name }),
+    requestKey: `slash-comps-exact-${name}`,
+  });
+  if (exact.length > 0) return exact;
+  return pb.collection("products").getFullList<Product>({
+    filter: pb.filter("name ~ {:n}", { n: name }),
+    requestKey: `slash-comps-lookup-${name}`,
+  });
+}

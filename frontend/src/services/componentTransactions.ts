@@ -30,6 +30,14 @@ export async function getLatestForComponent(componentId: string): Promise<Compon
   return result.items[0] ?? null;
 }
 
+export async function listAllComponentTransactions(): Promise<ComponentTransaction[]> {
+  return pb.collection("component_transactions").getFullList<ComponentTransaction>({
+    sort: "-timestamp,-created",
+    expand: "to_kit,to_entity",
+    requestKey: "components-page-all-tx",
+  });
+}
+
 // Efficient batch: get latest tx per component via single getFullList sorted by -timestamp,-created,
 // then dedupe client-side by component id.
 async function getLatestTxPerComponent(): Promise<Map<string, ComponentTransaction>> {

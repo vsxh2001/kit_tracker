@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { NewMaintenanceScheduleDialog } from "../components/NewMaintenanceScheduleDialog";
 import { EditScheduleDialog } from "../components/EditScheduleDialog";
+import { SnoozeScheduleDialog } from "../components/SnoozeScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { useAuth } from "../context/AuthContext";
@@ -18,6 +19,7 @@ type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
 
 export function MaintenancePage() {
   const { user, canDecideRequests, loading: authLoading } = useAuth();
+  const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,7 @@ export function MaintenancePage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
+  const [snoozeSchedule, setSnoozeSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [showAddSchedule, setShowAddSchedule] = useState(false);
 
   async function load() {
@@ -55,16 +58,20 @@ export function MaintenancePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
+      <div className="sticky top-0 z-10 bg-background md:static -mx-4 px-4 py-2 md:mx-0 md:px-0 md:py-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Operations</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Maintenance</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Active maintenance schedules across all kits</p>
+          </div>
+          {isAdmin && (
+            <Button size="sm" className="min-h-[44px]" onClick={() => setShowAddSchedule(true)}>
+              <Plus className="h-4 w-4" />
+              New schedule
+            </Button>
+          )}
         </div>
-        <Button size="sm" onClick={() => setShowAddSchedule(true)}>
-          <Plus className="h-4 w-4" />
-          New schedule
-        </Button>
       </div>
 
       {/* Filters */}
@@ -129,6 +136,9 @@ export function MaintenancePage() {
                       {sched.expand?.kit?.serial && (
                         <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand.kit.serial}</span>
                       )}
+                      {!sched.kit && sched.component && (
+                        <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand?.component?.serial ?? sched.component} <span className="font-sans font-normal text-muted-foreground">(component)</span></span>
+                      )}
                     </div>
                     <MaintStatusPill status={status} />
                   </div>
@@ -136,19 +146,27 @@ export function MaintenancePage() {
                     <span>Last: {sched.last_done_at ? formatDateOnly(sched.last_done_at) : "—"}</span>
                     <span>Next: {sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 flex-wrap">
                     <button
                       onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
-                      className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                      className="text-xs px-3 min-h-[44px] rounded border border-border hover:bg-slate-50 transition-colors"
                     >
                       Record done
                     </button>
                     {user?.role === "admin" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
-                        className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                        className="text-xs px-3 min-h-[44px] rounded border border-border hover:bg-slate-50 transition-colors"
                       >
                         Edit
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSnoozeSchedule(sched); }}
+                        className="text-xs px-3 min-h-[44px] rounded border border-border hover:bg-slate-50 transition-colors"
+                      >
+                        Snooze
                       </button>
                     )}
                   </div>
@@ -163,7 +181,7 @@ export function MaintenancePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-slate-50/80">
-                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Kit serial</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Target</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Last done</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Next due</th>
@@ -176,7 +194,10 @@ export function MaintenancePage() {
                     return (
                       <tr key={sched.id} onClick={() => navigate(`/maintenance/${sched.id}`)} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer">
                         <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
-                          {sched.expand?.kit?.serial ?? sched.kit}
+                          {sched.expand?.kit?.serial ?? (sched.kit ? sched.kit : null) ?? (sched.expand?.component?.serial ? sched.expand.component.serial : sched.component ?? "—")}
+                          {sched.component && !sched.kit && (
+                            <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-xs font-medium">{sched.type}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -189,7 +210,7 @@ export function MaintenancePage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex gap-2 justify-end">
+                          <div className="inline-flex gap-1.5">
                             <button
                               onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                               className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
@@ -202,6 +223,14 @@ export function MaintenancePage() {
                                 className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
                               >
                                 Edit
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSnoozeSchedule(sched); }}
+                                className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
+                              >
+                                Snooze
                               </button>
                             )}
                           </div>
@@ -235,6 +264,12 @@ export function MaintenancePage() {
         schedule={editingSchedule}
         onClose={() => setEditingSchedule(null)}
         onSaved={() => { setEditingSchedule(null); load(); }}
+      />
+
+      <SnoozeScheduleDialog
+        schedule={snoozeSchedule}
+        onClose={() => setSnoozeSchedule(null)}
+        onSnoozed={() => { setSnoozeSchedule(null); load(); }}
       />
     </div>
   );

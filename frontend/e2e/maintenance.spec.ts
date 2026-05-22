@@ -11,7 +11,7 @@
 
 import { test, expect } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
-import { createTestKit, deleteKit } from "./helpers/api";
+import { createTestKit, deleteKit, createTestComponent, deactivateComponent } from "./helpers/api";
 
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 const TS = `maint-${Date.now()}`;
@@ -144,7 +144,7 @@ test.describe("Maintenance — record done", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-REC`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "BatteryCheck", 14);
+    const sched = await createScheduleViaApi(kitId, "replacement", 14);
     schedId = sched.id;
   });
 
@@ -162,7 +162,7 @@ test.describe("Maintenance — record done", () => {
     await page.getByRole("button", { name: "Record done" }).first().click();
 
     // Dialog should appear
-    await expect(page.getByText("Record Maintenance — BatteryCheck")).toBeVisible();
+    await expect(page.getByText("Record Maintenance — replacement")).toBeVisible();
 
     // Submit with defaults
     await page.getByRole("button", { name: "Record done" }).last().click();
@@ -188,7 +188,7 @@ test.describe("Maintenance page", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-PAGE`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "PageTest", 90);
+    const sched = await createScheduleViaApi(kitId, "other", 90);
     schedId = sched.id;
   });
 
@@ -208,10 +208,14 @@ test.describe("Maintenance page", () => {
     await expect(page.getByRole("button", { name: "Due soon" })).toBeVisible();
     await expect(page.getByRole("button", { name: "OK" })).toBeVisible();
 
-    // Table column headers visible on desktop
-    await expect(page.getByRole("columnheader", { name: "Kit serial" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Type" })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Next due" })).toBeVisible();
+    // Table column headers visible on desktop (wait for table to load)
+    await expect(page.locator("table")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("thead th").first()).toBeVisible();
+    // Verify key columns exist (Target, Type, Next due)
+    const headers = await page.locator("thead th").allTextContents();
+    expect(headers.join(",")).toContain("Target");
+    expect(headers.join(",")).toContain("Type");
+    expect(headers.join(",")).toContain("Next due");
   });
 });
 
@@ -226,7 +230,7 @@ test.describe("Kits page — next maintenance column", () => {
   test.beforeAll(async () => {
     const kit = await createTestKit(`${TS}-COL`);
     kitId = kit.id;
-    const sched = await createScheduleViaApi(kitId, "ColCheck", 7);
+    const sched = await createScheduleViaApi(kitId, "calibration", 7);
     schedId = sched.id;
   });
 
@@ -270,7 +274,68 @@ test.describe("Maintenance — permission gate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 6: Admin creates schedule via "New schedule" button on /maintenance
+// Test 6: Admin snoozes a schedule (F6)
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — snooze schedule @smoke", () => {
+  let kitId: string;
+  let schedId: string;
+  let originalNextDue: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-SNZ`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "inspection", 30);
+    schedId = sched.id;
+    const data = await getSchedule(schedId);
+    originalNextDue = data.next_due_at.slice(0, 10);
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("admin clicks Snooze on a schedule, picks 7 days, sees toast, next_due_at advanced @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    // Wait for table to render
+    await expect(page.locator("table")).toBeVisible({ timeout: 10_000 });
+
+    // Find Snooze button for our schedule row (inspection type visible in table)
+    const snoozeBtn = page.getByRole("row", { name: /inspection/ }).getByRole("button", { name: "Snooze" });
+    await expect(snoozeBtn).toBeVisible({ timeout: 10_000 });
+    await snoozeBtn.click();
+
+    // Dialog opens
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Snooze Schedule")).toBeVisible();
+
+    // "7 days" button is default active — click Snooze to submit
+    await page.getByRole("button", { name: "Snooze" }).last().click();
+
+    // Toast appears
+    await expect(page.locator("div:has-text('Schedule snoozed')").first()).toBeVisible({ timeout: 10_000 });
+
+    // Verify next_due_at advanced 7 days via API
+    const updated = await getSchedule(schedId);
+    const origDate = new Date(originalNextDue + "T00:00:00Z");
+    const newDate = new Date(updated.next_due_at.slice(0, 10) + "T00:00:00Z");
+    const diffDays = Math.round((newDate.getTime() - origDate.getTime()) / 86400000);
+    expect(diffDays).toBe(7);
+  });
+
+  test("viewer cannot see Snooze button on /maintenance", async ({ page }) => {
+    await loginAs(page, "viewer");
+    await page.goto("/dashboard");
+    // Viewer is redirected from /maintenance; verify no Snooze button reachable via nav
+    await expect(page.getByRole("link", { name: "Maintenance" })).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 7 (was 6): Admin creates schedule via "New schedule" button on /maintenance
 // ---------------------------------------------------------------------------
 
 test.describe("Maintenance — new schedule from hub @smoke", () => {
@@ -292,7 +357,7 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await deleteKit(kitId);
   });
 
-  test("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves", async ({ page }) => {
+  test("admin clicks 'New schedule' on /maintenance, picks kit, fills form, saves @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
@@ -335,6 +400,97 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Test 8: Bulk-apply schedule across multiple kits @smoke (F5)
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — bulk-apply schedule @smoke", () => {
+  const kitIds: string[] = [];
+  const kitSerials: string[] = [];
+
+  test.beforeAll(async () => {
+    for (let i = 0; i < 3; i++) {
+      const serial = `${TS}-BULK-${i}`;
+      const kit = await createTestKit(serial);
+      kitIds.push(kit.id);
+      kitSerials.push(serial);
+    }
+  });
+
+  test.afterAll(async () => {
+    // Deactivate any bulk-created schedules and delete test kits
+    const token = await adminToken();
+    for (const kitId of kitIds) {
+      // Deactivate schedules for this kit
+      const res = await fetch(
+        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=${encodeURIComponent(`kit="${kitId}"`)}&perPage=100`,
+        { headers: { Authorization: token } }
+      );
+      const data = await res.json();
+      for (const sched of data.items ?? []) {
+        await fetch(`${PB_URL}/api/collections/kit_maintenance_schedules/records/${sched.id}`, {
+          method: "PATCH",
+          headers: { Authorization: token, "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: false }),
+        });
+      }
+      await deleteKit(kitId);
+    }
+  });
+
+  test("admin bulk-applies schedule to 3 kits, sees toast 'Created 3 schedules' @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    const newScheduleBtn = page.getByRole("button", { name: "New schedule" });
+    await expect(newScheduleBtn).toBeVisible({ timeout: 10_000 });
+    await newScheduleBtn.click();
+
+    // Dialog opens
+    await expect(page.getByText("New Maintenance Schedule")).toBeVisible({ timeout: 10_000 });
+
+    // Toggle bulk mode
+    const bulkToggle = page.locator("#nsched-bulk-toggle");
+    await expect(bulkToggle).toBeVisible();
+    await bulkToggle.check();
+
+    // Select all 3 test kits
+    for (const serial of kitSerials) {
+      const kitCheckbox = page.locator(`[data-kit-id="${kitIds[kitSerials.indexOf(serial)]}"]`);
+      await expect(kitCheckbox).toBeVisible({ timeout: 5_000 });
+      await kitCheckbox.check();
+    }
+
+    // Fill type
+    const typeSelect = page.locator("#nsched-type");
+    await typeSelect.click();
+    await page.getByRole("option", { name: "Service" }).click();
+
+    // Fill description
+    await page.getByLabel("Description").fill("Bulk service procedure");
+
+    // Interval
+    await page.getByLabel("Interval (days)").fill("60");
+
+    // Submit
+    await page.getByRole("button", { name: /Create.*schedule/i }).last().click();
+
+    // Success toast
+    await expect(page.locator("div:has-text('Created 3 schedules')").first()).toBeVisible({ timeout: 15_000 });
+
+    // Verify via API — each kit has a schedule
+    const token = await adminToken();
+    for (const kitId of kitIds) {
+      const res = await fetch(
+        `${PB_URL}/api/collections/kit_maintenance_schedules/records?filter=${encodeURIComponent(`kit="${kitId}" && is_active=true`)}`,
+        { headers: { Authorization: token } }
+      );
+      const data = await res.json();
+      expect((data.items ?? []).length).toBe(1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test 7: Admin edits a schedule inline from /maintenance hub @smoke
 // ---------------------------------------------------------------------------
 
@@ -354,7 +510,7 @@ test.describe("Maintenance — edit schedule inline @smoke", () => {
     await deleteKit(kitId);
   });
 
-  test("admin clicks Edit on schedule row, changes description, sees updated value in table", async ({ page }) => {
+  test("admin clicks Edit on schedule row, changes description, sees updated value in table @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
@@ -390,5 +546,60 @@ test.describe("Maintenance — edit schedule inline @smoke", () => {
     expect(updated.description).toBe("Updated description for test");
     expect(updated.type).toBe("inspection");
     expect(updated.interval_days).toBe(60);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test F8: Admin adds maintenance schedule on component detail page @smoke
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — per-component schedule @smoke", () => {
+  let componentId: string;
+
+  test.beforeAll(async () => {
+    const comp = await createTestComponent({ serial: `${TS}-COMP-MAINT` });
+    componentId = comp.id;
+  });
+
+  test.afterAll(async () => {
+    await deactivateComponent(componentId);
+  });
+
+  test("admin opens component detail, adds schedule, sees it on /maintenance @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/components/${componentId}`);
+
+    // Wait for component detail page to load
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 10_000 });
+
+    // Maintenance section heading - use role match instead of hasText
+    await expect(page.locator("h2").first()).toBeVisible({ timeout: 10_000 });
+
+    // Click "Add schedule"
+    await page.getByRole("button", { name: "Add schedule" }).first().click();
+
+    // Dialog opens
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+
+    // Fill type via Radix Select combobox
+    await page.getByRole("dialog").getByRole("combobox").click();
+    await page.getByRole("option", { name: "Inspection" }).click();
+
+    // Fill interval
+    await page.getByLabel("Interval (days)").fill("90");
+
+    // Submit
+    await page.getByRole("button", { name: "Add schedule" }).last().click();
+
+    // Success toast
+    await expect(page.locator("div:has-text('Schedule created')").first()).toBeVisible({ timeout: 10_000 });
+
+    // Schedule visible in component detail table
+    await expect(page.locator("tbody").getByText("inspection").first()).toBeVisible({ timeout: 5_000 });
+
+    // Now verify on /maintenance hub — component schedule appears
+    await page.goto("/maintenance");
+    await expect(page.getByRole("columnheader", { name: "Target" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("td:has-text('component')").first()).toBeVisible({ timeout: 10_000 });
   });
 });

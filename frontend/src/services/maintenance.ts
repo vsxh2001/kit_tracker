@@ -9,9 +9,18 @@ export async function listSchedulesForKit(kitId: string): Promise<KitMaintenance
   });
 }
 
+export async function listSchedulesForComponent(componentId: string): Promise<KitMaintenanceSchedule[]> {
+  return pb.collection("kit_maintenance_schedules").getFullList<KitMaintenanceSchedule>({
+    filter: pb.filter("component = {:comp} && is_active = true", { comp: componentId }),
+    sort: "next_due_at",
+    requestKey: `schedules-component-${componentId}`,
+  });
+}
+
 export async function getSchedule(id: string): Promise<KitMaintenanceSchedule> {
   return pb.collection("kit_maintenance_schedules").getOne<KitMaintenanceSchedule>(id, {
-    requestKey: `schedule-${id}`,
+    expand: "kit,component,component.product",
+    requestKey: `get-schedule-${id}`,
   });
 }
 
@@ -53,7 +62,31 @@ export async function listAllActiveSchedules(opts?: { filter?: string }): Promis
   return pb.collection("kit_maintenance_schedules").getFullList<KitMaintenanceSchedule>({
     filter,
     sort: "next_due_at",
-    expand: "kit",
+    expand: "kit,component,component.product",
     requestKey: `all-active-schedules-${opts?.filter ?? "all"}`,
   });
+}
+
+export async function bulkCreateSchedules(
+  kitIds: string[],
+  fields: Omit<KitMaintenanceSchedule, "id" | "kit" | "created" | "updated" | "expand">
+): Promise<{ ok: string[]; failed: Array<{ kitId: string; error: string }> }> {
+  const results = await Promise.allSettled(
+    kitIds.map((kitId) =>
+      pb.collection("kit_maintenance_schedules").create<KitMaintenanceSchedule>(
+        { ...fields, kit: kitId },
+        { requestKey: `bulk-schedule-create-${kitId}` }
+      )
+    )
+  );
+  const ok: string[] = [];
+  const failed: Array<{ kitId: string; error: string }> = [];
+  results.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      ok.push(kitIds[i]);
+    } else {
+      failed.push({ kitId: kitIds[i], error: result.reason?.message ?? "Unknown error" });
+    }
+  });
+  return { ok, failed };
 }

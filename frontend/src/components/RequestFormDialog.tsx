@@ -42,14 +42,15 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
     if (open) {
       Promise.all([listKits(), listEntities()])
         .then(([k, e]) => { setKits(k); setEntities(e); })
-        .catch(() => setError("Failed to load options."));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .catch((err: any) => { if (!err?.isAbort) setError("Failed to load options."); });
       // Pre-fill from existing request when editing, otherwise reset
       startTransition(() => {
         setNotes(request?.notes ?? "");
         setKitId(request?.designated_kit ?? "none");
         setEntityId(request?.target_entity ?? "none");
         setExpectedReturn(isEdit ? (request?.expected_return ?? "") : "");
-        setDeliveryDate(request?.delivery_date ?? new Date().toISOString().split("T")[0]);
+        setDeliveryDate(request?.delivery_date ?? new Date().toLocaleDateString("en-CA"));
         setError("");
       });
     }

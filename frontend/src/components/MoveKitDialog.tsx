@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -38,13 +39,18 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
         setNotes("");
         setError("");
       });
-      listEntities().then(setEntities).catch(() => setError("Failed to load entities."));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      listEntities().then(setEntities).catch((err: any) => {
+        if (!err?.isAbort) setError("Failed to load entities.");
+      });
     }
   }, [open]);
 
   async function handleMove() {
+    if (isSubmittingRef.current) return;
     if (!toEntityId) { setError("Select destination entity."); return; }
     setError("");
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       await createTransaction({
@@ -60,6 +66,7 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
     } catch (e: any) {
       setError(e?.message ?? "Failed to move kit.");
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   }

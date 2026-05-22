@@ -1931,7 +1931,8 @@ routerAdd("POST", "/api/mcp", function(c) {
         toolName === "link_component_to_product" ||
         toolName === "update_entity" ||
         toolName === "update_kit" ||
-        toolName === "update_product"
+        toolName === "update_product" ||
+        toolName === "update_user_phone"
       );
 
       // Permission gate for write tools

@@ -2,6 +2,17 @@ import { useRef } from "react";
 import { Paperclip, FileText, Image, FileVideo, FileArchive, Trash2 } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 import { attachmentUrl } from "../services/kits";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 import type { Kit } from "../types";
 
 interface Props {
@@ -81,14 +92,27 @@ export function AttachmentList({ kit, onUpload, onDelete, canEdit }: Props) {
                   {filename}
                 </a>
                 {canEdit && onDelete && (
-                  <button
-                    onClick={() => onDelete(filename)}
-                    className="ml-auto shrink-0 text-muted-foreground hover:text-destructive transition-colors"
-                    aria-label={`Delete ${filename}`}
-                    data-testid={`attachment-delete-${filename}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        className="ml-auto shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label={`Delete ${filename}`}
+                        data-testid={`attachment-delete-${filename}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete attachment?</AlertDialogTitle>
+                        <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={() => onDelete(filename)}>Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </li>
             );

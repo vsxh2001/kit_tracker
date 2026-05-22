@@ -19,7 +19,7 @@ export function KitDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const at = searchParams.get("at") ?? undefined;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA");
   const { canTransferKits, canDecideRequests, isAdmin } = useAuth();
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);

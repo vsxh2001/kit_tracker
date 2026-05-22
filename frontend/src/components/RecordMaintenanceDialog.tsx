@@ -22,24 +22,28 @@ interface Props {
   onRecorded: () => void;
 }
 
+function addDaysLocal(yyyymmdd: string, days: number): string {
+  const [y, m, d] = yyyymmdd.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return dt.toLocaleDateString("en-CA");
+}
+
 export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }: Props) {
-  const [performedAt, setPerformedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [performedAt, setPerformedAt] = useState(new Date().toLocaleDateString("en-CA"));
   const [notes, setNotes] = useState("");
   const [certFile, setCertFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   function reset() {
-    setPerformedAt(new Date().toISOString().slice(0, 10));
+    setPerformedAt(new Date().toLocaleDateString("en-CA"));
     setNotes("");
     setCertFile(null);
     setError("");
   }
 
   function computeNextDue(): string {
-    const base = new Date(performedAt + "T00:00:00");
-    base.setDate(base.getDate() + schedule.interval_days);
-    return base.toISOString().slice(0, 10);
+    return addDaysLocal(performedAt, schedule.interval_days);
   }
 
   async function handleSubmit() {

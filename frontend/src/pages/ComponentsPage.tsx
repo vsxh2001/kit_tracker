@@ -8,7 +8,7 @@ import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { listComponents } from "../services/components";
-import { pb } from "../lib/pocketbase";
+import { listAllComponentTransactions } from "../services/componentTransactions";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import type { Component, ComponentTransaction, Kit } from "../types";
@@ -197,11 +197,7 @@ export function ComponentsPage() {
     try {
       const [components, allTxs] = await Promise.all([
         listComponents({ requestKey: "list-components-page" }),
-        pb.collection("component_transactions").getFullList<ComponentTransaction>({
-          sort: "-timestamp,-created",
-          expand: "to_kit,to_entity",
-          requestKey: "components-page-all-tx",
-        }),
+        listAllComponentTransactions(),
       ]);
       // Dedupe latest tx per component
       const latestByComponent = new Map<string, ComponentTransaction>();

@@ -9,7 +9,8 @@ import { KitFormDialog } from "../components/KitFormDialog";
 import { ImportKitsDialog } from "../components/ImportKitsDialog";
 import { BulkTransferDialog } from "../components/BulkTransferDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { listKits, getLatestTransaction, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
+import { listKits, exportKitsCsv, listUpcomingDeliveries, parseTags, softDeleteKit, updateKit } from "../services/kits";
+import { listLatestTxByKit } from "../services/transactions";
 import type { UpcomingDelivery } from "../services/kits";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { Skeleton } from "../components/ui/skeleton";
@@ -73,22 +74,22 @@ export function KitsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [kits, upcomingMap, allSchedules] = await Promise.all([
+      const [kits, upcomingMap, allSchedules, latestByKit] = await Promise.all([
         listKits(true),
         listUpcomingDeliveries(),
         listAllActiveSchedules(),
+        listLatestTxByKit(),
       ]);
-      const withLatest = await Promise.all(
-        kits.map(async (kit) => ({
-          kit,
-          latest: (await getLatestTransaction(kit.id)) ?? undefined,
-        }))
-      );
+      const withLatest = kits.map((kit) => ({
+        kit,
+        latest: latestByKit.get(kit.id),
+      }));
       setRows(withLatest);
       setDeliveries(upcomingMap);
       // Group schedules by kit
       const byKit = new Map<string, KitMaintenanceSchedule[]>();
       for (const s of allSchedules) {
+        if (!s.kit) continue;
         const arr = byKit.get(s.kit) ?? [];
         arr.push(s);
         byKit.set(s.kit, arr);
@@ -111,7 +112,7 @@ export function KitsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const date = new Date().toISOString().slice(0, 10);
+      const date = new Date().toLocaleDateString("en-CA");
       a.download = `kits-${date}.csv`;
       document.body.appendChild(a);
       a.click();

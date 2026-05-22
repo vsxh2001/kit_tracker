@@ -11,6 +11,11 @@ primary_region = "fra"
   PB_MIGRATIONS_DIR = "/app/pb/pb_migrations"
   PB_PUBLIC_DIR = "/app/pb_public"
 
+# Graceful shutdown: allow 30s for PocketBase to flush SQLite WAL and close cleanly.
+# Without this, Fly's default SIGKILL can interrupt mid-write and corrupt the DB.
+kill_signal = "SIGINT"
+kill_timeout = "30s"
+
 [[services]]
   internal_port = 8090
   protocol = "tcp"

@@ -38,8 +38,8 @@ function userLabel(shift: OnCallShift): string {
 function shiftsForDay(shifts: OnCallShift[], day: Date): OnCallShift[] {
   const dayStr = isoDate(day);
   return shifts.filter((s) => {
-    const start = s.start_at.slice(0, 10);
-    const end = s.end_at.slice(0, 10);
+    const start = new Date(s.start_at).toLocaleDateString("en-CA");
+    const end = new Date(s.end_at).toLocaleDateString("en-CA");
     return start <= dayStr && dayStr <= end;
   });
 }

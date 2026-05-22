@@ -20,6 +20,13 @@ export async function getComponent(id: string): Promise<Component> {
   });
 }
 
+export async function getComponentBySerial(serial: string): Promise<Component> {
+  return pb.collection("components").getFirstListItem<Component>(
+    pb.filter("serial = {:serial}", { serial }),
+    { expand: "product", requestKey: `get-component-by-serial-${serial}` }
+  );
+}
+
 export async function createComponent(data: Partial<Component>): Promise<Component> {
   return pb.collection("components").create<Component>(data);
 }

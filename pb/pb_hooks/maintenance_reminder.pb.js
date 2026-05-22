@@ -52,15 +52,29 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
   var due = [];
   for (var i = 0; i < schedules.length; i++) {
     var s = schedules[i];
-    try {
-      var kit = $app.dao().findRecordById("kits", s.getString("kit"));
-      if (!kit || !kit.getBool("is_active")) continue;
-      due.push({ schedule: s, kit: kit });
-    } catch (e) {
-      console.log("[maintenance-reminder] cron: kit lookup failed for schedule", s.id);
+    var kitId = s.getString("kit");
+    var compId = s.getString("component");
+    if (kitId) {
+      try {
+        var kit = $app.dao().findRecordById("kits", kitId);
+        if (!kit || !kit.getBool("is_active")) continue;
+        due.push({ schedule: s, target: kit.getString("serial") });
+      } catch (e) {
+        console.log("[maintenance-reminder] cron: kit lookup failed for schedule", s.id);
+      }
+    } else if (compId) {
+      try {
+        var comp = $app.dao().findRecordById("components", compId);
+        if (!comp) continue;
+        due.push({ schedule: s, target: comp.getString("serial") + " (component)" });
+      } catch (e) {
+        console.log("[maintenance-reminder] cron: component lookup failed for schedule", s.id);
+      }
+    } else {
+      console.log("[maintenance-reminder] cron: schedule has neither kit nor component, skipping", s.id);
     }
   }
-  if (due.length === 0) { console.log("[maintenance-reminder] cron: all matching schedules belong to retired kits."); return; }
+  if (due.length === 0) { console.log("[maintenance-reminder] cron: all matching schedules belong to retired kits/components."); return; }
 
   var admins = [];
   try {
@@ -111,7 +125,7 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
     rows.push(
       "<tr>" +
       "<td style='padding:4px 12px 4px 0'>" + flag + "</td>" +
-      "<td style='padding:4px 12px 4px 0'><b>" + escMaint(item.kit.getString("serial")) + "</b></td>" +
+      "<td style='padding:4px 12px 4px 0'><b>" + escMaint(item.target) + "</b></td>" +
       "<td style='padding:4px 12px 4px 0'>" + escMaint(item.schedule.getString("type")) + "</td>" +
       "<td style='padding:4px 12px 4px 0'>" + escMaint(dueDate) + "</td>" +
       "<td style='padding:4px 12px 4px 0'>" + escMaint(desc) + "</td>" +
@@ -123,7 +137,7 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
     "<h2>Maintenance digest</h2>" +
     "<p>" + due.length + " schedule(s) due within 7 days or overdue as of " + escMaint(todayStr) + ":</p>" +
     "<table style='border-collapse:collapse'>" +
-    "<thead><tr><th style='padding:4px 12px 4px 0;text-align:left'>Status</th><th style='padding:4px 12px 4px 0;text-align:left'>Kit</th><th style='padding:4px 12px 4px 0;text-align:left'>Type</th><th style='padding:4px 12px 4px 0;text-align:left'>Due date</th><th style='padding:4px 12px 4px 0;text-align:left'>Description</th></tr></thead>" +
+    "<thead><tr><th style='padding:4px 12px 4px 0;text-align:left'>Status</th><th style='padding:4px 12px 4px 0;text-align:left'>Kit / Component</th><th style='padding:4px 12px 4px 0;text-align:left'>Type</th><th style='padding:4px 12px 4px 0;text-align:left'>Due date</th><th style='padding:4px 12px 4px 0;text-align:left'>Description</th></tr></thead>" +
     "<tbody>" + rows.join("") + "</tbody></table>";
 
   var subject = "Kit Tracker: " + due.length + " maintenance item(s) due";
@@ -212,17 +226,31 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
   var due = [];
   for (var i = 0; i < schedules.length; i++) {
     var s = schedules[i];
-    try {
-      var kit = $app.dao().findRecordById("kits", s.getString("kit"));
-      if (!kit || !kit.getBool("is_active")) continue;
-      due.push({ schedule: s, kit: kit });
-    } catch (e) {
-      console.log("[maintenance-reminder] route: kit lookup failed for schedule", s.id);
+    var kitId = s.getString("kit");
+    var compId = s.getString("component");
+    if (kitId) {
+      try {
+        var kit = $app.dao().findRecordById("kits", kitId);
+        if (!kit || !kit.getBool("is_active")) continue;
+        due.push({ schedule: s, target: kit.getString("serial") });
+      } catch (e) {
+        console.log("[maintenance-reminder] route: kit lookup failed for schedule", s.id);
+      }
+    } else if (compId) {
+      try {
+        var comp = $app.dao().findRecordById("components", compId);
+        if (!comp) continue;
+        due.push({ schedule: s, target: comp.getString("serial") + " (component)" });
+      } catch (e) {
+        console.log("[maintenance-reminder] route: component lookup failed for schedule", s.id);
+      }
+    } else {
+      console.log("[maintenance-reminder] route: schedule has neither kit nor component, skipping", s.id);
     }
   }
 
   if (due.length === 0) {
-    return c.json(200, { fired: true, skipped: "retired_kits", due: 0, sent: 0 });
+    return c.json(200, { fired: true, skipped: "retired_kits_or_components", due: 0, sent: 0 });
   }
 
   var admins = [];
@@ -277,7 +305,7 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
     rows.push(
       "<tr>" +
       "<td style='padding:4px 12px 4px 0'>" + flag + "</td>" +
-      "<td style='padding:4px 12px 4px 0'><b>" + escMaint(item.kit.getString("serial")) + "</b></td>" +
+      "<td style='padding:4px 12px 4px 0'><b>" + escMaint(item.target) + "</b></td>" +
       "<td style='padding:4px 12px 4px 0'>" + escMaint(item.schedule.getString("type")) + "</td>" +
       "<td style='padding:4px 12px 4px 0'>" + escMaint(dueDate) + "</td>" +
       "<td style='padding:4px 12px 4px 0'>" + escMaint(desc) + "</td>" +
@@ -289,7 +317,7 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
     "<h2>Maintenance digest</h2>" +
     "<p>" + due.length + " schedule(s) due within 7 days or overdue as of " + escMaint(todayStr) + ":</p>" +
     "<table style='border-collapse:collapse'>" +
-    "<thead><tr><th style='padding:4px 12px 4px 0;text-align:left'>Status</th><th style='padding:4px 12px 4px 0;text-align:left'>Kit</th><th style='padding:4px 12px 4px 0;text-align:left'>Type</th><th style='padding:4px 12px 4px 0;text-align:left'>Due date</th><th style='padding:4px 12px 4px 0;text-align:left'>Description</th></tr></thead>" +
+    "<thead><tr><th style='padding:4px 12px 4px 0;text-align:left'>Status</th><th style='padding:4px 12px 4px 0;text-align:left'>Kit / Component</th><th style='padding:4px 12px 4px 0;text-align:left'>Type</th><th style='padding:4px 12px 4px 0;text-align:left'>Due date</th><th style='padding:4px 12px 4px 0;text-align:left'>Description</th></tr></thead>" +
     "<tbody>" + rows.join("") + "</tbody></table>";
 
   var subject = "Kit Tracker: " + due.length + " maintenance item(s) due";
