@@ -157,6 +157,9 @@ routerAdd("POST", "/api/invite/accept", function(c) {
   var usersCol = dao.findCollectionByNameOrId("users");
   var user = new Record(usersCol);
   user.set("email", email);
+  // username is a required system field on PB auth collections
+  var emailLocal = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+  user.set("username", emailLocal + "_" + $security.randomString(6).toLowerCase());
   user.set("name", name || email.split("@")[0]);
   user.set("role", role);
   user.set("emailVisibility", true);
