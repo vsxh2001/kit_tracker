@@ -47,6 +47,7 @@ export function RequestDetailPage() {
 
   async function load() {
     if (!id) return;
+    setLoading(true);
     try {
       const [r, k, e] = await Promise.all([getRequest(id), listKits(), listEntities()]);
       setRequest(r);

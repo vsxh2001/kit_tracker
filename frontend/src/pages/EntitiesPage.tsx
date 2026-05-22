@@ -58,7 +58,7 @@ export function EntitiesPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const date = new Date().toISOString().slice(0, 10);
+      const date = new Date().toLocaleDateString("en-CA");
       a.download = `entities-${date}.csv`;
       document.body.appendChild(a);
       a.click();
