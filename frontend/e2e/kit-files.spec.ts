@@ -97,8 +97,8 @@ test.describe("Kit files — delete", () => {
     await deleteBtn.click();
 
     // Confirm delete in AlertDialog
-    const confirmDeleteBtn = page.locator('button:has-text("Delete")').filter({ hasNot: page.locator('text=Delete attachment') });
-    await confirmDeleteBtn.first().click();
+    const confirmDeleteBtn = page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true });
+    await confirmDeleteBtn.click();
 
     // Wait for delete success toast
     await expect(page.getByText("Attachment deleted", { exact: true })).toBeVisible({ timeout: 10_000 });
