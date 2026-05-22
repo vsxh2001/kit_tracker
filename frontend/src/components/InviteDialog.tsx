@@ -8,6 +8,7 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
   Select,
@@ -42,6 +43,7 @@ interface Props {
 
 export function InviteDialog({ open, onClose }: Props) {
   const [role, setRole] = useState("user");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -74,15 +76,20 @@ export function InviteDialog({ open, onClose }: Props) {
         setGeneratedUrl(null);
         setCopied(false);
         setRole("user");
+        setInviteEmail("");
         void loadInvites();
       });
     }
   }, [open]);
 
   async function handleGenerate() {
+    if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
+      toast({ title: "Enter a valid email for the invite recipient.", variant: "destructive" });
+      return;
+    }
     setGenerating(true);
     try {
-      const result = await createInvite(role);
+      const result = await createInvite(role, inviteEmail.trim());
       setGeneratedUrl(result.url);
       startTransition(() => loadInvites());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,6 +144,17 @@ export function InviteDialog({ open, onClose }: Props) {
 
         {/* Generator */}
         <div className="space-y-3 mt-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-email">Recipient email</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="recipient@example.com"
+              required
+            />
+          </div>
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1.5">
               <Label htmlFor="invite-role">Role</Label>
@@ -190,7 +208,10 @@ export function InviteDialog({ open, onClose }: Props) {
                 <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${ROLE_BADGE[inv.role] ?? "bg-slate-100 text-slate-700"}`}>
                   {inv.role}
                 </span>
-                <span className="text-xs text-muted-foreground truncate">
+                {inv.email && (
+                  <span className="text-xs text-foreground truncate font-medium">{inv.email}</span>
+                )}
+                <span className="text-xs text-muted-foreground truncate shrink-0">
                   Created {formatDate(inv.created)}
                 </span>
               </div>
