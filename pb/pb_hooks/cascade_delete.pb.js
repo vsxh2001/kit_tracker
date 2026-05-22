@@ -190,6 +190,29 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       }
     } catch(_) {}
 
+    // component-scoped schedules (kit_maintenance_schedules where component IN kit's components)
+    try {
+      var compRecsForSched = dao.findRecordsByFilter(
+        "components", "kit = {:kid}", "", 200, 0, { kid: recordId }
+      );
+      for (var csi = 0; csi < compRecsForSched.length; csi++) {
+        try {
+          var compSchedRecs = dao.findRecordsByFilter(
+            "kit_maintenance_schedules", "component = {:cid}", "", 200, 0, { cid: compRecsForSched[csi].id }
+          );
+          counts.kit_maintenance_schedules += compSchedRecs.length;
+          for (var csj = 0; csj < compSchedRecs.length; csj++) {
+            try {
+              var csMrRows = dao.findRecordsByFilter(
+                "maintenance_records", "schedule = {:sid}", "", 200, 0, { sid: compSchedRecs[csj].id }
+              );
+              counts.maintenance_records += csMrRows.length;
+            } catch(_) {}
+          }
+        } catch(_) {}
+      }
+    } catch(_) {}
+
     try {
       var txnRecs = dao.findRecordsByFilter(
         "transactions", "kit = {:kid}", "", 200, 0, { kid: recordId }
@@ -488,6 +511,23 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
         } catch(_) {}
       }
     } catch(_) {}
+    // component-scoped schedules (predicted counts)
+    for (var pcs = 0; pcs < kitCompIds.length; pcs++) {
+      try {
+        var pcScheds = dao.findRecordsByFilter(
+          "kit_maintenance_schedules", "component = {:cid}", "", 200, 0, { cid: kitCompIds[pcs] }
+        );
+        predictedCounts.kit_maintenance_schedules += pcScheds.length;
+        for (var pcsj = 0; pcsj < pcScheds.length; pcsj++) {
+          try {
+            var pcMr = dao.findRecordsByFilter(
+              "maintenance_records", "schedule = {:sid}", "", 200, 0, { sid: pcScheds[pcsj].id }
+            );
+            predictedCounts.maintenance_records += pcMr.length;
+          } catch(_) {}
+        }
+      } catch(_) {}
+    }
     try {
       var kitTxns = dao.findRecordsByFilter(
         "transactions", "kit = {:kid}", "", 200, 0, { kid: recordId }
@@ -524,6 +564,10 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     predictedCounts = { transactions: 1 };
   }
 
+  // ---- read via tag (set by ai_chat/ai_mcp; falls back to "web") ----
+  var auditVia = "web";
+  try { var _av = c.get("audit_via"); if (_av) auditVia = String(_av); } catch(_) {}
+
   // ---- write audit row BEFORE delete ----
   try {
     var auditCol = dao.findCollectionByNameOrId("audit_log");
@@ -535,7 +579,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       changes:         JSON.stringify({
         before:  snapshot,
         cascade: { predicted: predictedCounts, predicted_at: predictedAt },
-        via:     "web"
+        via:     auditVia
       })
     });
     dao.saveRecord(auditRecord);
@@ -566,6 +610,28 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
           for (var dj = 0; dj < dcCt.length; dj++) {
             try { dao.deleteRecord(dcCt[dj]); deleted.component_transactions++; }
             catch(e) { partialError = e; console.log("[cascade_delete] comp_txn delete error:", e); }
+          }
+        } catch(_) {}
+      }
+
+      // (b1) component-scoped kit_maintenance_schedules (and their maintenance_records)
+      for (var dcsi = 0; dcsi < dcKitComps.length; dcsi++) {
+        try {
+          var dcCompScheds = dao.findRecordsByFilter(
+            "kit_maintenance_schedules", "component = {:cid}", "", 200, 0, { cid: dcKitComps[dcsi].id }
+          );
+          for (var dcsj = 0; dcsj < dcCompScheds.length; dcsj++) {
+            try {
+              var dcCompMr = dao.findRecordsByFilter(
+                "maintenance_records", "schedule = {:sid}", "", 200, 0, { sid: dcCompScheds[dcsj].id }
+              );
+              for (var dcmk = 0; dcmk < dcCompMr.length; dcmk++) {
+                try { dao.deleteRecord(dcCompMr[dcmk]); deleted.maintenance_records++; }
+                catch(e) { partialError = e; console.log("[cascade_delete] comp sched maint_rec delete error:", e); }
+              }
+            } catch(_) {}
+            try { dao.deleteRecord(dcCompScheds[dcsj]); deleted.kit_maintenance_schedules++; }
+            catch(e) { partialError = e; console.log("[cascade_delete] comp sched delete error:", e); }
           }
         } catch(_) {}
       }
@@ -690,7 +756,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
         action:          "cascade_partial",
         changes:         JSON.stringify({
           before:  snapshot,
-          cascade: { predicted: predictedCounts, actual: deleted, error: String(partialError), via: "web" }
+          cascade: { predicted: predictedCounts, actual: deleted, error: String(partialError), via: auditVia }
         })
       });
       dao.saveRecord(partialRecord);
