@@ -96,6 +96,10 @@ test.describe("Kit files — delete", () => {
     const deleteBtn = page.locator('[data-testid^="attachment-delete-"]').first();
     await deleteBtn.click();
 
+    // Confirm delete in AlertDialog
+    const confirmDeleteBtn = page.locator('button:has-text("Delete")').filter({ hasNot: page.locator('text=Delete attachment') });
+    await confirmDeleteBtn.first().click();
+
     // Wait for delete success toast
     await expect(page.getByText("Attachment deleted", { exact: true })).toBeVisible({ timeout: 10_000 });
 
