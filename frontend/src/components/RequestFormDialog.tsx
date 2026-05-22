@@ -49,7 +49,7 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
         setKitId(request?.designated_kit ?? "none");
         setEntityId(request?.target_entity ?? "none");
         setExpectedReturn(isEdit ? (request?.expected_return ?? "") : "");
-        setDeliveryDate(request?.delivery_date ?? new Date().toISOString().split("T")[0]);
+        setDeliveryDate(request?.delivery_date ?? new Date().toLocaleDateString("en-CA"));
         setError("");
       });
     }

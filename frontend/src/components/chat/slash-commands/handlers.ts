@@ -59,7 +59,8 @@ export async function handleKit(args: string[]): Promise<SlashResult> {
   const openMaint = schedules.filter((s) => maintenanceStatus(s.next_due_at) !== "ok");
   let maintLines = "";
   if (openMaint.length > 0) {
-    const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00").getTime();
+    const todayLocal = new Date().toLocaleDateString("en-CA");
+    const today = new Date(todayLocal + "T00:00:00").getTime();
     const items = openMaint.slice(0, 5).map((s) => {
       const due = new Date(s.next_due_at.slice(0, 10) + "T00:00:00").getTime();
       const days = Math.round((due - today) / 86400000);
@@ -277,8 +278,8 @@ export async function handleAt(args: string[]): Promise<SlashResult> {
 export async function handleUpcoming(): Promise<SlashResult> {
   const in30 = new Date();
   in30.setDate(in30.getDate() + 30);
-  const today = new Date().toISOString().slice(0, 10);
-  const limit = in30.toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA");
+  const limit = new Date(in30.getFullYear(), in30.getMonth(), in30.getDate()).toLocaleDateString("en-CA");
 
   const requests = await listRequests().catch(() => []);
   const filtered = requests
@@ -306,7 +307,7 @@ export async function handleUpcoming(): Promise<SlashResult> {
 export async function handleDue(): Promise<SlashResult> {
   const in7 = new Date();
   in7.setDate(in7.getDate() + 7);
-  const limit = in7.toISOString().slice(0, 10);
+  const limit = new Date(in7.getFullYear(), in7.getMonth(), in7.getDate()).toLocaleDateString("en-CA");
 
   const schedules = await listAllActiveSchedules().catch(() => []);
   const due = schedules.filter((s) => {
@@ -320,7 +321,7 @@ export async function handleDue(): Promise<SlashResult> {
     return { ok: true, text: "No maintenance due in the next 7 days." };
   }
 
-  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00").getTime();
+  const today = new Date(new Date().toLocaleDateString("en-CA") + "T00:00:00").getTime();
   const shown = due.slice(0, 5);
   const rest = due.length - shown.length;
   const items = shown.map((s) => {
@@ -362,7 +363,7 @@ export async function handleMe(): Promise<SlashResult> {
 // ─── /today ───────────────────────────────────────────────────────────────────
 
 export async function handleToday(): Promise<SlashResult> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA");
 
   const [openRequests, onCallUsers, schedules] = await Promise.all([
     listRequests("open").catch(() => []),

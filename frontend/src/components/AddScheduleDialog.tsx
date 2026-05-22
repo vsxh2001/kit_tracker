@@ -81,10 +81,10 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
     if (lastDoneAt) {
       const base = new Date(lastDoneAt + "T00:00:00");
       base.setDate(base.getDate() + interval);
-      return base.toISOString().slice(0, 10);
+      return new Date(base.getFullYear(), base.getMonth(), base.getDate()).toLocaleDateString("en-CA");
     }
     // no lastDoneAt → today
-    return new Date().toISOString().slice(0, 10);
+    return new Date().toLocaleDateString("en-CA");
   }
 
   async function handleSave() {
