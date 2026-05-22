@@ -42,7 +42,8 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
     if (open) {
       Promise.all([listKits(), listEntities()])
         .then(([k, e]) => { setKits(k); setEntities(e); })
-        .catch(() => setError("Failed to load options."));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .catch((err: any) => { if (!err?.isAbort) setError("Failed to load options."); });
       // Pre-fill from existing request when editing, otherwise reset
       startTransition(() => {
         setNotes(request?.notes ?? "");

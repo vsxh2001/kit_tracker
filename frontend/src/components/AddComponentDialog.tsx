@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +54,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -98,7 +99,8 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
               setSelectedProduct(found);
             }
           })
-          .catch(() => {});
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .catch((err: any) => { if (!err?.isAbort) console.error(err); });
       } else {
         listProducts({ includeInactive: false })
           .then((prods) => {
@@ -106,7 +108,8 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
             setPresetProduct(null);
             setSelectedProduct(null);
           })
-          .catch(() => {});
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .catch((err: any) => { if (!err?.isAbort) console.error(err); });
       }
     }
   }, [open, isAdmin, canTransferKits, presetProductId]);
@@ -128,6 +131,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
   }
 
   async function handleCreate() {
+    if (isSubmittingRef.current) return;
     if (!productId) { setError("Product is required."); return; }
     const prod = selectedProduct ?? presetProduct;
     if (prod?.is_serialized && !serial.trim()) {
@@ -135,6 +139,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
       return;
     }
     setError("");
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const isSerialized = prod ? prod.is_serialized : !isBulk;
@@ -165,13 +170,16 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
     } catch (e: any) {
       setError(e?.message ?? "Failed to create component.");
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   }
 
   async function handleMove() {
+    if (isSubmittingRef.current) return;
     if (!selectedId) { setError("Select a component."); return; }
     setError("");
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const selected = existingComponents.find((c) => c.id === selectedId);
@@ -191,6 +199,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
     } catch (e: any) {
       setError(e?.message ?? "Failed to move component.");
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   }
