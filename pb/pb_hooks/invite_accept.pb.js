@@ -178,7 +178,7 @@ routerAdd("POST", "/api/invite/accept", function(c) {
 
   // Issue auth token
   try {
-    var authToken = $tokens.recordAuthToken(user);
+    var authToken = $tokens.recordAuthToken($app, user);
     return c.json(200, {
       token: authToken,
       record: {

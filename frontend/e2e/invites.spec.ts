@@ -144,7 +144,7 @@ test.describe("Invite email binding", () => {
     await page.goto(`${BASE_URL}/login`);
     await page.getByLabel(/email/i).fill("logistics@kit.local");
     await page.getByLabel(/password/i).fill("Pass1234!");
-    await page.getByRole("button", { name: /log in/i }).click();
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL(/\/dashboard/, { timeout: 10_000 });
 
     // Navigate to users page
