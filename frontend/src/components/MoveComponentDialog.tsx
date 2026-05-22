@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -48,13 +49,18 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
       });
       Promise.all([listKits(), listEntities()])
         .then(([k, e]) => { setKits(k); setEntities(e); })
-        .catch(() => setError("Failed to load destinations."));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .catch((err: any) => {
+          if (!err?.isAbort) setError("Failed to load destinations.");
+        });
     }
   }, [open, component.quantity]);
 
   async function handleMove() {
+    if (isSubmittingRef.current) return;
     if (!targetId) { setError("Select a destination."); return; }
     setError("");
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const moveQty = parseInt(qty, 10) || 1;
@@ -86,6 +92,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
     } catch (e: any) {
       setError(e?.message ?? "Failed to move component.");
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   }
