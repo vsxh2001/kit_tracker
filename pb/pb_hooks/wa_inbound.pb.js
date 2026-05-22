@@ -368,18 +368,21 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   }
 
   // --- MessageSid idempotency (Twilio retries on 5xx/timeout) ---
-  // Cache seen SIDs for 1h. If already processed, ack 200 silently.
+  // Cache seen SIDs for 24h. If already processed, ack 200 silently.
   if (msgSid) {
     var seenKey = "wa_seen:" + msgSid;
     var ttlMs = 24 * 60 * 60 * 1000; // 24h — well beyond Twilio retry window
     var now = Date.now();
     var existing = null;
-    try { existing = $app.store().get(seenKey); } catch (e) {}
+    try {
+      var existingRaw = $app.store().get(seenKey);
+      if (existingRaw) existing = JSON.parse(existingRaw);
+    } catch (e) {}
     if (existing && existing.expires > now) {
       console.log("[wa_inbound] duplicate MessageSid " + msgSid + " — skipping");
       return c.string(200, "");
     }
-    try { $app.store().set(seenKey, { expires: now + ttlMs }); } catch (e) {}
+    try { $app.store().set(seenKey, JSON.stringify({ expires: now + ttlMs })); } catch (e) {}
   }
 
   // Strip "whatsapp:" prefix
@@ -456,7 +459,7 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
   function isWriteAuthorized(userRec) {
     try {
       var r = userRec && userRec.get && userRec.get("role");
-      return r === "admin" || r === "technician" || r === "user";
+      return r === "admin" || r === "technician";
     } catch (_) { return false; }
   }
 
@@ -537,7 +540,7 @@ routerAdd("POST", "/api/wa/webhook", function(c) {
             kit: kitRec.id,
             from_entity: fromEntityId,
             to_entity: deArgs.to_entity_id,
-            timestamp: new Date().toISOString().replace("T", " ").substring(0, 19) + ".000Z",
+            timestamp: new Date().toISOString(),
             notes: "RETURN via WhatsApp",
             created_by: user.id
           });
