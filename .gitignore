@@ -22,6 +22,9 @@ node_modules/
 # Frontend build
 frontend/dist/
 
+# Playwright test runtime outputs
+frontend/test-results/
+
 # Agent worktrees + memory + scratchpads (never commit)
 .claude/worktrees/
 .claude/agent-memory/
