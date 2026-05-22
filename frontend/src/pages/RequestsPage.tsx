@@ -38,7 +38,13 @@ function getDeliveryFromParams(params: URLSearchParams): DeliveryFilter {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA");
+}
+
+function localDateAddDays(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString("en-CA");
 }
 
 function matchesDelivery(r: KitRequest, filter: DeliveryFilter): boolean {
@@ -52,16 +58,12 @@ function matchesDelivery(r: KitRequest, filter: DeliveryFilter): boolean {
     return delivery === today;
   }
   // next 7 days: today <= delivery <= today+7
-  const d7 = new Date(today);
-  d7.setDate(d7.getDate() + 7);
-  const iso7 = d7.toISOString().slice(0, 10);
+  const iso7 = localDateAddDays(7);
   if (filter === "this-week") {
     return delivery >= today && delivery <= iso7;
   }
   // next 30 days
-  const d30 = new Date(today);
-  d30.setDate(d30.getDate() + 30);
-  const iso30 = d30.toISOString().slice(0, 10);
+  const iso30 = localDateAddDays(30);
   return delivery >= today && delivery <= iso30;
 }
 

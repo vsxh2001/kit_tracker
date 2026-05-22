@@ -33,6 +33,7 @@ export function EntityDetailPage() {
 
   async function load() {
     if (!id) return;
+    setLoading(true);
     let aborted = false;
     try {
       const [e, txs, comps] = await Promise.all([
