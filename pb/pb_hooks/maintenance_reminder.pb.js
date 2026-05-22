@@ -170,6 +170,93 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
   }
 
   console.log("[maintenance-reminder] cron: done — due:", due.length, "sent:", sent);
+
+  // -----------------------------------------------------------------------
+  // WhatsApp digest (Meta Cloud API) — for each admin/technician with phone
+  // Best-effort: failures log but never block.
+  // -----------------------------------------------------------------------
+  var waPhoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+  var waToken = $os.getenv("WHATSAPP_TOKEN") || "";
+
+  if (waPhoneNumberId && waToken) {
+    // Build plain-text bullet list
+    var waBullets = [];
+    for (var wb = 0; wb < due.length; wb++) {
+      var wItem = due[wb];
+      var wDueDate = wItem.schedule.getString("next_due_at");
+      var wType = wItem.schedule.getString("type") || "";
+      waBullets.push("• " + wItem.target + ": " + wType + " due " + wDueDate);
+    }
+    var waMsgText = "Maintenance digest — " + due.length + " schedule(s) due:\n" + waBullets.join("\n");
+
+    var waApiUrl = "https://graph.facebook.com/v19.0/" + waPhoneNumberId + "/messages";
+
+    for (var wk = 0; wk < recipientIdsCron.length; wk++) {
+      var waRecip = recipientsMapCron[recipientIdsCron[wk]];
+      var waPhone = waRecip.getString("phone") || "";
+      if (!waPhone) continue;
+
+      // Normalize phone
+      if (waPhone.indexOf("whatsapp:") === 0) waPhone = waPhone.substring("whatsapp:".length);
+
+      var waPayload = JSON.stringify({
+        messaging_product: "whatsapp",
+        to: waPhone,
+        type: "text",
+        text: { body: waMsgText }
+      });
+
+      var waSuccess = false;
+      var waWamid = "failed";
+
+      try {
+        var waRes = $http.send({
+          method: "POST",
+          url: waApiUrl,
+          body: waPayload,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + waToken
+          },
+          timeout: 10000
+        });
+
+        if (waRes.statusCode >= 200 && waRes.statusCode < 300) {
+          waSuccess = true;
+          try {
+            var waParsed = JSON.parse(waRes.raw);
+            if (waParsed && waParsed.messages && waParsed.messages[0] && waParsed.messages[0].id) {
+              waWamid = waParsed.messages[0].id;
+            }
+          } catch (_) {}
+          console.log("[maintenance-reminder] cron: WA sent to " + waPhone + " wamid=" + waWamid);
+        } else {
+          console.log("[maintenance-reminder] cron: WA Meta API " + waRes.statusCode + ": " + waRes.raw);
+        }
+      } catch (waHttpErr) {
+        console.log("[maintenance-reminder] cron: WA HTTP error:", waHttpErr);
+      }
+
+      // Audit log — best-effort
+      try {
+        var waAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+        var waAuditRec = new Record(waAuditCol);
+        waAuditRec.set("collection_name", "messages");
+        waAuditRec.set("record_id", waWamid);
+        waAuditRec.set("action", "send_whatsapp");
+        waAuditRec.set("changes", JSON.stringify({
+          to: waPhone,
+          event: "maintenance_digest",
+          success: waSuccess
+        }));
+        $app.dao().saveRecord(waAuditRec);
+      } catch (waAuditErr) {
+        console.log("[maintenance-reminder] cron: audit_log WA write failed:", waAuditErr);
+      }
+    }
+  } else {
+    console.log("[maintenance-reminder] cron: WHATSAPP_PHONE_NUMBER_ID/TOKEN not set — skipping WA.");
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -350,5 +437,91 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
   }
 
   console.log("[maintenance-reminder] route: done — due:", due.length, "sent:", sent);
+
+  // -----------------------------------------------------------------------
+  // WhatsApp digest (Meta Cloud API) — for each admin/technician with phone
+  // Best-effort: failures log but never block.
+  // -----------------------------------------------------------------------
+  var waPhoneNumberIdR = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+  var waTokenR = $os.getenv("WHATSAPP_TOKEN") || "";
+
+  if (waPhoneNumberIdR && waTokenR) {
+    var waBulletsR = [];
+    for (var wbR = 0; wbR < due.length; wbR++) {
+      var wItemR = due[wbR];
+      var wDueDateR = wItemR.schedule.getString("next_due_at");
+      var wTypeR = wItemR.schedule.getString("type") || "";
+      waBulletsR.push("• " + wItemR.target + ": " + wTypeR + " due " + wDueDateR);
+    }
+    var waMsgTextR = "Maintenance digest — " + due.length + " schedule(s) due:\n" + waBulletsR.join("\n");
+
+    var waApiUrlR = "https://graph.facebook.com/v19.0/" + waPhoneNumberIdR + "/messages";
+
+    for (var wkR = 0; wkR < recipientIdsRoute.length; wkR++) {
+      var waRecipR = recipientsMapRoute[recipientIdsRoute[wkR]];
+      var waPhoneR = waRecipR.getString("phone") || "";
+      if (!waPhoneR) continue;
+
+      if (waPhoneR.indexOf("whatsapp:") === 0) waPhoneR = waPhoneR.substring("whatsapp:".length);
+
+      var waPayloadR = JSON.stringify({
+        messaging_product: "whatsapp",
+        to: waPhoneR,
+        type: "text",
+        text: { body: waMsgTextR }
+      });
+
+      var waSuccessR = false;
+      var waWamidR = "failed";
+
+      try {
+        var waResR = $http.send({
+          method: "POST",
+          url: waApiUrlR,
+          body: waPayloadR,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + waTokenR
+          },
+          timeout: 10000
+        });
+
+        if (waResR.statusCode >= 200 && waResR.statusCode < 300) {
+          waSuccessR = true;
+          try {
+            var waParsedR = JSON.parse(waResR.raw);
+            if (waParsedR && waParsedR.messages && waParsedR.messages[0] && waParsedR.messages[0].id) {
+              waWamidR = waParsedR.messages[0].id;
+            }
+          } catch (_) {}
+          console.log("[maintenance-reminder] route: WA sent to " + waPhoneR + " wamid=" + waWamidR);
+        } else {
+          console.log("[maintenance-reminder] route: WA Meta API " + waResR.statusCode + ": " + waResR.raw);
+        }
+      } catch (waHttpErrR) {
+        console.log("[maintenance-reminder] route: WA HTTP error:", waHttpErrR);
+      }
+
+      // Audit log — best-effort
+      try {
+        var waAuditColR = $app.dao().findCollectionByNameOrId("audit_log");
+        var waAuditRecR = new Record(waAuditColR);
+        waAuditRecR.set("collection_name", "messages");
+        waAuditRecR.set("record_id", waWamidR);
+        waAuditRecR.set("action", "send_whatsapp");
+        waAuditRecR.set("changes", JSON.stringify({
+          to: waPhoneR,
+          event: "maintenance_digest",
+          success: waSuccessR
+        }));
+        $app.dao().saveRecord(waAuditRecR);
+      } catch (waAuditErrR) {
+        console.log("[maintenance-reminder] route: audit_log WA write failed:", waAuditErrR);
+      }
+    }
+  } else {
+    console.log("[maintenance-reminder] route: WHATSAPP_PHONE_NUMBER_ID/TOKEN not set — skipping WA.");
+  }
+
   return c.json(200, { fired: true, skipped: null, due: due.length, sent: sent });
 });
