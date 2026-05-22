@@ -123,10 +123,10 @@ test.describe("AI Chat sidebar", () => {
     await input.fill("where is kit abc?");
     await input.press("Enter");
 
-    // The ID should be rendered as a link
-    const link = page.getByRole("link", { name: "abc1234567890de" });
-    await expect(link).toBeVisible({ timeout: 10_000 });
-    await expect(link).toHaveAttribute("href", /\/kits\/abc1234567890de/);
+    // The ID should be rendered as plain code (not a link), since auto-linking was removed
+    // to avoid 404s when linking non-kit record IDs
+    const code = page.locator("code", { has: page.locator("text=abc1234567890de") });
+    await expect(code).toBeVisible({ timeout: 10_000 });
   });
 
   test("Send button triggers message send", async ({ page }) => {
