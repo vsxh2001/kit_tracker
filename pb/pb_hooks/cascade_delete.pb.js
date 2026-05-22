@@ -77,7 +77,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       var txRows = dao.findRecordsByFilter(
         "transactions",
         "from_entity = {:eid} || to_entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (txRows.length > 0) {
         blocked = true;
@@ -94,7 +94,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       var reqRows = dao.findRecordsByFilter(
         "requests",
         "target_entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (reqRows.length > 0) {
         blocked = true;
@@ -111,7 +111,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       var ctFromRows = dao.findRecordsByFilter(
         "component_transactions",
         "from_entity = {:eid} || to_entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (ctFromRows.length > 0) {
         blocked = true;
@@ -128,7 +128,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       var userRows = dao.findRecordsByFilter(
         "users",
         "entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (userRows.length > 0) {
         blocked = true;
@@ -160,14 +160,14 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
 
     try {
       var compRecs = dao.findRecordsByFilter(
-        "components", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "components", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       counts.components = compRecs.length;
 
       for (var ci2 = 0; ci2 < compRecs.length; ci2++) {
         try {
           var ctRows = dao.findRecordsByFilter(
-            "component_transactions", "component = {:cid}", "", 0, 200, { cid: compRecs[ci2].id }
+            "component_transactions", "component = {:cid}", "", 200, 0, { cid: compRecs[ci2].id }
           );
           counts.component_transactions += ctRows.length;
         } catch(_) {}
@@ -176,14 +176,14 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
 
     try {
       var schedRecs = dao.findRecordsByFilter(
-        "kit_maintenance_schedules", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "kit_maintenance_schedules", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       counts.kit_maintenance_schedules = schedRecs.length;
 
       for (var si = 0; si < schedRecs.length; si++) {
         try {
           var mrRows = dao.findRecordsByFilter(
-            "maintenance_records", "schedule = {:sid}", "", 0, 200, { sid: schedRecs[si].id }
+            "maintenance_records", "schedule = {:sid}", "", 200, 0, { sid: schedRecs[si].id }
           );
           counts.maintenance_records += mrRows.length;
         } catch(_) {}
@@ -192,7 +192,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
 
     try {
       var txnRecs = dao.findRecordsByFilter(
-        "transactions", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "transactions", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       counts.transactions = txnRecs.length;
     } catch(_) {}
@@ -202,7 +202,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
       var kitReqRows = dao.findRecordsByFilter(
         "requests",
         "designated_kit = {:kid}",
-        "", 0, 100, { kid: recordId }
+        "", 100, 0, { kid: recordId }
       );
       counts.requests = kitReqRows.length;
       if (kitReqRows.length > 0) {
@@ -231,7 +231,7 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
     var compCounts = { components: 1, component_transactions: 0 };
     try {
       var ctRecs = dao.findRecordsByFilter(
-        "component_transactions", "component = {:cid}", "", 0, 200, { cid: recordId }
+        "component_transactions", "component = {:cid}", "", 200, 0, { cid: recordId }
       );
       compCounts.component_transactions = ctRecs.length;
     } catch(_) {}
@@ -252,14 +252,14 @@ routerAdd("POST", "/api/admin/cascade-delete/preview", function(c) {
     var prodCounts = { products: 1, components: 0, component_transactions: 0 };
     try {
       var prodComps = dao.findRecordsByFilter(
-        "components", "product = {:pid}", "", 0, 200, { pid: recordId }
+        "components", "product = {:pid}", "", 200, 0, { pid: recordId }
       );
       prodCounts.components = prodComps.length;
 
       for (var pci = 0; pci < prodComps.length; pci++) {
         try {
           var pctRows = dao.findRecordsByFilter(
-            "component_transactions", "component = {:cid}", "", 0, 200, { cid: prodComps[pci].id }
+            "component_transactions", "component = {:cid}", "", 200, 0, { cid: prodComps[pci].id }
           );
           prodCounts.component_transactions += pctRows.length;
         } catch(_) {}
@@ -353,7 +353,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       var txRows2 = dao.findRecordsByFilter(
         "transactions",
         "from_entity = {:eid} || to_entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (txRows2.length > 0) {
         blocked2 = true;
@@ -369,7 +369,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       var reqRows2 = dao.findRecordsByFilter(
         "requests",
         "target_entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (reqRows2.length > 0) {
         blocked2 = true;
@@ -385,7 +385,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       var ctFromRows2 = dao.findRecordsByFilter(
         "component_transactions",
         "from_entity = {:eid} || to_entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (ctFromRows2.length > 0) {
         blocked2 = true;
@@ -401,7 +401,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       var userRows2 = dao.findRecordsByFilter(
         "users",
         "entity = {:eid}",
-        "", 0, 100, { eid: recordId }
+        "", 100, 0, { eid: recordId }
       );
       if (userRows2.length > 0) {
         blocked2 = true;
@@ -420,7 +420,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
       var kitReqCheck = dao.findRecordsByFilter(
         "requests",
         "designated_kit = {:kid}",
-        "", 0, 2, { kid: recordId }
+        "", 2, 0, { kid: recordId }
       );
       if (kitReqCheck.length > 0) {
         return c.json(400, {
@@ -459,14 +459,14 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     var kitCompIds = [];
     try {
       var kitComps = dao.findRecordsByFilter(
-        "components", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "components", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       predictedCounts.components = kitComps.length;
       for (var pc = 0; pc < kitComps.length; pc++) {
         kitCompIds.push(kitComps[pc].id);
         try {
           var pct = dao.findRecordsByFilter(
-            "component_transactions", "component = {:cid}", "", 0, 200, { cid: kitComps[pc].id }
+            "component_transactions", "component = {:cid}", "", 200, 0, { cid: kitComps[pc].id }
           );
           predictedCounts.component_transactions += pct.length;
         } catch(_) {}
@@ -475,14 +475,14 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     var kitSchedIds = [];
     try {
       var kitScheds = dao.findRecordsByFilter(
-        "kit_maintenance_schedules", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "kit_maintenance_schedules", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       predictedCounts.kit_maintenance_schedules = kitScheds.length;
       for (var ps = 0; ps < kitScheds.length; ps++) {
         kitSchedIds.push(kitScheds[ps].id);
         try {
           var pmr = dao.findRecordsByFilter(
-            "maintenance_records", "schedule = {:sid}", "", 0, 200, { sid: kitScheds[ps].id }
+            "maintenance_records", "schedule = {:sid}", "", 200, 0, { sid: kitScheds[ps].id }
           );
           predictedCounts.maintenance_records += pmr.length;
         } catch(_) {}
@@ -490,7 +490,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     } catch(_) {}
     try {
       var kitTxns = dao.findRecordsByFilter(
-        "transactions", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "transactions", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       predictedCounts.transactions = kitTxns.length;
     } catch(_) {}
@@ -500,7 +500,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     predictedCounts = { components: 1, component_transactions: 0 };
     try {
       var compTxns = dao.findRecordsByFilter(
-        "component_transactions", "component = {:cid}", "", 0, 200, { cid: recordId }
+        "component_transactions", "component = {:cid}", "", 200, 0, { cid: recordId }
       );
       predictedCounts.component_transactions = compTxns.length;
     } catch(_) {}
@@ -508,13 +508,13 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     predictedCounts = { products: 1, components: 0, component_transactions: 0 };
     try {
       var predProdComps = dao.findRecordsByFilter(
-        "components", "product = {:pid}", "", 0, 200, { pid: recordId }
+        "components", "product = {:pid}", "", 200, 0, { pid: recordId }
       );
       predictedCounts.components = predProdComps.length;
       for (var ppc = 0; ppc < predProdComps.length; ppc++) {
         try {
           var ppct = dao.findRecordsByFilter(
-            "component_transactions", "component = {:cid}", "", 0, 200, { cid: predProdComps[ppc].id }
+            "component_transactions", "component = {:cid}", "", 200, 0, { cid: predProdComps[ppc].id }
           );
           predictedCounts.component_transactions += ppct.length;
         } catch(_) {}
@@ -556,12 +556,12 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     // (a) component_transactions for components in this kit
     try {
       var dcKitComps = dao.findRecordsByFilter(
-        "components", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "components", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       for (var dci = 0; dci < dcKitComps.length; dci++) {
         try {
           var dcCt = dao.findRecordsByFilter(
-            "component_transactions", "component = {:cid}", "", 0, 200, { cid: dcKitComps[dci].id }
+            "component_transactions", "component = {:cid}", "", 200, 0, { cid: dcKitComps[dci].id }
           );
           for (var dj = 0; dj < dcCt.length; dj++) {
             try { dao.deleteRecord(dcCt[dj]); deleted.component_transactions++; }
@@ -580,12 +580,12 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     // (c) maintenance_records for schedules in this kit
     try {
       var dcScheds = dao.findRecordsByFilter(
-        "kit_maintenance_schedules", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "kit_maintenance_schedules", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       for (var dsi = 0; dsi < dcScheds.length; dsi++) {
         try {
           var dcMr = dao.findRecordsByFilter(
-            "maintenance_records", "schedule = {:sid}", "", 0, 200, { sid: dcScheds[dsi].id }
+            "maintenance_records", "schedule = {:sid}", "", 200, 0, { sid: dcScheds[dsi].id }
           );
           for (var dmj = 0; dmj < dcMr.length; dmj++) {
             try { dao.deleteRecord(dcMr[dmj]); deleted.maintenance_records++; }
@@ -604,7 +604,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     // (e) transactions
     try {
       var dcTxns = dao.findRecordsByFilter(
-        "transactions", "kit = {:kid}", "", 0, 200, { kid: recordId }
+        "transactions", "kit = {:kid}", "", 200, 0, { kid: recordId }
       );
       for (var dti = 0; dti < dcTxns.length; dti++) {
         try { dao.deleteRecord(dcTxns[dti]); deleted.transactions++; }
@@ -627,7 +627,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     // (a) component_transactions
     try {
       var dcCompTxns = dao.findRecordsByFilter(
-        "component_transactions", "component = {:cid}", "", 0, 200, { cid: recordId }
+        "component_transactions", "component = {:cid}", "", 200, 0, { cid: recordId }
       );
       for (var dcj = 0; dcj < dcCompTxns.length; dcj++) {
         try { dao.deleteRecord(dcCompTxns[dcj]); deleted.component_transactions++; }
@@ -645,14 +645,14 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     // (a) find all components for this product
     try {
       var dcProdComps = dao.findRecordsByFilter(
-        "components", "product = {:pid}", "", 0, 200, { pid: recordId }
+        "components", "product = {:pid}", "", 200, 0, { pid: recordId }
       );
 
       // (b) for each component, find + delete component_transactions
       for (var dpci = 0; dpci < dcProdComps.length; dpci++) {
         try {
           var dpct = dao.findRecordsByFilter(
-            "component_transactions", "component = {:cid}", "", 0, 200, { cid: dcProdComps[dpci].id }
+            "component_transactions", "component = {:cid}", "", 200, 0, { cid: dcProdComps[dpci].id }
           );
           for (var dptj = 0; dptj < dpct.length; dptj++) {
             try { dao.deleteRecord(dpct[dptj]); deleted.component_transactions++; }
