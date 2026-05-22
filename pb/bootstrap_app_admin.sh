@@ -58,11 +58,12 @@ if [ "${EXISTING_COUNT:-0}" -gt 0 ]; then
     -d '{"role":"admin","verified":true}')
   if [ "$HTTP_STATUS" = "200" ]; then
     echo "App user $ADMIN_EMAIL promoted to role=admin (was '$EXISTING_ROLE')"
+    exit 0
   else
-    echo "WARN: bootstrap_app_admin.sh — failed to promote $ADMIN_EMAIL (HTTP $HTTP_STATUS):" >&2
+    echo "ERROR: bootstrap_app_admin.sh — failed to promote $ADMIN_EMAIL (HTTP $HTTP_STATUS):" >&2
     cat /tmp/bootstrap_resp.json >&2
+    exit 1
   fi
-  exit 0
 fi
 
 # User doesn't exist — create with role=admin, verified, using same password as superuser
@@ -79,7 +80,9 @@ HTTP_STATUS=$(curl -s -o /tmp/bootstrap_resp.json -w "%{http_code}" \
 
 if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
   echo "App admin user $ADMIN_EMAIL created"
+  exit 0
 else
-  echo "WARN: bootstrap_app_admin.sh — failed to create app admin (HTTP $HTTP_STATUS):" >&2
+  echo "ERROR: bootstrap_app_admin.sh — failed to create app admin (HTTP $HTTP_STATUS):" >&2
   cat /tmp/bootstrap_resp.json >&2
+  exit 1
 fi

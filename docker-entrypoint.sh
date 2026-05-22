@@ -6,7 +6,8 @@ set -e
 
 # Initialize migrations before creating admin — PB v0.22 requires a migrated DB
 # before `admin create` can succeed on a fresh volume.
-./pocketbase migrate up --dir=/app/pb_data --migrationsDir=/app/pb/pb_migrations || true
+# Fail fast: if migrations error, operator will see it in logs instead of a silently broken DB.
+./pocketbase migrate up --dir=/app/pb_data --migrationsDir=/app/pb/pb_migrations
 
 # NOTE: PocketBase v0.22's `admin create` command unconditionally requires the
 # password as a positional CLI argument (argv[2]).  It provides no --password-file
@@ -48,7 +49,8 @@ done
 /app/pb/setup_collections.sh
 
 # Setup app admin matching PB superuser (idempotent, runs every boot)
-/app/pb/bootstrap_app_admin.sh || echo "WARN: bootstrap_app_admin.sh failed"
+# Fail fast: let bootstrap errors surface in logs instead of silently broken admin auth.
+/app/pb/bootstrap_app_admin.sh
 
 # Seed test users (dev/CI only — keep hardcoded Pass1234! out of prod)
 if [ "${SEED_TEST_USERS:-0}" = "1" ]; then
