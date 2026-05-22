@@ -277,6 +277,37 @@ flyctl secrets set -a kit-tracker \
 `SMTP_TLS` defaults to `true` (correct for port 587 STARTTLS). Set `SMTP_TLS=false` only for
 unauthenticated relay (e.g. MailHog on port 1025 in local dev).
 
+### WhatsApp Meta Cloud API setup
+
+Hook: `pb/pb_hooks/wa_meta_webhook.pb.js` (Phase 1 — side-by-side with Twilio).
+
+**Fly secrets required:**
+
+```bash
+flyctl secrets set -a kit-tracker \
+  WHATSAPP_VERIFY_TOKEN=<random-string>        \
+  WHATSAPP_PHONE_NUMBER_ID=1059995567204667    \
+  WHATSAPP_TOKEN=<bearer-token-from-meta>
+```
+
+- `WHATSAPP_VERIFY_TOKEN` — arbitrary random string; must match what you enter in the Meta
+  Developer Console webhook configuration. Generate with `openssl rand -hex 20`.
+- `WHATSAPP_PHONE_NUMBER_ID` — found in Meta Business Suite → WhatsApp → API Setup
+  (e.g. `1059995567204667`).
+- `WHATSAPP_TOKEN` — permanent system-user access token from Meta Business Suite.
+
+**Webhook URL** (register in Meta Developer Console → WhatsApp → Configuration):
+```
+https://kit-tracker.fly.dev/api/wa/meta/webhook
+```
+Subscribe to the `messages` field. Verification uses the GET handler that echoes `hub.challenge`.
+
+**Phases:**
+- Phase 1 (this PR): Meta path added side-by-side; Twilio (`wa_inbound.pb.js`) unchanged.
+- Phase 4: Twilio deprecated, `wa_inbound.pb.js` removed.
+
+Read tokens at runtime via `$os.getenv("WHATSAPP_*")` — never hardcoded.
+
 ### First-boot identity
 
 PB has two identity stores: `_superusers` (panel `/_/`) and `users` (app `/login`).
