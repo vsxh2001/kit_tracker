@@ -186,21 +186,12 @@ routerAdd("POST", "/api/wa/meta/webhook", function(c) {
   // ===========================================================================
   // Parse Meta JSON payload
   // ===========================================================================
-  var rawBody = "";
-  try {
-    rawBody = String(c.request().readBody && c.request().readBody() || "");
-  } catch (_) {}
-
-  // PB v0.22 exposes request body via c.request().body (io.Reader).
-  // Use $http body reading pattern: bind JSON from context.
   var payload = null;
   try {
-    // routerAdd context provides c.bind() for JSON body deserialization
-    var bound = {};
-    c.bind(bound);
-    payload = bound;
+    var info = $apis.requestInfo(c);
+    payload = info && info.data ? info.data : null;
   } catch (e) {
-    console.log("[wa_meta] JSON bind error: " + e);
+    console.log("[wa_meta] requestInfo error: " + e);
     // Return 200 — Meta must not retry on parse errors we can't fix
     return c.string(200, "");
   }
