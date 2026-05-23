@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { Navigate, Link } from "react-router-dom";
-import { MessageCircle, Check, X, Copy, Radio } from "lucide-react";
+import { MessageCircle, Check, X, Copy, Radio, MessagesSquare } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Skeleton } from "../components/ui/skeleton";
@@ -48,16 +48,27 @@ export function WhatsAppSettingsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2.5">
-        <MessageCircle className="h-6 w-6 text-emerald-500 shrink-0" />
-        <h1 className="text-xl font-semibold tracking-tight">WhatsApp</h1>
-        <Link
-          to="/settings/whatsapp/broadcast"
-          className="ml-auto flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
-        >
-          <Radio className="h-4 w-4" />
-          Broadcast
-        </Link>
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <MessageCircle className="h-6 w-6 text-emerald-500 shrink-0" />
+          <h1 className="text-xl font-semibold tracking-tight">WhatsApp</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/settings/whatsapp/conversations"
+            className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-500 font-medium"
+          >
+            <MessagesSquare className="h-4 w-4" />
+            View conversations
+          </Link>
+          <Link
+            to="/settings/whatsapp/broadcast"
+            className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+          >
+            <Radio className="h-4 w-4" />
+            Broadcast
+          </Link>
+        </div>
       </div>
 
       {/* Phone number */}
