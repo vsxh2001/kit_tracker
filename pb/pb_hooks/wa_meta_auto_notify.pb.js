@@ -14,6 +14,33 @@
 // Best-effort: failed sends log to audit_log but never block the underlying save.
 
 // ---------------------------------------------------------------------------
+// notificationAllowed(user, channel, event) — inline pref gate.
+// Empty/missing prefs → full opt-in (preserves existing behavior).
+// channel: "whatsapp" | "email"
+// event: "request_fulfilled" | "kit_moved" | "maintenance_digest" | "overdue_return"
+// ---------------------------------------------------------------------------
+function _waNotifAllowed(user, channel, event) {
+  var raw = user.getString("notification_prefs") || "";
+  if (!raw || !raw.trim()) return true; // no prefs set → opt-in for all
+  try {
+    var prefs = JSON.parse(raw);
+    // channels check
+    var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+    var chanOk = false;
+    for (var ci = 0; ci < channels.length; ci++) {
+      if (channels[ci] === channel) { chanOk = true; break; }
+    }
+    if (!chanOk) return false;
+    // event check
+    var events = (prefs && prefs.events) ? prefs.events : {};
+    if (typeof events[event] === "boolean") return events[event];
+    return true; // event not specified → opt-in
+  } catch (_) {
+    return true; // malformed JSON → opt-in
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Request fulfilled — approved → fulfilled transition notifies requester
 // ---------------------------------------------------------------------------
 onRecordAfterUpdateRequest(function(e) {
@@ -41,6 +68,12 @@ onRecordAfterUpdateRequest(function(e) {
       requester = $app.dao().findRecordById("users", requesterId);
     } catch (e2) {
       console.log("[wa_auto_notify] requester lookup failed:", e2);
+      return;
+    }
+
+    // Notification pref gate
+    if (!_waNotifAllowed(requester, "whatsapp", "request_fulfilled")) {
+      console.log("[wa_auto_notify] request_fulfilled skipped by prefs for user", requesterId);
       return;
     }
 
@@ -193,6 +226,12 @@ onRecordAfterCreateRequest(function(e) {
       requester = $app.dao().findRecordById("users", requesterId);
     } catch (e3) {
       console.log("[wa_auto_notify] kit_moved requester lookup failed:", e3);
+      return;
+    }
+
+    // Notification pref gate
+    if (!_waNotifAllowed(requester, "whatsapp", "kit_moved")) {
+      console.log("[wa_auto_notify] kit_moved skipped by prefs for user", requesterId);
       return;
     }
 
