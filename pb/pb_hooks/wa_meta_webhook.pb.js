@@ -291,15 +291,31 @@ routerAdd("POST", "/api/wa/meta/webhook", function(c) {
   // ===========================================================================
   var user = null;
   try {
-    var matches = $app.dao().findRecordsByFilter(
+    // Meta sends bare E.164 (e.g. "972527799932"). Strip any non-digits as defense.
+    var inboundDigits = phone.replace(/\D/g, "");
+    // last 9 digits — local number portion (handles +972 vs 0 prefix variants)
+    var inboundLast9 = inboundDigits.slice(-9);
+
+    // Fetch all users with phone set; iterate + normalize for comparison
+    var allWithPhone = $app.dao().findRecordsByFilter(
       "users",
-      "phone = {:phone}",
+      "phone != \"\"",
       "",
-      1,
+      200,
       0,
-      { phone: phone }
+      {}
     );
-    if (matches && matches.length > 0) user = matches[0];
+
+    for (var i = 0; i < allWithPhone.length; i++) {
+      var storedRaw = allWithPhone[i].getString("phone") || "";
+      var storedDigits = storedRaw.replace(/\D/g, "");
+      if (!storedDigits) continue;
+      // Match if full digits match, OR last-9 match (handles country-code variants)
+      if (storedDigits === inboundDigits || storedDigits.slice(-9) === inboundLast9) {
+        user = allWithPhone[i];
+        break;
+      }
+    }
   } catch (e) {
     console.log("[wa_meta] user lookup error: " + e);
   }
