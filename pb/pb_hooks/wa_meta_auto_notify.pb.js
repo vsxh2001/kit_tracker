@@ -19,6 +19,53 @@
 // channel: "whatsapp" | "email"
 // event: "request_fulfilled" | "kit_moved" | "maintenance_digest" | "overdue_return"
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// _isInQuietHours(user) — returns true if current time is in quiet hours for user.
+// Reads prefs.quiet_hours: { enabled, start "HH:MM", end "HH:MM", timezone }
+// ---------------------------------------------------------------------------
+function _isInQuietHours(user) {
+  var raw = user.getString("notification_prefs") || "";
+  if (!raw || !raw.trim()) return false;
+  try {
+    var prefs = JSON.parse(raw);
+    if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+    var tz = prefs.quiet_hours.timezone || "UTC";
+    var start = prefs.quiet_hours.start || "22:00";
+    var end = prefs.quiet_hours.end || "08:00";
+
+    // Get current local HH:MM in user's timezone
+    var nowHHMM = (function(tz) {
+      try {
+        var fmt = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        });
+        var parts = fmt.formatToParts(new Date());
+        var h = parts.find(function(p) { return p.type === "hour"; }).value;
+        var m = parts.find(function(p) { return p.type === "minute"; }).value;
+        return h + ":" + m;
+      } catch (_) {
+        var d = new Date();
+        return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+      }
+    })(tz);
+
+    // Compare HH:MM strings lexicographically (works for 00:00–23:59)
+    if (start <= end) {
+      // Normal range e.g. 08:00–22:00
+      return nowHHMM >= start && nowHHMM < end;
+    } else {
+      // Cross-midnight range e.g. 22:00–08:00
+      return nowHHMM >= start || nowHHMM < end;
+    }
+  } catch (_) {
+    return false; // malformed → don't suppress
+  }
+}
+
 function _waNotifAllowed(user, channel, event) {
   var raw = user.getString("notification_prefs") || "";
   if (!raw || !raw.trim()) return true; // no prefs set → opt-in for all
@@ -74,6 +121,12 @@ onRecordAfterUpdateRequest(function(e) {
     // Notification pref gate
     if (!_waNotifAllowed(requester, "whatsapp", "request_fulfilled")) {
       console.log("[wa_auto_notify] request_fulfilled skipped by prefs for user", requesterId);
+      return;
+    }
+
+    // Quiet hours gate
+    if (_isInQuietHours(requester)) {
+      console.log("[wa_meta] suppressed (quiet hours) for " + requesterId);
       return;
     }
 
@@ -319,6 +372,12 @@ onRecordAfterCreateRequest(function(e) {
         continue;
       }
 
+      // Quiet hours gate
+      if (_isInQuietHours(admin)) {
+        console.log("[wa_meta] suppressed (quiet hours) for " + admin.id);
+        continue;
+      }
+
       var adminPhone = admin.getString("phone") || "";
       if (!adminPhone) continue;
 
@@ -438,6 +497,12 @@ onRecordAfterCreateRequest(function(e) {
     // Notification pref gate
     if (!_waNotifAllowed(requester, "whatsapp", "kit_moved")) {
       console.log("[wa_auto_notify] kit_moved skipped by prefs for user", requesterId);
+      return;
+    }
+
+    // Quiet hours gate
+    if (_isInQuietHours(requester)) {
+      console.log("[wa_meta] suppressed (quiet hours) for " + requesterId);
       return;
     }
 

@@ -220,6 +220,42 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
         continue;
       }
 
+      // Quiet hours gate — inline (cronAdd isolated Goja runtime)
+      var waCronQHSuppressed = false;
+      if (waPrefsRawCron && waPrefsRawCron.trim()) {
+        try {
+          var waCronQHPrefs = JSON.parse(waPrefsRawCron);
+          if (waCronQHPrefs && waCronQHPrefs.quiet_hours && waCronQHPrefs.quiet_hours.enabled) {
+            var waCronQHTz = waCronQHPrefs.quiet_hours.timezone || "UTC";
+            var waCronQHStart = waCronQHPrefs.quiet_hours.start || "22:00";
+            var waCronQHEnd = waCronQHPrefs.quiet_hours.end || "08:00";
+            var waCronNowHHMM = (function(tz) {
+              try {
+                var fmt = new Intl.DateTimeFormat("en-US", {
+                  timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false
+                });
+                var parts = fmt.formatToParts(new Date());
+                var h = parts.find(function(p) { return p.type === "hour"; }).value;
+                var m = parts.find(function(p) { return p.type === "minute"; }).value;
+                return h + ":" + m;
+              } catch (_) {
+                var d = new Date();
+                return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+              }
+            })(waCronQHTz);
+            if (waCronQHStart <= waCronQHEnd) {
+              waCronQHSuppressed = waCronNowHHMM >= waCronQHStart && waCronNowHHMM < waCronQHEnd;
+            } else {
+              waCronQHSuppressed = waCronNowHHMM >= waCronQHStart || waCronNowHHMM < waCronQHEnd;
+            }
+          }
+        } catch (_) { /* malformed → don't suppress */ }
+      }
+      if (waCronQHSuppressed) {
+        console.log("[wa_meta] suppressed (quiet hours) for " + waRecip.id);
+        continue;
+      }
+
       // Normalize phone
       if (waPhone.indexOf("whatsapp:") === 0) waPhone = waPhone.substring("whatsapp:".length);
 
@@ -507,6 +543,42 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
       }
       if (!waRouteAllowed) {
         console.log("[maintenance-reminder] route: WA skipped by prefs for user", waRecipR.id);
+        continue;
+      }
+
+      // Quiet hours gate — inline (routerAdd isolated Goja runtime)
+      var waRouteQHSuppressed = false;
+      if (waPrefsRawRoute && waPrefsRawRoute.trim()) {
+        try {
+          var waRouteQHPrefs = JSON.parse(waPrefsRawRoute);
+          if (waRouteQHPrefs && waRouteQHPrefs.quiet_hours && waRouteQHPrefs.quiet_hours.enabled) {
+            var waRouteQHTz = waRouteQHPrefs.quiet_hours.timezone || "UTC";
+            var waRouteQHStart = waRouteQHPrefs.quiet_hours.start || "22:00";
+            var waRouteQHEnd = waRouteQHPrefs.quiet_hours.end || "08:00";
+            var waRouteNowHHMM = (function(tz) {
+              try {
+                var fmt = new Intl.DateTimeFormat("en-US", {
+                  timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false
+                });
+                var parts = fmt.formatToParts(new Date());
+                var h = parts.find(function(p) { return p.type === "hour"; }).value;
+                var m = parts.find(function(p) { return p.type === "minute"; }).value;
+                return h + ":" + m;
+              } catch (_) {
+                var d = new Date();
+                return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+              }
+            })(waRouteQHTz);
+            if (waRouteQHStart <= waRouteQHEnd) {
+              waRouteQHSuppressed = waRouteNowHHMM >= waRouteQHStart && waRouteNowHHMM < waRouteQHEnd;
+            } else {
+              waRouteQHSuppressed = waRouteNowHHMM >= waRouteQHStart || waRouteNowHHMM < waRouteQHEnd;
+            }
+          }
+        } catch (_) { /* malformed → don't suppress */ }
+      }
+      if (waRouteQHSuppressed) {
+        console.log("[wa_meta] suppressed (quiet hours) for " + waRecipR.id);
         continue;
       }
 

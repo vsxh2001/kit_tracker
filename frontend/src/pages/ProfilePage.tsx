@@ -17,7 +17,34 @@ const DEFAULT_PREFS: NotificationPrefs = {
     overdue_return: true,
     request_pending: true,
   },
+  quiet_hours: {
+    enabled: false,
+    start: "22:00",
+    end: "08:00",
+    timezone: "Asia/Jerusalem",
+  },
 };
+
+const TZ_OPTIONS: string[] = (function() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (Intl as any).supportedValuesOf("timeZone") as string[];
+  } catch {
+    return [
+      "Asia/Jerusalem",
+      "UTC",
+      "Europe/Berlin",
+      "Europe/London",
+      "America/New_York",
+      "America/Chicago",
+      "America/Denver",
+      "America/Los_Angeles",
+      "Asia/Tokyo",
+      "Asia/Dubai",
+      "Australia/Sydney",
+    ];
+  }
+})();
 
 export function ProfilePage() {
   const { user: currentUser } = useAuth();
@@ -53,6 +80,14 @@ export function ProfilePage() {
               overdue_return: typeof parsed.events?.overdue_return === "boolean" ? parsed.events.overdue_return : DEFAULT_PREFS.events.overdue_return,
               request_pending: typeof parsed.events?.request_pending === "boolean" ? parsed.events.request_pending : DEFAULT_PREFS.events.request_pending,
             },
+            quiet_hours: parsed.quiet_hours
+              ? {
+                  enabled: typeof parsed.quiet_hours.enabled === "boolean" ? parsed.quiet_hours.enabled : false,
+                  start: parsed.quiet_hours.start || DEFAULT_PREFS.quiet_hours!.start,
+                  end: parsed.quiet_hours.end || DEFAULT_PREFS.quiet_hours!.end,
+                  timezone: parsed.quiet_hours.timezone || DEFAULT_PREFS.quiet_hours!.timezone,
+                }
+              : DEFAULT_PREFS.quiet_hours,
           });
         } catch {
           setNotifPrefs(DEFAULT_PREFS);
@@ -288,6 +323,94 @@ export function ProfilePage() {
                   </label>
                 )}
               </div>
+            </div>
+            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+              <Label className="text-sm font-medium">Quiet hours (WhatsApp)</Label>
+              <p className="text-xs text-muted-foreground">Suppress WhatsApp messages during these hours.</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifPrefs.quiet_hours?.enabled ?? false}
+                  onChange={() =>
+                    setNotifPrefs((prev) => ({
+                      ...prev,
+                      quiet_hours: {
+                        ...DEFAULT_PREFS.quiet_hours!,
+                        ...prev.quiet_hours,
+                        enabled: !(prev.quiet_hours?.enabled ?? false),
+                      },
+                    }))
+                  }
+                  className="h-4 w-4"
+                />
+                <span className="text-sm">Enabled</span>
+              </label>
+              {notifPrefs.quiet_hours?.enabled && (
+                <div className="space-y-2 mt-2">
+                  <div className="flex items-center gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="qh-start" className="text-xs">Start</Label>
+                      <Input
+                        id="qh-start"
+                        type="time"
+                        value={notifPrefs.quiet_hours?.start ?? "22:00"}
+                        onChange={(e) =>
+                          setNotifPrefs((prev) => ({
+                            ...prev,
+                            quiet_hours: {
+                              ...DEFAULT_PREFS.quiet_hours!,
+                              ...prev.quiet_hours,
+                              start: e.target.value,
+                            },
+                          }))
+                        }
+                        className="w-32"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="qh-end" className="text-xs">End</Label>
+                      <Input
+                        id="qh-end"
+                        type="time"
+                        value={notifPrefs.quiet_hours?.end ?? "08:00"}
+                        onChange={(e) =>
+                          setNotifPrefs((prev) => ({
+                            ...prev,
+                            quiet_hours: {
+                              ...DEFAULT_PREFS.quiet_hours!,
+                              ...prev.quiet_hours,
+                              end: e.target.value,
+                            },
+                          }))
+                        }
+                        className="w-32"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="qh-tz" className="text-xs">Timezone</Label>
+                    <select
+                      id="qh-tz"
+                      value={notifPrefs.quiet_hours?.timezone ?? "Asia/Jerusalem"}
+                      onChange={(e) =>
+                        setNotifPrefs((prev) => ({
+                          ...prev,
+                          quiet_hours: {
+                            ...DEFAULT_PREFS.quiet_hours!,
+                            ...prev.quiet_hours,
+                            timezone: e.target.value,
+                          },
+                        }))
+                      }
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                    >
+                      {TZ_OPTIONS.map((tz) => (
+                        <option key={tz} value={tz}>{tz}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
             <Button type="submit" disabled={savingPrefs}>
               {savingPrefs ? "Saving…" : "Save preferences"}
