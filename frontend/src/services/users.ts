@@ -1,5 +1,5 @@
 import { pb } from "../lib/pocketbase";
-import type { PBUser, UserRole } from "../types";
+import type { NotificationPrefs, PBUser, UserRole } from "../types";
 
 export async function listUsers(): Promise<PBUser[]> {
   return pb.collection("users").getFullList<PBUser>({
@@ -48,5 +48,16 @@ export async function getUser(id: string): Promise<PBUser> {
   return pb.collection("users").getOne<PBUser>(id, {
     requestKey: `profile-self-${id}`,
   });
+}
+
+export async function updateNotificationPrefs(
+  userId: string,
+  prefs: NotificationPrefs
+): Promise<void> {
+  await pb.collection("users").update<PBUser>(
+    userId,
+    { notification_prefs: JSON.stringify(prefs) },
+    { requestKey: `update-notif-prefs-${userId}` }
+  );
 }
 
