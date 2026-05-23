@@ -156,17 +156,7 @@ test.describe("OnCall — sidebar badge", () => {
     if (shiftId) await deleteOnCallShift(shiftId);
   });
 
-  test.skip("sidebar shows 'On call: <name>' when active shift exists", async ({ page }) => {
-    // TODO: Investigate why on-call shifts aren't appearing in sidebar.
-    // The shift is created correctly in beforeAll, but the Layout component's
-    // getCurrentOnCallUsers() query doesn't find it. Possible causes:
-    // 1. Timing issue - shift created after Layout component initializes
-    // 2. User filtering issue - getCurrentOnCallUsers filters by role (admin|tech)
-    // 3. Time comparison issue - start_at/end_at date comparison with now()
-    // 4. Realtime subscription issue - need to reload page after shift creation
-    //
-    // This is a feature test, not a critical regression - should be investigated
-    // when time permits.
+  test("sidebar shows 'On call: <name>' when active shift exists @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/dashboard");
     await expect(page.getByText(/^On call:/i)).toBeVisible({ timeout: 8000 });
