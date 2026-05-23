@@ -79,6 +79,12 @@ export interface NotificationPrefs {
     overdue_return: boolean;
     request_pending: boolean;
   };
+  quiet_hours?: {
+    enabled: boolean;
+    start: string;  // HH:MM
+    end: string;    // HH:MM
+    timezone: string; // IANA TZ
+  };
 }
 
 export interface PBUser {
