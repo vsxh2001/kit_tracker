@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, startTransition } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Sparkles } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Sparkles, MessageCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn, formatTelHref } from "../lib/utils";
@@ -171,6 +171,23 @@ export function Layout() {
         >
           <UserCog className="h-5 w-5 shrink-0" />
           Users
+        </NavLink>
+      )}
+      {hasRole && isAdmin && (
+        <NavLink
+          to="/settings/whatsapp"
+          onClick={closeDrawer}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all",
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            )
+          }
+        >
+          <MessageCircle className="h-5 w-5 shrink-0" />
+          WhatsApp
         </NavLink>
       )}
       {hasRole && canDecideRequests && (
