@@ -7,6 +7,7 @@ export interface Invite {
   created_by: string;
   role: string;
   email: string;
+  phone: string;
   expires_at: string;
   used_at: string;
   used_by: string;
@@ -30,14 +31,31 @@ export interface AcceptResult {
   };
 }
 
-export async function createInvite(role: string, email: string): Promise<{ url: string; invite_id: string; expires_at: string }> {
+export interface CreateInviteResult {
+  url: string;
+  invite_id: string;
+  expires_at: string;
+  wa_sent: boolean;
+  wa_error?: string;
+}
+
+export async function createInvite(
+  role: string,
+  email: string,
+  opts?: { phone?: string; send_via_whatsapp?: boolean }
+): Promise<CreateInviteResult> {
   const res = await fetch(`${baseUrl()}/api/invite/create`, {
     method: "POST",
     headers: {
       Authorization: pb.authStore.token,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ role, email }),
+    body: JSON.stringify({
+      role,
+      email,
+      ...(opts?.phone ? { phone: opts.phone } : {}),
+      ...(opts?.send_via_whatsapp ? { send_via_whatsapp: true } : {}),
+    }),
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error ?? `Create failed: ${res.status}`);
