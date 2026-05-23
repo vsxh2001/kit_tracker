@@ -70,6 +70,16 @@ export interface KitRequest {
   };
 }
 
+export interface NotificationPrefs {
+  channels: ("whatsapp" | "email")[];
+  events: {
+    request_fulfilled: boolean;
+    kit_moved: boolean;
+    maintenance_digest: boolean;
+    overdue_return: boolean;
+  };
+}
+
 export interface PBUser {
   id: string;
   email: string;
@@ -79,6 +89,7 @@ export interface PBUser {
   phone?: string;
   title?: string;
   denial_notes?: string;
+  notification_prefs?: string;
   created: string;
   updated: string;
 }
