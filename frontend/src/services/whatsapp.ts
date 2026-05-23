@@ -62,3 +62,47 @@ export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
   });
   return res as WhatsAppStatus;
 }
+
+export interface BroadcastRecipientFilter {
+  type: "role" | "phones";
+  value: string | string[];
+}
+
+export interface BroadcastMessage {
+  type: "text" | "template";
+  text?: string;
+  template?: { name: string; language: string };
+}
+
+export interface BroadcastResult {
+  totalRecipients: number;
+  successCount: number;
+  failed: Array<{ phone: string; error: string }>;
+  message?: string;
+}
+
+export async function broadcastWhatsApp(input: {
+  recipientFilter: BroadcastRecipientFilter;
+  message: BroadcastMessage;
+}): Promise<BroadcastResult> {
+  const res = await pb.send("/api/wa/broadcast", {
+    method: "POST",
+    body: input,
+    requestKey: "wa-broadcast",
+  });
+  return res as BroadcastResult;
+}
+
+export interface RolePhoneCount {
+  role: string;
+  count: number;
+}
+
+export async function getRolePhoneCount(role: string): Promise<RolePhoneCount> {
+  const records = await pb.collection("users").getFullList({
+    filter: pb.filter("role = {:role} && phone != ''", { role }),
+    fields: "id",
+    requestKey: `wa-role-count-${role}`,
+  });
+  return { role, count: records.length };
+}
