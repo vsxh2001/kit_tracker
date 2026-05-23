@@ -28,6 +28,7 @@ import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { ScanPage } from "./pages/ScanPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { WhatsAppSettingsPage } from "./pages/WhatsAppSettingsPage";
+import { WhatsAppBroadcastPage } from "./pages/WhatsAppBroadcastPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="products" element={<RequireRole><ProductsPage /></RequireRole>} />
             <Route path="products/:id" element={<RequireRole><ProductDetailPage /></RequireRole>} />
             <Route path="settings/whatsapp" element={<AdminOnly><WhatsAppSettingsPage /></AdminOnly>} />
+            <Route path="settings/whatsapp/broadcast" element={<AdminOnly><WhatsAppBroadcastPage /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
