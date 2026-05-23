@@ -14,7 +14,8 @@ import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
 import { cn, formatDate } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
-import { getSmtpStatus } from "../services/health";
+import { getSmtpStatus, getWhatsAppTokenHealth } from "../services/health";
+import type { WhatsAppTokenHealth } from "../services/health";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export function DashboardPage() {
   const [oncallShifts, setOncallShifts] = useState<OnCallShift[]>([]);
   const [oncallLoading, setOncallLoading] = useState(true);
   const [smtpEnabled, setSmtpEnabled] = useState<boolean | null>(null);
+  const [waTokenHealth, setWaTokenHealth] = useState<WhatsAppTokenHealth | null>(null);
 
   const pendingApproval = !user?.role;
 
@@ -91,6 +93,21 @@ export function DashboardPage() {
     });
   }, [isAdmin]);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    startTransition(() => {
+      async function loadWaToken() {
+        try {
+          const health = await getWhatsAppTokenHealth();
+          setWaTokenHealth(health);
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        }
+      }
+      loadWaToken();
+    });
+  }, [isAdmin]);
+
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
 
@@ -139,6 +156,10 @@ export function DashboardPage() {
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           SMTP not configured — maintenance reminders are disabled. Set SMTP_HOST + credentials via Fly secrets (see CLAUDE.md → Email notifications setup).
         </div>
+      )}
+
+      {isAdmin && waTokenHealth && waTokenHealth.warning_level !== "ok" && waTokenHealth.warning_level !== "never" && (
+        <WaTokenBanner health={waTokenHealth} />
       )}
 
       {loading ? (
@@ -254,6 +275,48 @@ export function DashboardPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function WaTokenBanner({ health }: { health: WhatsAppTokenHealth }) {
+  const level = health.warning_level;
+
+  let borderCls: string;
+  let bgCls: string;
+  let textCls: string;
+  let message: string;
+
+  if (level === "missing") {
+    borderCls = "border-amber-200";
+    bgCls = "bg-amber-50";
+    textCls = "text-amber-800";
+    message = "WhatsApp not configured — token not set";
+  } else if (level === "warn14") {
+    borderCls = "border-amber-200";
+    bgCls = "bg-amber-50";
+    textCls = "text-amber-800";
+    message = "WhatsApp token expires in 14 days — generate System User token";
+  } else if (level === "warn7") {
+    borderCls = "border-orange-200";
+    bgCls = "bg-orange-50";
+    textCls = "text-orange-800";
+    message = "WhatsApp token expires in 7 days — rotate ASAP";
+  } else if (level === "warn1") {
+    borderCls = "border-red-200";
+    bgCls = "bg-red-50";
+    textCls = "text-red-800";
+    message = "WhatsApp token expires today — rotate NOW";
+  } else {
+    borderCls = "border-red-200";
+    bgCls = "bg-red-50";
+    textCls = "text-red-800";
+    message = "WhatsApp token expired — bot is offline";
+  }
+
+  return (
+    <div className={cn("rounded-md border px-4 py-3 text-sm", borderCls, bgCls, textCls)}>
+      {message}
     </div>
   );
 }
