@@ -18,7 +18,7 @@ describe("entities_active_name_unique hook", () => {
     return fetch(`${baseUrl}/api/collections/entities/records`, {
       method: "POST",
       headers: { Authorization: suToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ name, type: "unit", is_active }),
+      body: JSON.stringify({ name, category: "storage", is_active }),
     });
   }
 
