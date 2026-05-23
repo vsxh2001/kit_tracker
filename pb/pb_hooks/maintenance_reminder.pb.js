@@ -196,6 +196,30 @@ cronAdd("maintenanceReminder", "0 8 * * *", function() {
       var waPhone = waRecip.getString("phone") || "";
       if (!waPhone) continue;
 
+      // Notification pref gate — inline (cronAdd runs in isolated Goja runtime)
+      var waPrefsRawCron = waRecip.getString("notification_prefs") || "";
+      var waCronAllowed = true;
+      if (waPrefsRawCron && waPrefsRawCron.trim()) {
+        try {
+          var waPrefsCron = JSON.parse(waPrefsRawCron);
+          var waChansCron = (waPrefsCron && Array.isArray(waPrefsCron.channels)) ? waPrefsCron.channels : ["whatsapp", "email"];
+          var waChanOkCron = false;
+          for (var wcci = 0; wcci < waChansCron.length; wcci++) {
+            if (waChansCron[wcci] === "whatsapp") { waChanOkCron = true; break; }
+          }
+          if (!waChanOkCron) {
+            waCronAllowed = false;
+          } else {
+            var waEvsCron = (waPrefsCron && waPrefsCron.events) ? waPrefsCron.events : {};
+            if (typeof waEvsCron["maintenance_digest"] === "boolean") waCronAllowed = waEvsCron["maintenance_digest"];
+          }
+        } catch (_) { /* malformed → opt-in */ }
+      }
+      if (!waCronAllowed) {
+        console.log("[maintenance-reminder] cron: WA skipped by prefs for user", waRecip.id);
+        continue;
+      }
+
       // Normalize phone
       if (waPhone.indexOf("whatsapp:") === 0) waPhone = waPhone.substring("whatsapp:".length);
 
@@ -461,6 +485,30 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
       var waRecipR = recipientsMapRoute[recipientIdsRoute[wkR]];
       var waPhoneR = waRecipR.getString("phone") || "";
       if (!waPhoneR) continue;
+
+      // Notification pref gate — inline (routerAdd runs in isolated Goja runtime)
+      var waPrefsRawRoute = waRecipR.getString("notification_prefs") || "";
+      var waRouteAllowed = true;
+      if (waPrefsRawRoute && waPrefsRawRoute.trim()) {
+        try {
+          var waPrefsRoute = JSON.parse(waPrefsRawRoute);
+          var waChansRoute = (waPrefsRoute && Array.isArray(waPrefsRoute.channels)) ? waPrefsRoute.channels : ["whatsapp", "email"];
+          var waChanOkRoute = false;
+          for (var wcri = 0; wcri < waChansRoute.length; wcri++) {
+            if (waChansRoute[wcri] === "whatsapp") { waChanOkRoute = true; break; }
+          }
+          if (!waChanOkRoute) {
+            waRouteAllowed = false;
+          } else {
+            var waEvsRoute = (waPrefsRoute && waPrefsRoute.events) ? waPrefsRoute.events : {};
+            if (typeof waEvsRoute["maintenance_digest"] === "boolean") waRouteAllowed = waEvsRoute["maintenance_digest"];
+          }
+        } catch (_) { /* malformed → opt-in */ }
+      }
+      if (!waRouteAllowed) {
+        console.log("[maintenance-reminder] route: WA skipped by prefs for user", waRecipR.id);
+        continue;
+      }
 
       if (waPhoneR.indexOf("whatsapp:") === 0) waPhoneR = waPhoneR.substring("whatsapp:".length);
 
