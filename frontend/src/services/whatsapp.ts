@@ -106,3 +106,61 @@ export async function getRolePhoneCount(role: string): Promise<RolePhoneCount> {
   });
   return { role, count: records.length };
 }
+
+export interface WhatsAppMessage {
+  id: string;
+  created: string;
+  actor: string;
+  to: string;
+  event?: string;
+  templateName?: string;
+  mode?: string;
+  success: boolean;
+  expand?: { actor?: import("../types").PBUser };
+}
+
+export async function listWhatsAppMessages(opts: {
+  phone?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: WhatsAppMessage[]; totalItems: number }> {
+  const limit = opts.limit ?? 50;
+  const page = opts.offset !== undefined ? Math.floor(opts.offset / limit) + 1 : 1;
+
+  const parts: string[] = [
+    pb.filter("action = {:action}", { action: "send_whatsapp" }),
+  ];
+  if (opts.phone) {
+    parts.push(pb.filter("changes ~ {:phone}", { phone: opts.phone }));
+  }
+  const filter = parts.join(" && ");
+
+  const result = await pb.collection("audit_log").getList(page, limit, {
+    sort: "-created",
+    expand: "actor",
+    filter,
+    requestKey: `wa-messages-${opts.phone ?? "all"}-p${page}`,
+  });
+
+  const items: WhatsAppMessage[] = result.items.map((r) => {
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(r.changes as string);
+    } catch {
+      // ignore
+    }
+    return {
+      id: r.id,
+      created: r.created,
+      actor: r.actor as string,
+      to: (parsed.to as string) ?? "",
+      event: parsed.event as string | undefined,
+      templateName: parsed.templateName as string | undefined,
+      mode: parsed.mode as string | undefined,
+      success: Boolean(parsed.success),
+      expand: r.expand as WhatsAppMessage["expand"],
+    };
+  });
+
+  return { items, totalItems: result.totalItems };
+}
