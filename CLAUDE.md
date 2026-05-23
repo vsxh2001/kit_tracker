@@ -311,6 +311,20 @@ https://kit-tracker.fly.dev/api/wa/meta/webhook
 ```
 Subscribe to the `messages` field. Verification uses the GET handler that echoes `hub.challenge`.
 
+### Local webhook testing
+
+Replay a Meta-shaped POST against the webhook without needing a real WhatsApp message:
+
+```bash
+# Against local PB (default):
+bash scripts/wa-meta-replay.sh --body "where is kit 1"
+
+# Against prod:
+bash scripts/wa-meta-replay.sh --url https://kit-tracker.fly.dev/api/wa/meta/webhook --body "where is kit 1"
+```
+
+The script POSTs a Meta-spec-compliant payload. Hook logs (`fly logs`) will show `[wa_meta] inbound` etc, then the response (or token-expired errors). Faster iteration than waiting for real WhatsApp delivery.
+
 **Phases:**
 - Phase 1 (this PR): Meta path added side-by-side; Twilio (`wa_inbound.pb.js`) unchanged.
 - Phase 4: Twilio deprecated, `wa_inbound.pb.js` removed.
