@@ -77,6 +77,7 @@ export interface NotificationPrefs {
     kit_moved: boolean;
     maintenance_digest: boolean;
     overdue_return: boolean;
+    request_pending: boolean;
   };
 }
 

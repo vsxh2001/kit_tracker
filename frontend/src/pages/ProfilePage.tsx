@@ -15,6 +15,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
     kit_moved: true,
     maintenance_digest: true,
     overdue_return: true,
+    request_pending: true,
   },
 };
 
@@ -50,6 +51,7 @@ export function ProfilePage() {
               kit_moved: typeof parsed.events?.kit_moved === "boolean" ? parsed.events.kit_moved : DEFAULT_PREFS.events.kit_moved,
               maintenance_digest: typeof parsed.events?.maintenance_digest === "boolean" ? parsed.events.maintenance_digest : DEFAULT_PREFS.events.maintenance_digest,
               overdue_return: typeof parsed.events?.overdue_return === "boolean" ? parsed.events.overdue_return : DEFAULT_PREFS.events.overdue_return,
+              request_pending: typeof parsed.events?.request_pending === "boolean" ? parsed.events.request_pending : DEFAULT_PREFS.events.request_pending,
             },
           });
         } catch {
@@ -274,6 +276,17 @@ export function ProfilePage() {
                   />
                   <span className="text-sm">Overdue return</span>
                 </label>
+                {currentUser?.role === "admin" && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs.events.request_pending}
+                      onChange={() => toggleEvent("request_pending")}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm">Approval requests (admin)</span>
+                  </label>
+                )}
               </div>
             </div>
             <Button type="submit" disabled={savingPrefs}>

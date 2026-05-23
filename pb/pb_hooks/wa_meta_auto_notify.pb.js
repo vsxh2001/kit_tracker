@@ -183,6 +183,173 @@ onRecordAfterUpdateRequest(function(e) {
 }, "requests");
 
 // ---------------------------------------------------------------------------
+// Request created — notify all admins with phone for approval (WhatsApp)
+// Each admin gets a short-id prompt: "approve <id6>" / "reject <id6>"
+// $app.store() key: wa_approval_map:<short_id> → full request id (24h TTL)
+// ---------------------------------------------------------------------------
+onRecordAfterCreateRequest(function(e) {
+  try {
+    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+    var token = $os.getenv("WHATSAPP_TOKEN") || "";
+    if (!phoneNumberId || !token) return; // no creds — skip silently
+
+    var record = e.record;
+    var requestId = record.id;
+    var shortId = requestId.slice(-6);
+
+    // Store mapping from shortId → full requestId (24h TTL)
+    try {
+      var storeKey = "wa_approval_map:" + shortId;
+      var ttlMs = 24 * 60 * 60 * 1000;
+      $app.store().set(storeKey, JSON.stringify({ requestId: requestId, expires: Date.now() + ttlMs }));
+    } catch (storeErr) {
+      console.log("[wa_auto_notify] approval_map store failed:", storeErr);
+    }
+
+    // Look up requester name
+    var requesterName = "Unknown";
+    try {
+      var requesterId = record.getString("requester");
+      if (requesterId) {
+        var requester = $app.dao().findRecordById("users", requesterId);
+        requesterName = requester.getString("name") || requester.getString("email") || "Unknown";
+      }
+    } catch (e2) {
+      console.log("[wa_auto_notify] request_pending requester lookup failed:", e2);
+    }
+
+    // Look up kit serial
+    var kitSerial = "N/A";
+    try {
+      var kitId = record.getString("designated_kit");
+      if (kitId) {
+        var kit = $app.dao().findRecordById("kits", kitId);
+        kitSerial = kit.getString("serial") || "N/A";
+      }
+    } catch (e3) {
+      console.log("[wa_auto_notify] request_pending kit lookup failed:", e3);
+    }
+
+    // Look up target entity
+    var targetName = "N/A";
+    try {
+      var targetId = record.getString("target_entity");
+      if (targetId) {
+        var target = $app.dao().findRecordById("entities", targetId);
+        targetName = target.getString("name") || "N/A";
+      }
+    } catch (e4) {
+      console.log("[wa_auto_notify] request_pending entity lookup failed:", e4);
+    }
+
+    var deliveryDate = record.getString("delivery_date") || "N/A";
+
+    var msgText =
+      "New request from " + requesterName + "\n" +
+      "Kit: " + kitSerial + "\n" +
+      "Target: " + targetName + "\n" +
+      "Delivery: " + deliveryDate + "\n\n" +
+      "Reply with:\n" +
+      "- 'approve " + shortId + "' to approve\n" +
+      "- 'reject " + shortId + "' to reject";
+
+    // Find all admins with phone set and request_pending pref not false
+    var admins = [];
+    try {
+      admins = $app.dao().findRecordsByFilter(
+        "users",
+        "role = 'admin' && phone != \"\"",
+        "",
+        100,
+        0,
+        {}
+      );
+    } catch (e5) {
+      console.log("[wa_auto_notify] request_pending admin lookup failed:", e5);
+      return;
+    }
+
+    var apiUrl = "https://graph.facebook.com/v19.0/" + phoneNumberId + "/messages";
+
+    for (var i = 0; i < admins.length; i++) {
+      var admin = admins[i];
+
+      // Pref gate — request_pending defaults to true
+      if (!_waNotifAllowed(admin, "whatsapp", "request_pending")) {
+        console.log("[wa_auto_notify] request_pending skipped by prefs for admin", admin.id);
+        continue;
+      }
+
+      var adminPhone = admin.getString("phone") || "";
+      if (!adminPhone) continue;
+
+      var toPhone = adminPhone;
+      if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
+
+      var payload = JSON.stringify({
+        messaging_product: "whatsapp",
+        to: toPhone,
+        type: "text",
+        text: { body: msgText }
+      });
+
+      var success = false;
+      var wamid = "failed";
+
+      try {
+        var res = $http.send({
+          method: "POST",
+          url: apiUrl,
+          body: payload,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          timeout: 10000
+        });
+
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          success = true;
+          try {
+            var parsed = JSON.parse(res.raw);
+            if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
+              wamid = parsed.messages[0].id;
+            }
+          } catch (_) {}
+          console.log("[wa_auto_notify] request_pending sent to admin " + admin.id + " phone=" + toPhone + " wamid=" + wamid);
+        } else {
+          console.log("[wa_auto_notify] request_pending Meta API " + res.statusCode + " for admin " + admin.id + ": " + res.raw);
+        }
+      } catch (httpErr) {
+        console.log("[wa_auto_notify] request_pending HTTP error for admin " + admin.id + ":", httpErr);
+      }
+
+      // Audit log — best-effort per admin
+      try {
+        var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
+        var auditRec = new Record(auditCol);
+        auditRec.set("collection_name", "messages");
+        auditRec.set("record_id", wamid);
+        auditRec.set("action", "send_whatsapp");
+        auditRec.set("changes", JSON.stringify({
+          to: toPhone,
+          event: "request_pending",
+          request_id: requestId,
+          short_id: shortId,
+          success: success
+        }));
+        $app.dao().saveRecord(auditRec);
+      } catch (auditErr) {
+        console.log("[wa_auto_notify] audit_log write failed (request_pending):", auditErr);
+      }
+    }
+
+  } catch (outerErr) {
+    console.log("[wa_auto_notify] onRecordAfterCreateRequest(requests) error:", outerErr);
+  }
+}, "requests");
+
+// ---------------------------------------------------------------------------
 // Transaction created — kit moved notification (OPT-IN via WHATSAPP_NOTIFY_MOVES=1)
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {

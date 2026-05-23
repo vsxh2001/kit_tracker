@@ -527,6 +527,112 @@ routerAdd("POST", "/api/wa/meta/webhook", function(c) {
   }
 
   // ===========================================================================
+  // Approve / Reject intent — admin WhatsApp approval workflow
+  // Matches: "approve <id6>" / "reject <id6>" (6–15 alphanumeric chars)
+  // ===========================================================================
+  var approvalMatch = bodyTrimmed.match(/^(approve|reject)\s+([a-z0-9]{6,15})$/i);
+  if (approvalMatch) {
+    var apVerb = approvalMatch[1].toLowerCase();   // "approve" or "reject"
+    var apShortId = approvalMatch[2].toLowerCase();
+
+    // Must be admin
+    var apRole = user.getString("role");
+    if (apRole !== "admin") {
+      console.log("[wa_meta] approve/reject refused — role=" + apRole);
+      return replyViaMeta(phoneNumberId, waToken, phone, "Only admins can approve or reject requests via WhatsApp.");
+    }
+
+    // Resolve full request id from $app.store() map
+    var apRequestId = null;
+    try {
+      var apStoreKey = "wa_approval_map:" + apShortId;
+      var apStoreRaw = $app.store().get(apStoreKey);
+      if (apStoreRaw) {
+        var apStoreEntry = JSON.parse(apStoreRaw);
+        if (apStoreEntry && apStoreEntry.requestId && apStoreEntry.expires > Date.now()) {
+          apRequestId = apStoreEntry.requestId;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: query requests where id ends with shortId
+    if (!apRequestId) {
+      try {
+        var apResults = $app.dao().findRecordsByFilter(
+          "requests",
+          $app.dao().db().newQuery ? "id LIKE {:suffix}" : "id LIKE {:suffix}",
+          "",
+          5,
+          0,
+          { suffix: "%" + apShortId }
+        );
+        if (apResults && apResults.length === 1) {
+          apRequestId = apResults[0].id;
+        } else if (apResults && apResults.length > 1) {
+          return replyViaMeta(phoneNumberId, waToken, phone, "Multiple requests match '" + apShortId + "'. Use a longer ID.");
+        }
+      } catch (apLookupErr) {
+        console.log("[wa_meta] approve/reject fallback lookup error:", apLookupErr);
+      }
+    }
+
+    if (!apRequestId) {
+      console.log("[wa_meta] approve/reject: request not found for short_id=" + apShortId);
+      return replyViaMeta(phoneNumberId, waToken, phone, "Request '" + apShortId + "' not found or has expired (24h limit).");
+    }
+
+    // Load the request record
+    var apRequest = null;
+    try {
+      apRequest = $app.dao().findRecordById("requests", apRequestId);
+    } catch (apFindErr) {
+      console.log("[wa_meta] approve/reject findRecordById error:", apFindErr);
+      return replyViaMeta(phoneNumberId, waToken, phone, "Could not load request " + apShortId + ". Please try again.");
+    }
+
+    var apCurrentStatus = apRequest.getString("status");
+    if (apCurrentStatus !== "open") {
+      return replyViaMeta(phoneNumberId, waToken, phone, "Request " + apShortId + " is already " + apCurrentStatus + " — no action taken.");
+    }
+
+    var apNewStatus = apVerb === "approve" ? "approved" : "rejected";
+
+    try {
+      apRequest.set("status", apNewStatus);
+      apRequest.set("decision_notes", "via WhatsApp");
+      $app.dao().saveRecord(apRequest);
+    } catch (apSaveErr) {
+      console.log("[wa_meta] approve/reject saveRecord error:", apSaveErr);
+      return replyViaMeta(phoneNumberId, waToken, phone, "Failed to " + apVerb + " request " + apShortId + ": " + String(apSaveErr && apSaveErr.message ? apSaveErr.message : apSaveErr));
+    }
+
+    // Audit log
+    try {
+      var apAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+      var apAuditRec = new Record(apAuditCol);
+      apAuditRec.set("collection_name", "requests");
+      apAuditRec.set("record_id", apRequestId);
+      apAuditRec.set("actor", user.id);
+      apAuditRec.set("action", apNewStatus);
+      apAuditRec.set("changes", JSON.stringify({
+        via: "whatsapp",
+        short_id: apShortId,
+        decision_notes: "via WhatsApp",
+        from_status: apCurrentStatus,
+        to_status: apNewStatus
+      }));
+      $app.dao().saveRecord(apAuditRec);
+      console.log("[wa_meta] audit_log written for request=" + apRequestId + " action=" + apNewStatus);
+    } catch (apAuditErr) {
+      console.log("[wa_meta] audit_log write error (approve/reject):", apAuditErr);
+    }
+
+    var apEmoji = apVerb === "approve" ? "✅" : "❌";
+    console.log("[wa_meta] request " + apRequestId + " " + apNewStatus + " via WhatsApp by admin " + user.id);
+    return replyViaMeta(phoneNumberId, waToken, phone, apEmoji + " Request " + apShortId + " " + apNewStatus + ".");
+  }
+
+  // ===========================================================================
   // Pre-flight write-intent detection — confirm before calling AI
   // ===========================================================================
   var writeVerbs = /\b(move|create|add|new|make|delete|deactivate|remove|update|change|set|edit|approve|reject|fulfill|rename|reassign|transfer|put|send|cancel)\b/i;
