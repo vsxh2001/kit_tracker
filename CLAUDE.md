@@ -296,7 +296,8 @@ Hook: `pb/pb_hooks/wa_meta_webhook.pb.js` (Phase 1 — side-by-side with Twilio)
 flyctl secrets set -a kit-tracker \
   WHATSAPP_VERIFY_TOKEN=<random-string>        \
   WHATSAPP_PHONE_NUMBER_ID=1059995567204667    \
-  WHATSAPP_TOKEN=<bearer-token-from-meta>
+  WHATSAPP_TOKEN=<bearer-token-from-meta>      \
+  WHATSAPP_WABA_ID=1012217101334902
 ```
 
 - `WHATSAPP_VERIFY_TOKEN` — arbitrary random string; must match what you enter in the Meta
@@ -304,6 +305,13 @@ flyctl secrets set -a kit-tracker \
 - `WHATSAPP_PHONE_NUMBER_ID` — found in Meta Business Suite → WhatsApp → API Setup
   (e.g. `1059995567204667`).
 - `WHATSAPP_TOKEN` — permanent system-user access token from Meta Business Suite.
+- `WHATSAPP_WABA_ID` — WhatsApp Business Account ID, found in Meta Business Suite → Business settings
+  (e.g. `1012217101334902`). Used by `/api/wa/admin/status` to list subscribed apps.
+
+**Admin settings page** (`/settings/whatsapp`):
+- Admin-only route — non-admins redirect to `/dashboard`.
+- Displays: phone number + quality rating, token type + expiry countdown, webhook URL + last inbound, WABA subscribed apps.
+- Hook: `pb/pb_hooks/wa_meta_status.pb.js` — endpoint `GET /api/wa/admin/status`.
 
 **Webhook URL** (register in Meta Developer Console → WhatsApp → Configuration):
 ```
