@@ -36,11 +36,18 @@ describe("components_active_serial_unique hook", () => {
     return (await res.json()).id;
   }
 
+  // Send is_bulk explicitly, mirroring the real client (AddComponentDialog
+  // sets `is_bulk: !isSerialized`). Two onModelBeforeCreate hooks fire for
+  // components and their order is not guaranteed across boots: if
+  // components_validate runs before components_product_serialized_check (which
+  // is what would otherwise set is_bulk from the product), validate sees the
+  // unset is_bulk=false + empty serial and rejects. Sending is_bulk removes
+  // that ordering dependence and keeps the test deterministic.
   async function createSerialized(serial, is_active) {
     return fetch(`${baseUrl}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: adminToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ serial, product: serializedProductId, is_active }),
+      body: JSON.stringify({ serial, product: serializedProductId, is_active, is_bulk: false }),
     });
   }
 
@@ -48,7 +55,7 @@ describe("components_active_serial_unique hook", () => {
     return fetch(`${baseUrl}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: adminToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ product: bulkProductId, quantity, is_active }),
+      body: JSON.stringify({ product: bulkProductId, quantity, is_active, is_bulk: true }),
     });
   }
 
@@ -80,8 +87,8 @@ describe("components_active_serial_unique hook", () => {
   // soft-delete), components carry an UNCONDITIONAL unique index
   // (idx_components_serial: `serial WHERE serial != '' AND serial IS NOT NULL`)
   // that ignores is_active. So a retired component's serial cannot be reused
-  // until the row is hard-deleted. This pins current behavior; see PR notes for
-  // the kits/entities-vs-components inconsistency flagged for follow-up.
+  // until the row is hard-deleted. This pins current behavior; the
+  // kits/entities-vs-components inconsistency is tracked in issue #98.
   it("serial of a soft-deleted component stays reserved (global unique index)", async () => {
     const createRes = await createSerialized("COMP-RETIRE-001", true);
     expect(createRes.status).toBe(200);

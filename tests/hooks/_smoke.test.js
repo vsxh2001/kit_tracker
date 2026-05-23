@@ -59,8 +59,9 @@ describe("pb_hooks smoke", () => {
       );
 
       let output = "";
-      proc.stdout.on("data", (c) => (output += c.toString()));
-      proc.stderr.on("data", (c) => (output += c.toString()));
+      const accumulate = (c) => (output += c.toString());
+      proc.stdout.on("data", accumulate);
+      proc.stderr.on("data", accumulate);
 
       try {
         await new Promise((resolve, reject) => {
@@ -68,13 +69,15 @@ describe("pb_hooks smoke", () => {
             () => reject(new Error("PB boot timeout:\n" + output)),
             20000
           );
-          proc.stdout.on("data", (c) => {
+          const onStarted = (c) => {
             if (c.toString().includes("Server started")) {
               clearTimeout(timer);
+              proc.stdout.off("data", onStarted);
               // Give any deferred hook-eval errors a tick to flush.
               setTimeout(resolve, 500);
             }
-          });
+          };
+          proc.stdout.on("data", onStarted);
           proc.on("exit", (code) => {
             clearTimeout(timer);
             reject(new Error(`PB exited early (code ${code}):\n` + output));
@@ -85,14 +88,15 @@ describe("pb_hooks smoke", () => {
         rmSync(dataDir, { recursive: true, force: true });
       }
 
-      // PB logs "Failed to execute <file>:" then the JS error when a hook
-      // throws at load. Assert none of those markers appear.
+      // PB logs "Failed to execute <file>:" then the JS error (ReferenceError,
+      // etc.) when a hook throws at load — but it does NOT crash. Anchor on that
+      // marker plus an actual crash; syntax errors are already caught by the
+      // per-file vm.Script check above. We deliberately do NOT match bare
+      // "ReferenceError"/"TypeError" strings, since a future migration logging
+      // those words in prose would false-fail this gate.
       const failureMarkers = [
         /Failed to execute .+\.pb\.js/,
-        /ReferenceError/,
-        /SyntaxError/,
-        /TypeError/,
-        /\bpanic\b/i,
+        /\bpanic:/i,
       ];
       const hits = failureMarkers
         .filter((re) => re.test(output))
