@@ -159,6 +159,6 @@ test.describe("OnCall — sidebar badge", () => {
   test("sidebar shows 'On call: <name>' when active shift exists @smoke", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/dashboard");
-    await expect(page.getByText(/^On call:/i)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/^On call:/i).first()).toBeVisible({ timeout: 8000 });
   });
 });
