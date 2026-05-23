@@ -37,6 +37,30 @@ jobs:
       - name: Type-check and build
         run: cd frontend && npm run build
 
+  hook-tests:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download PocketBase
+        run: |
+          curl -sSL https://github.com/pocketbase/pocketbase/releases/download/v0.22.22/pocketbase_0.22.22_linux_amd64.zip -o /tmp/pb.zip
+          unzip -o /tmp/pb.zip pocketbase -d pb/
+          chmod +x pb/pocketbase
+
+      - name: Run PB hook tests
+        run: npm run test:hooks
+
   docker:
     runs-on: ubuntu-latest
     needs: build

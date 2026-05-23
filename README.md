@@ -161,9 +161,24 @@ cd frontend && npm run dev &
 cd frontend && npm run test   # run from frontend/, not repo root
 ```
 
+### Hook tests
+
+PocketBase JS hook tests (vitest) live in `tests/hooks/*.test.js`. Each boots an
+ephemeral PB instance with the real hooks + migrations and exercises a hook over
+REST. Run from the repo root:
+
+```bash
+npm ci            # root deps (vitest) — needs pb/pocketbase present
+npm run test:hooks
+```
+
+`_smoke.test.js` syntax-checks every `pb/pb_hooks/*.pb.js` and asserts PB boots
+the full hooks dir with no load failure (catches Goja-scope / undefined-global
+regressions that don't crash PB at startup).
+
 ### CI/CD (GitHub Actions)
 
-- **`ci.yml`**: lint → type-check + build → Docker build → Playwright e2e on every push/PR
+- **`ci.yml`**: lint → type-check + build → (PB hook tests ‖ Docker build ‖ Playwright e2e) on every push/PR
 - **`deploy.yml`**: deploys to Fly.io on push to `main` — requires `FLY_API_TOKEN` repository secret
 
 ### PocketBase SDK + React StrictMode
