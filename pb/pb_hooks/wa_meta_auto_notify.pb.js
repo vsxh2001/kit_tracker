@@ -253,17 +253,56 @@ onRecordAfterCreateRequest(function(e) {
       "- 'approve " + shortId + "' to approve\n" +
       "- 'reject " + shortId + "' to reject";
 
+    // On-call routing: prefer admins currently on shift; fall back to all admins
+    function getCurrentOnCallAdmins() {
+      try {
+        var now = new Date();
+        var shifts = $app.dao().findRecordsByFilter(
+          "on_call_shifts",
+          "start_at <= {:now} && end_at >= {:now}",
+          "",
+          100, 0,
+          { now: now.toISOString() }
+        );
+        if (!shifts || shifts.length === 0) return null;
+        var userIds = [];
+        for (var si = 0; si < shifts.length; si++) {
+          var uid = shifts[si].getString("user");
+          if (uid) userIds.push(uid);
+        }
+        if (userIds.length === 0) return null;
+        var quotedIds = userIds.map(function(id) { return '"' + id + '"'; }).join(",");
+        var onCallAdmins = $app.dao().findRecordsByFilter(
+          "users",
+          "role = 'admin' && phone != \"\" && id IN (" + quotedIds + ")",
+          "",
+          100, 0,
+          {}
+        );
+        return onCallAdmins && onCallAdmins.length > 0 ? onCallAdmins : null;
+      } catch (ocErr) {
+        console.log("[wa_auto_notify] on-call lookup failed (fallback to all admins):", ocErr);
+        return null;
+      }
+    }
+
     // Find all admins with phone set and request_pending pref not false
     var admins = [];
     try {
-      admins = $app.dao().findRecordsByFilter(
-        "users",
-        "role = 'admin' && phone != \"\"",
-        "",
-        100,
-        0,
-        {}
-      );
+      var onCallAdmins = getCurrentOnCallAdmins();
+      if (onCallAdmins) {
+        console.log("[wa_auto_notify] request_pending: on-call routing to " + onCallAdmins.length + " admin(s)");
+        admins = onCallAdmins;
+      } else {
+        admins = $app.dao().findRecordsByFilter(
+          "users",
+          "role = 'admin' && phone != \"\"",
+          "",
+          100,
+          0,
+          {}
+        );
+      }
     } catch (e5) {
       console.log("[wa_auto_notify] request_pending admin lookup failed:", e5);
       return;
