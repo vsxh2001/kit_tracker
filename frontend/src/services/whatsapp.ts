@@ -107,6 +107,46 @@ export async function getRolePhoneCount(role: string): Promise<RolePhoneCount> {
   return { role, count: records.length };
 }
 
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  status: "APPROVED" | "PENDING" | "REJECTED" | "IN_APPEAL" | "DISABLED";
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
+  language: string;
+  components: Array<{ type: string; text?: string; example?: unknown }>;
+}
+
+export interface SubmitTemplateInput {
+  name: string;
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
+  language: string;
+  components: Array<{ type: string; text?: string; example?: unknown }>;
+}
+
+export interface SubmitTemplateResult {
+  success: boolean;
+  error?: string;
+  isPermissionError?: boolean;
+}
+
+export async function listTemplates(): Promise<WhatsAppTemplate[]> {
+  const res = await pb.send("/api/wa/admin/templates", {
+    method: "GET",
+    requestKey: "wa-templates-list",
+  });
+  const data = (res as { data?: WhatsAppTemplate[] }).data;
+  return Array.isArray(data) ? data : [];
+}
+
+export async function submitTemplate(input: SubmitTemplateInput): Promise<SubmitTemplateResult> {
+  const res = await pb.send("/api/wa/admin/templates", {
+    method: "POST",
+    body: input,
+    requestKey: "wa-template-submit",
+  });
+  return res as SubmitTemplateResult;
+}
+
 export interface WhatsAppMessage {
   id: string;
   created: string;
