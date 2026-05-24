@@ -111,4 +111,41 @@ describe("oncall_validate hook", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("update: patching end_at to before start_at → 400", async () => {
+    const createRes = await fetch(`${baseUrl}/api/collections/on_call_shifts/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify(shiftPayload(adminUserId, 30, 8)),
+    });
+    expect(createRes.status).toBe(200);
+    const shiftId = (await createRes.json()).id;
+
+    // Shift starts at now+30h; PATCH end_at to now+1h, well before start_at.
+    const res = await fetch(`${baseUrl}/api/collections/on_call_shifts/records/${shiftId}`, {
+      method: "PATCH",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        end_at: new Date(Date.now() + 3600000).toISOString().replace("T", " "),
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("update: swapping on-call user to one with invalid role → 400", async () => {
+    const createRes = await fetch(`${baseUrl}/api/collections/on_call_shifts/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify(shiftPayload(adminUserId, 40, 8)),
+    });
+    expect(createRes.status).toBe(200);
+    const shiftId = (await createRes.json()).id;
+
+    const res = await fetch(`${baseUrl}/api/collections/on_call_shifts/records/${shiftId}`, {
+      method: "PATCH",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ user: plainUserId }),
+    });
+    expect(res.status).toBe(400);
+  });
 });
