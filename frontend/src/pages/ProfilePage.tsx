@@ -16,6 +16,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
     maintenance_digest: true,
     overdue_return: true,
     request_pending: true,
+    request_escalation: true,
   },
   quiet_hours: {
     enabled: false,
@@ -79,6 +80,7 @@ export function ProfilePage() {
               maintenance_digest: typeof parsed.events?.maintenance_digest === "boolean" ? parsed.events.maintenance_digest : DEFAULT_PREFS.events.maintenance_digest,
               overdue_return: typeof parsed.events?.overdue_return === "boolean" ? parsed.events.overdue_return : DEFAULT_PREFS.events.overdue_return,
               request_pending: typeof parsed.events?.request_pending === "boolean" ? parsed.events.request_pending : DEFAULT_PREFS.events.request_pending,
+              request_escalation: typeof parsed.events?.request_escalation === "boolean" ? parsed.events.request_escalation : DEFAULT_PREFS.events.request_escalation,
             },
             quiet_hours: parsed.quiet_hours
               ? {
@@ -320,6 +322,17 @@ export function ProfilePage() {
                       className="h-4 w-4"
                     />
                     <span className="text-sm">Approval requests (admin)</span>
+                  </label>
+                )}
+                {currentUser?.role === "admin" && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs.events.request_escalation}
+                      onChange={() => toggleEvent("request_escalation")}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm">Escalation alerts — unanswered approval requests (admin)</span>
                   </label>
                 )}
               </div>
