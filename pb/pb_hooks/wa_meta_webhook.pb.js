@@ -334,6 +334,35 @@ routerAdd("POST", "/api/wa/meta/webhook", function(c) {
   try { c.set("audit_via", "wa-meta-bot"); } catch (_) {}
 
   // ===========================================================================
+  // Audit-log inbound message (both sides of conversation visible in thread)
+  // ===========================================================================
+  try {
+    var inAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+    var inAuditRec = new Record(inAuditCol);
+    // Extract contact name from Meta payload (value.contacts[0].profile.name)
+    var contactName = "";
+    try {
+      var contacts = value.contacts;
+      if (contacts && contacts.length > 0 && contacts[0].profile) {
+        contactName = contacts[0].profile.name || "";
+      }
+    } catch (_) {}
+    inAuditRec.set("collection_name", "messages");
+    inAuditRec.set("record_id", wamid);
+    inAuditRec.set("actor", user ? user.id : "wa_inbound");
+    inAuditRec.set("action", "receive_whatsapp");
+    inAuditRec.set("changes", JSON.stringify({
+      from: phone,
+      body: body,
+      name: contactName
+    }));
+    $app.dao().saveRecord(inAuditRec);
+    console.log("[wa_meta] inbound audit_log written wamid=" + wamid);
+  } catch (inAuditErr) {
+    console.log("[wa_meta] inbound audit_log write error: " + inAuditErr);
+  }
+
+  // ===========================================================================
   // Confirmation flow
   // ===========================================================================
   var pendingKey  = "wa_meta_pending:" + phone;

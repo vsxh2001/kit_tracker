@@ -112,10 +112,15 @@ export interface WhatsAppMessage {
   created: string;
   actor: string;
   to: string;
+  direction: "inbound" | "outbound";
   event?: string;
   templateName?: string;
   mode?: string;
   success: boolean;
+  // inbound-only fields
+  from?: string;
+  body?: string;
+  contactName?: string;
   expand?: { actor?: import("../types").PBUser };
 }
 
@@ -127,9 +132,11 @@ export async function listWhatsAppMessages(opts: {
   const limit = opts.limit ?? 50;
   const page = opts.offset !== undefined ? Math.floor(opts.offset / limit) + 1 : 1;
 
-  const parts: string[] = [
-    pb.filter("action = {:action}", { action: "send_whatsapp" }),
-  ];
+  const actionFilter = pb.filter(
+    "(action = {:out} || action = {:inn})",
+    { out: "send_whatsapp", inn: "receive_whatsapp" }
+  );
+  const parts: string[] = [actionFilter];
   if (opts.phone) {
     parts.push(pb.filter("changes ~ {:phone}", { phone: opts.phone }));
   }
@@ -149,15 +156,20 @@ export async function listWhatsAppMessages(opts: {
     } catch {
       // ignore
     }
+    const isInbound = (r.action as string) === "receive_whatsapp";
     return {
       id: r.id,
       created: r.created,
       actor: r.actor as string,
-      to: (parsed.to as string) ?? "",
+      direction: isInbound ? "inbound" : "outbound",
+      to: isInbound ? "" : ((parsed.to as string) ?? ""),
       event: parsed.event as string | undefined,
       templateName: parsed.templateName as string | undefined,
       mode: parsed.mode as string | undefined,
-      success: Boolean(parsed.success),
+      success: isInbound ? true : Boolean(parsed.success),
+      from: isInbound ? (parsed.from as string | undefined) : undefined,
+      body: isInbound ? (parsed.body as string | undefined) : undefined,
+      contactName: isInbound ? (parsed.name as string | undefined) : undefined,
       expand: r.expand as WhatsAppMessage["expand"],
     };
   });
