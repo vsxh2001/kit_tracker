@@ -16,16 +16,12 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { toast } from "../components/ui/use-toast";
-import { broadcastWhatsApp, getRolePhoneCount } from "../services/whatsapp";
+import { broadcastWhatsApp, getRolePhoneCount, listTemplates } from "../services/whatsapp";
 import { useAuth } from "../context/AuthContext";
-import type { BroadcastResult } from "../services/whatsapp";
+import type { BroadcastResult, WhatsAppTemplate } from "../services/whatsapp";
 
 const ROLES = ["admin", "technician", "user", "viewer"] as const;
 type Role = typeof ROLES[number];
-
-const KNOWN_TEMPLATES = [
-  { name: "hello_world", language: "en_US", label: "hello_world (en_US)" },
-] as const;
 
 export function WhatsAppBroadcastPage() {
   const { isAdmin, loading: authLoading } = useAuth();
@@ -37,16 +33,44 @@ export function WhatsAppBroadcastPage() {
   const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [roleCountLoading, setRoleCountLoading] = useState(false);
 
+  // Template list from Meta API
+  const [approvedTemplates, setApprovedTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+
   // Message state
   const [msgType, setMsgType] = useState<"text" | "template">("text");
   const [freeText, setFreeText] = useState("");
-  const [templateName, setTemplateName] = useState<string>(KNOWN_TEMPLATES[0].name);
-  const [templateLanguage, setTemplateLanguage] = useState<string>(KNOWN_TEMPLATES[0].language);
+  const [templateName, setTemplateName] = useState<string>("");
+  const [templateLanguage, setTemplateLanguage] = useState<string>("en_US");
 
   // Send state
   const [sending, setSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [result, setResult] = useState<BroadcastResult | null>(null);
+
+  // Load approved templates from Meta API
+  async function loadTemplates() {
+    setTemplatesLoading(true);
+    try {
+      const all = await listTemplates();
+      const approved = all.filter((t) => t.status === "APPROVED");
+      setApprovedTemplates(approved);
+      if (approved.length > 0 && !templateName) {
+        setTemplateName(approved[0].name);
+        setTemplateLanguage(approved[0].language);
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    startTransition(() => loadTemplates());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load role phone counts when role filter active
   async function loadRoleCount(role: Role) {
@@ -336,29 +360,46 @@ export function WhatsAppBroadcastPage() {
 
           {msgType === "template" && (
             <div className="space-y-2">
-              <Select
-                value={templateName}
-                onValueChange={(v) => {
-                  const tmpl = KNOWN_TEMPLATES.find((t) => t.name === v);
-                  setTemplateName(v);
-                  if (tmpl) setTemplateLanguage(tmpl.language);
-                }}
-              >
-                <SelectTrigger className="w-72">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {KNOWN_TEMPLATES.map((t) => (
-                    <SelectItem key={t.name} value={t.name}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Template: <span className="font-mono">{templateName}</span> / lang:{" "}
-                <span className="font-mono">{templateLanguage}</span>
-              </p>
+              {templatesLoading ? (
+                <p className="text-sm text-muted-foreground">Loading templates...</p>
+              ) : approvedTemplates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No approved templates found.{" "}
+                  <a
+                    href="/settings/whatsapp/templates"
+                    className="text-indigo-600 hover:text-indigo-500 underline"
+                  >
+                    View templates
+                  </a>{" "}
+                  or submit one for Meta approval.
+                </p>
+              ) : (
+                <>
+                  <Select
+                    value={templateName}
+                    onValueChange={(v) => {
+                      const tmpl = approvedTemplates.find((t) => t.name === v);
+                      setTemplateName(v);
+                      if (tmpl) setTemplateLanguage(tmpl.language);
+                    }}
+                  >
+                    <SelectTrigger className="w-72">
+                      <SelectValue placeholder="Select template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvedTemplates.map((t) => (
+                        <SelectItem key={`${t.name}-${t.language}`} value={t.name}>
+                          {t.name} ({t.language})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Template: <span className="font-mono">{templateName}</span> / lang:{" "}
+                    <span className="font-mono">{templateLanguage}</span>
+                  </p>
+                </>
+              )}
             </div>
           )}
         </CardContent>

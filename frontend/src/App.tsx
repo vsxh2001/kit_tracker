@@ -31,6 +31,7 @@ import { WhatsAppSettingsPage } from "./pages/WhatsAppSettingsPage";
 import { WhatsAppBroadcastPage } from "./pages/WhatsAppBroadcastPage";
 import { WhatsAppConversationsPage } from "./pages/WhatsAppConversationsPage";
 import { WhatsAppScheduledBroadcastsPage } from "./pages/WhatsAppScheduledBroadcastsPage";
+import { WhatsAppTemplatesPage } from "./pages/WhatsAppTemplatesPage";
 import { Toaster } from "./components/ui/toaster";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="settings/whatsapp/broadcast" element={<AdminOnly><WhatsAppBroadcastPage /></AdminOnly>} />
             <Route path="settings/whatsapp/conversations" element={<AdminOnly><WhatsAppConversationsPage /></AdminOnly>} />
             <Route path="settings/whatsapp/scheduled" element={<AdminOnly><WhatsAppScheduledBroadcastsPage /></AdminOnly>} />
+            <Route path="settings/whatsapp/templates" element={<AdminOnly><WhatsAppTemplatesPage /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

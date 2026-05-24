@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { Navigate, Link } from "react-router-dom";
-import { MessageCircle, Check, X, Copy, Radio, MessagesSquare, CalendarClock } from "lucide-react";
+import { MessageCircle, Check, X, Copy, Radio, MessagesSquare, CalendarClock, LayoutTemplate } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Skeleton } from "../components/ui/skeleton";
@@ -74,6 +74,13 @@ export function WhatsAppSettingsPage() {
           >
             <CalendarClock className="h-4 w-4" />
             Scheduled
+          </Link>
+          <Link
+            to="/settings/whatsapp/templates"
+            className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+          >
+            <LayoutTemplate className="h-4 w-4" />
+            Templates
           </Link>
         </div>
       </div>
