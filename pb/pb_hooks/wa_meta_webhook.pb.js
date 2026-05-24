@@ -228,14 +228,22 @@ routerAdd("POST", "/api/wa/meta/webhook", function(c) {
     return H;
   }
 
-  // Shared string/word helpers (also used by HMAC)
+  // Shared string/word helpers (also used by HMAC). readerToString UTF-8-decodes
+  // the body into a JS string, so this must re-encode the full code-point range
+  // — including 4-byte astral chars (emoji) that arrive as UTF-16 surrogate
+  // pairs. A 3-byte-max encoder mangles emoji and breaks signature verification.
   function strToUtf8Bytes256(s) {
     var b = [];
     for (var i = 0; i < s.length; i++) {
       var c = s.charCodeAt(i);
+      if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) {
+        var lo = s.charCodeAt(i + 1);
+        if (lo >= 0xDC00 && lo <= 0xDFFF) { c = 0x10000 + ((c - 0xD800) << 10) + (lo - 0xDC00); i++; }
+      }
       if (c < 128) b.push(c);
-      else if (c < 2048) { b.push((c >> 6) | 192); b.push((c & 63) | 128); }
-      else { b.push((c >> 12) | 224); b.push(((c >> 6) & 63) | 128); b.push((c & 63) | 128); }
+      else if (c < 2048) { b.push((c >> 6) | 192, (c & 63) | 128); }
+      else if (c < 0x10000) { b.push((c >> 12) | 224, ((c >> 6) & 63) | 128, (c & 63) | 128); }
+      else { b.push((c >> 18) | 240, ((c >> 12) & 63) | 128, ((c >> 6) & 63) | 128, (c & 63) | 128); }
     }
     return b;
   }
