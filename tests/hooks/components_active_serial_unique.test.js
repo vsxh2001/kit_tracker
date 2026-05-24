@@ -82,14 +82,10 @@ describe("components_active_serial_unique hook", () => {
     expect(res.status).toBe(400);
   });
 
-  // Soft-deleted serial stays reserved. NOTE: unlike kits/entities (which rely
-  // purely on their active-unique hooks and DO allow serial reuse after
-  // soft-delete), components carry an UNCONDITIONAL unique index
-  // (idx_components_serial: `serial WHERE serial != '' AND serial IS NOT NULL`)
-  // that ignores is_active. So a retired component's serial cannot be reused
-  // until the row is hard-deleted. This pins current behavior; the
-  // kits/entities-vs-components inconsistency is tracked in issue #98.
-  it("serial of a soft-deleted component stays reserved (global unique index)", async () => {
+  // Serial reuse is allowed after soft-delete, matching kits/entities behavior.
+  // Migration 1780100000 changed idx_components_serial from a global unique index
+  // to WHERE is_active = 1, so retired component serials can be reassigned.
+  it("serial of a soft-deleted component can be reused by a new active component", async () => {
     const createRes = await createSerialized("COMP-RETIRE-001", true);
     expect(createRes.status).toBe(200);
     const compId = (await createRes.json()).id;
@@ -98,9 +94,28 @@ describe("components_active_serial_unique hook", () => {
     const retireRes = await patchComponent(compId, { is_active: false });
     expect(retireRes.status).toBe(200);
 
-    // reusing the serial is rejected by the unconditional unique index
+    // reusing the serial on a new active component is now allowed
     const res = await createSerialized("COMP-RETIRE-001", true);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+  });
+
+  // Reactivating a soft-deleted component whose serial was reused is rejected by
+  // the update hook (the hook still enforces active-unique semantics).
+  it("reactivating a soft-deleted component whose serial is taken is rejected (400)", async () => {
+    const createRes = await createSerialized("COMP-REACT-001", true);
+    expect(createRes.status).toBe(200);
+    const oldId = (await createRes.json()).id;
+
+    // soft-delete it
+    await patchComponent(oldId, { is_active: false });
+
+    // new component reuses the serial
+    const newRes = await createSerialized("COMP-REACT-001", true);
+    expect(newRes.status).toBe(200);
+
+    // reactivating the old one conflicts with the new active one
+    const reactivateRes = await patchComponent(oldId, { is_active: true });
+    expect(reactivateRes.status).toBe(400);
   });
 
   // Update path: rename serial to conflict with another active serialized component

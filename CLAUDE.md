@@ -72,7 +72,7 @@ PB JS hook tests live in `tests/hooks/*.test.js` (vitest, run from repo root via
 
 **Gotchas when adding a hook test:**
 - Hooks that gate fields by caller role (e.g. `components_validate.pb.js`'s REST field guard) reject the **superuser panel token** — it has no `users.role`. Authenticate as the seeded app admin via `authUser(...)` instead of using `pb.suToken`.
-- `components` carries an UNCONDITIONAL unique index on `serial` (`idx_components_serial`), so a soft-deleted component's serial stays reserved — unlike `kits`/`entities`, which have no DB index and allow serial reuse after soft-delete via their hooks alone.
+- `components.serial` uniqueness is scoped to `is_active = 1` (migration `1780100000`), matching `kits`/`entities` behavior — soft-deleted component serials can be reused by new active records.
 - `_smoke.test.js` syntax-checks every `pb/pb_hooks/*.pb.js` and asserts PB boots the full hooks dir with no load failure. PB starts even when a hook throws at load (it logs `Failed to execute <file>:` + the JS error), so the smoke test scans boot output for those markers. Add a real test alongside any new hook; the smoke test only catches load/parse failures, not logic bugs.
 
 ## Architecture
