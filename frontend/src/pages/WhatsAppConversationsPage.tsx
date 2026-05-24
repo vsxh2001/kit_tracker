@@ -1,12 +1,13 @@
 import { useEffect, useState, startTransition, useRef } from "react";
-import { MessageCircle, Search, CheckCircle2, XCircle, Loader2, ChevronLeft } from "lucide-react";
-import { Card, CardContent } from "../components/ui/card";
+import { MessageCircle, Search, ChevronLeft, Send, AlertTriangle, Loader2, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/EmptyState";
-import { listWhatsAppMessages } from "../services/whatsapp";
+import { Textarea } from "../components/ui/textarea";
+import { listWhatsAppMessages, sendWhatsAppMessage } from "../services/whatsapp";
 import { formatDate } from "../lib/utils";
 import { cn } from "../lib/utils";
+import { useToast } from "../components/ui/use-toast";
 import type { WhatsAppMessage } from "../services/whatsapp";
 
 // Relative time — e.g. "2 h ago", "just now"
@@ -19,12 +20,18 @@ function relativeTime(dateStr: string): string {
 }
 
 function eventLabel(msg: WhatsAppMessage): string {
+  if (msg.direction === "inbound") return msg.body ? msg.body.slice(0, 60) : "Inbound message";
   if (msg.event === "request_fulfilled") return "Request fulfilled";
   if (msg.event === "kit_moved") return "Kit moved";
   if (msg.event) return msg.event;
   if (msg.templateName) return `Template: ${msg.templateName}`;
   if (msg.mode === "text") return "Manual text";
   return "Message sent";
+}
+
+// Return the phone for a message regardless of direction
+function msgPhone(msg: WhatsAppMessage): string {
+  return msg.direction === "inbound" ? (msg.from ?? "") : (msg.to ?? "");
 }
 
 interface PhoneThread {
@@ -37,7 +44,7 @@ interface PhoneThread {
 function groupByPhone(messages: WhatsAppMessage[]): PhoneThread[] {
   const map = new Map<string, { lastMessage: WhatsAppMessage; count: number }>();
   for (const msg of messages) {
-    const phone = msg.to;
+    const phone = msgPhone(msg);
     if (!phone) continue;
     const existing = map.get(phone);
     if (!existing || new Date(msg.created) > new Date(existing.lastMessage.created)) {
@@ -51,9 +58,24 @@ function groupByPhone(messages: WhatsAppMessage[]): PhoneThread[] {
     .sort((a, b) => new Date(b.lastMessage.created).getTime() - new Date(a.lastMessage.created).getTime());
 }
 
+// Check whether the last INBOUND message from this phone is within 24h
+function isWithin24hWindow(thread: WhatsAppMessage[]): boolean {
+  const lastInbound = thread.find((m) => m.direction === "inbound");
+  if (!lastInbound) return false;
+  const age = Date.now() - new Date(lastInbound.created).getTime();
+  return age < 24 * 60 * 60 * 1000;
+}
+
+// Check whether there is ANY inbound message from this phone
+function hasEverInbound(thread: WhatsAppMessage[]): boolean {
+  return thread.some((m) => m.direction === "inbound");
+}
+
 const PAGE_LIMIT = 50;
 
 export function WhatsAppConversationsPage() {
+  const { toast } = useToast();
+
   // Phone list state
   const [phoneThreads, setPhoneThreads] = useState<PhoneThread[]>([]);
   const [phoneLoading, setPhoneLoading] = useState(true);
@@ -69,11 +91,18 @@ export function WhatsAppConversationsPage() {
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadLoadingMore, setThreadLoadingMore] = useState(false);
 
+  // Composer state
+  const [composeText, setComposeText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  // Scroll-to-bottom ref for thread
+  const threadBottomRef = useRef<HTMLDivElement | null>(null);
+
   // Date range filter
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Load phone list — fetches all send_whatsapp entries matching search/dates,
+  // Load phone list — fetches all send_whatsapp + receive_whatsapp entries matching search/dates,
   // then groups client-side. Limit 500 for grouping purposes.
   async function loadPhones() {
     setPhoneLoading(true);
@@ -145,6 +174,7 @@ export function WhatsAppConversationsPage() {
     setThread([]);
     setThreadPage(1);
     setThreadTotal(0);
+    setComposeText("");
     startTransition(() => loadThread(phone, 1));
   }
 
@@ -152,6 +182,48 @@ export function WhatsAppConversationsPage() {
     setSelectedPhone(null);
     setThread([]);
   }
+
+  // Scroll to bottom after thread loads
+  useEffect(() => {
+    if (!threadLoading && thread.length > 0) {
+      threadBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [threadLoading, thread.length]);
+
+  async function handleSend() {
+    if (!selectedPhone || !composeText.trim() || sending) return;
+    setSending(true);
+    try {
+      await sendWhatsAppMessage({ to: selectedPhone, text: composeText.trim() });
+      setComposeText("");
+      toast({ title: "Sent", description: "Message delivered to WhatsApp.", variant: "success" });
+      // Refresh thread
+      startTransition(() => loadThread(selectedPhone, 1));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) {
+        console.error(err);
+        toast({
+          title: "Send failed",
+          description: err?.message ?? "Could not send message.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleComposeKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
+  const within24h = selectedPhone ? isWithin24hWindow(thread) : false;
+  const everInbound = selectedPhone ? hasEverInbound(thread) : false;
+  const show24hWarning = selectedPhone && !threadLoading && !within24h;
 
   return (
     <div className="space-y-5">
@@ -227,7 +299,7 @@ export function WhatsAppConversationsPage() {
               <EmptyState
                 icon={MessageCircle}
                 heading="No conversations"
-                body="No outbound WhatsApp messages recorded yet."
+                body="No WhatsApp messages recorded yet."
               />
             </div>
           ) : (
@@ -293,11 +365,23 @@ export function WhatsAppConversationsPage() {
                 )}
               </div>
 
+              {/* 24h window warning */}
+              {show24hWarning && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                  <span>
+                    {everInbound
+                      ? "Last inbound message is older than 24 h. Meta only allows free-form replies within a 24 h customer-service window — this message may be blocked."
+                      : "No inbound messages from this number. Meta only allows free-form messages within a 24 h reply window after the user messages first."}
+                  </span>
+                </div>
+              )}
+
               {/* Thread messages */}
               {threadLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
                   ))}
                 </div>
               ) : thread.length === 0 ? (
@@ -305,59 +389,7 @@ export function WhatsAppConversationsPage() {
                   <p className="text-sm text-muted-foreground">No messages found.</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2 overflow-y-auto">
-                  {thread.map((msg) => (
-                    <Card key={msg.id}>
-                      <CardContent className="px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex items-center gap-2">
-                              {msg.success ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                              )}
-                              <span className="text-sm font-medium">{eventLabel(msg)}</span>
-                            </div>
-                            {msg.templateName && (
-                              <p className="text-xs text-muted-foreground">
-                                Template: <span className="font-mono">{msg.templateName}</span>
-                              </p>
-                            )}
-                            {msg.mode && (
-                              <p className="text-xs text-muted-foreground capitalize">
-                                Mode: {msg.mode}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              Actor:{" "}
-                              {msg.expand?.actor?.name
-                                ? msg.expand.actor.name
-                                : msg.expand?.actor?.email
-                                  ? msg.expand.actor.email
-                                  : msg.actor
-                                    ? msg.actor
-                                    : "system"}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-xs text-muted-foreground whitespace-nowrap">
-                              {formatDate(msg.created)}
-                            </p>
-                            <span className={cn(
-                              "inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium",
-                              msg.success
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-red-100 text-red-700"
-                            )}>
-                              {msg.success ? "sent" : "failed"}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-
+                <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 px-1">
                   {thread.length < threadTotal && (
                     <div className="flex justify-center pt-1">
                       <Button
@@ -369,12 +401,100 @@ export function WhatsAppConversationsPage() {
                         {threadLoadingMore && (
                           <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                         )}
-                        Load more
+                        Load older
                       </Button>
                     </div>
                   )}
+
+                  {/* Reverse so newest is at bottom */}
+                  {[...thread].reverse().map((msg) => {
+                    const isInbound = msg.direction === "inbound";
+                    return (
+                      <div
+                        key={msg.id}
+                        className={cn(
+                          "flex",
+                          isInbound ? "justify-start" : "justify-end"
+                        )}
+                      >
+                        <div className={cn(
+                          "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm",
+                          isInbound
+                            ? "bg-card border border-border rounded-tl-sm"
+                            : "bg-indigo-600 text-white rounded-tr-sm"
+                        )}>
+                          {/* Direction indicator */}
+                          <div className={cn(
+                            "flex items-center gap-1 text-xs mb-1",
+                            isInbound ? "text-muted-foreground" : "text-indigo-200"
+                          )}>
+                            {isInbound ? (
+                              <ArrowDownLeft className="h-3 w-3" />
+                            ) : (
+                              <ArrowUpRight className="h-3 w-3" />
+                            )}
+                            <span>{isInbound ? (msg.contactName || "Customer") : "You"}</span>
+                            <span className="ml-auto pl-3 whitespace-nowrap">
+                              {formatDate(msg.created)}
+                            </span>
+                          </div>
+
+                          {/* Message body */}
+                          {isInbound && msg.body ? (
+                            <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                          ) : !isInbound ? (
+                            <p className="whitespace-pre-wrap break-words">
+                              {msg.templateName
+                                ? `[Template: ${msg.templateName}]`
+                                : eventLabel(msg)}
+                            </p>
+                          ) : (
+                            <p className="italic text-muted-foreground">{eventLabel(msg)}</p>
+                          )}
+
+                          {/* Outbound status */}
+                          {!isInbound && (
+                            <div className={cn(
+                              "text-xs mt-1",
+                              msg.success ? "text-indigo-200" : "text-red-300"
+                            )}>
+                              {msg.success ? "delivered" : "failed"}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={threadBottomRef} />
                 </div>
               )}
+
+              {/* Composer */}
+              <div className="border border-border rounded-lg bg-card p-3 flex flex-col gap-2 shrink-0">
+                <Textarea
+                  placeholder={`Send a message to ${selectedPhone}… (Ctrl+Enter to send)`}
+                  value={composeText}
+                  onChange={(e) => setComposeText(e.target.value)}
+                  onKeyDown={handleComposeKeyDown}
+                  rows={3}
+                  className="resize-none text-sm"
+                  disabled={sending}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={handleSend}
+                    disabled={!composeText.trim() || sending}
+                  >
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1.5" />
+                    )}
+                    Send
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </div>
