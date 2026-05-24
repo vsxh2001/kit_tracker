@@ -24,6 +24,7 @@ frontend/dist/
 
 # Playwright test runtime outputs
 frontend/test-results/
+frontend/playwright-report/
 
 # Agent worktrees + memory + scratchpads (never commit)
 .claude/worktrees/
