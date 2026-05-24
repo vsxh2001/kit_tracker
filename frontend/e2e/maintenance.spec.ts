@@ -303,8 +303,9 @@ test.describe("Maintenance — snooze schedule @smoke", () => {
     // Wait for table to render
     await expect(page.locator("table")).toBeVisible({ timeout: 10_000 });
 
-    // Find Snooze button for our schedule row (inspection type visible in table)
-    const snoozeBtn = page.getByRole("row", { name: /inspection/ }).getByRole("button", { name: "Snooze" });
+    // Find Snooze button for our specific kit's row (match by unique serial to avoid
+    // ambiguity when another inspect-type schedule exists elsewhere in the table)
+    const snoozeBtn = page.getByRole("row", { name: new RegExp(`${TS}-SNZ`) }).getByRole("button", { name: "Snooze" });
     await expect(snoozeBtn).toBeVisible({ timeout: 10_000 });
     await snoozeBtn.click();
 
