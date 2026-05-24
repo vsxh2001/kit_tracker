@@ -78,6 +78,7 @@ export interface NotificationPrefs {
     maintenance_digest: boolean;
     overdue_return: boolean;
     request_pending: boolean;
+    request_escalation: boolean;
   };
   quiet_hours?: {
     enabled: boolean;
