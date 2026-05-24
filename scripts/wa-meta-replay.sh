@@ -109,11 +109,11 @@ echo ""
 # ---------------------------------------------------------------------------
 # Warnings
 # ---------------------------------------------------------------------------
-if [ "$STATUS_CODE" = "401" ]; then
-  echo "WARNING: 401 Unauthorized — the webhook rejected the request."
-  echo "  If HMAC signature verification is enforced, unsigned POSTs will be rejected."
-  echo "  Check that WA_SKIP_SIGNATURE_CHECK=1 is set in the PocketBase environment"
-  echo "  (local dev only — never set in prod)."
+if [ "$STATUS_CODE" = "403" ] || [ "$STATUS_CODE" = "401" ]; then
+  echo "WARNING: $STATUS_CODE — the webhook rejected the request."
+  echo "  Unsigned POSTs are rejected when WHATSAPP_APP_SECRET is set."
+  echo "  For local dev, set WA_SKIP_SIGNATURE_CHECK=1 in the PocketBase environment"
+  echo "  (never set in prod — bypasses HMAC-SHA256 signature verification)."
 fi
 
 if [ "$STATUS_CODE" = "000" ] || [ -z "$STATUS_CODE" ]; then

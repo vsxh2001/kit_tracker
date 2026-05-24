@@ -9,6 +9,9 @@
 //   WHATSAPP_VERIFY_TOKEN    — random string for webhook verification handshake
 //   WHATSAPP_PHONE_NUMBER_ID — Meta phone number ID (e.g. 1059995567204667)
 //   WHATSAPP_TOKEN           — Bearer token for Graph API outbound calls
+//   WHATSAPP_APP_SECRET      — Meta App Secret for X-Hub-Signature-256 verification
+//                              (Meta Developer Console → App Settings → Basic)
+//   WA_SKIP_SIGNATURE_CHECK=1 — bypass POST signature check (local dev / ngrok only)
 //
 // $app.store() keys:
 //   wa_meta_seen:<wamid>   — JSON { expires: <ms> }  24h TTL, idempotency
@@ -177,23 +180,145 @@ routerAdd("POST", "/api/wa/meta/webhook", function(c) {
     } catch (_) { return false; }
   }
 
+  // --- SHA-256 (pure JS, FIPS 180-4) ---
+  function sha256Bytes(bytesIn) {
+    var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    var K = [
+      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+    ];
+    function rotr32(n, s) { return (n >>> s) | (n << (32 - s)); }
+    function add32(a, b)  { return (a + b) >>> 0; }
+    var bytes = bytesIn.slice();
+    var bitLen = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    bytes.push(0, 0, 0, 0);
+    bytes.push((bitLen >>> 24) & 0xff, (bitLen >>> 16) & 0xff, (bitLen >>> 8) & 0xff, bitLen & 0xff);
+    for (var chunk = 0; chunk < bytes.length; chunk += 64) {
+      var w = [];
+      for (var wi = 0; wi < 16; wi++) {
+        w[wi] = (bytes[chunk + wi*4] << 24) | (bytes[chunk + wi*4+1] << 16) |
+                (bytes[chunk + wi*4+2] << 8) | bytes[chunk + wi*4+3];
+      }
+      for (var wi = 16; wi < 64; wi++) {
+        var s0 = rotr32(w[wi-15], 7) ^ rotr32(w[wi-15], 18) ^ (w[wi-15] >>> 3);
+        var s1 = rotr32(w[wi-2], 17) ^ rotr32(w[wi-2], 19) ^ (w[wi-2] >>> 10);
+        w[wi] = add32(add32(add32(w[wi-16], s0), w[wi-7]), s1);
+      }
+      var a=H[0], b=H[1], cc=H[2], d=H[3], e=H[4], f=H[5], g=H[6], h=H[7];
+      for (var ri = 0; ri < 64; ri++) {
+        var S1  = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
+        var ch  = (e & f) ^ ((~e) & g);
+        var t1  = add32(add32(add32(add32(h, S1), ch), K[ri]), w[ri]);
+        var S0  = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
+        var maj = (a & b) ^ (a & cc) ^ (b & cc);
+        var t2  = add32(S0, maj);
+        h=g; g=f; f=e; e=add32(d,t1); d=cc; cc=b; b=a; a=add32(t1,t2);
+      }
+      H[0]=add32(H[0],a); H[1]=add32(H[1],b); H[2]=add32(H[2],cc); H[3]=add32(H[3],d);
+      H[4]=add32(H[4],e); H[5]=add32(H[5],f); H[6]=add32(H[6],g);  H[7]=add32(H[7],h);
+    }
+    return H;
+  }
+
+  // Shared string/word helpers (also used by HMAC)
+  function strToUtf8Bytes256(s) {
+    var b = [];
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      if (c < 128) b.push(c);
+      else if (c < 2048) { b.push((c >> 6) | 192); b.push((c & 63) | 128); }
+      else { b.push((c >> 12) | 224); b.push(((c >> 6) & 63) | 128); b.push((c & 63) | 128); }
+    }
+    return b;
+  }
+  function wordsToBytes256(words) {
+    var out = [];
+    for (var i = 0; i < words.length; i++) {
+      out.push((words[i] >>> 24) & 0xff, (words[i] >>> 16) & 0xff,
+               (words[i] >>> 8) & 0xff, words[i] & 0xff);
+    }
+    return out;
+  }
+  function bytesToHex(bytes) {
+    var hex = "0123456789abcdef";
+    var result = "";
+    for (var i = 0; i < bytes.length; i++) {
+      result += hex[(bytes[i] >> 4) & 0xf] + hex[bytes[i] & 0xf];
+    }
+    return result;
+  }
+  function hmacSha256Hex(keyStr, msgStr) {
+    var BLOCK = 64;
+    var keyBytes = strToUtf8Bytes256(keyStr);
+    if (keyBytes.length > BLOCK) keyBytes = wordsToBytes256(sha256Bytes(keyBytes));
+    while (keyBytes.length < BLOCK) keyBytes.push(0);
+    var opad = keyBytes.map(function(b) { return b ^ 0x5C; });
+    var ipad = keyBytes.map(function(b) { return b ^ 0x36; });
+    var msgBytes = strToUtf8Bytes256(msgStr);
+    var innerBytes = wordsToBytes256(sha256Bytes(ipad.concat(msgBytes)));
+    return bytesToHex(wordsToBytes256(sha256Bytes(opad.concat(innerBytes))));
+  }
+  // Constant-time hex comparison (mitigate timing attacks)
+  function safeEqualHex(a, b) {
+    if (typeof a !== "string" || typeof b !== "string") return false;
+    var la = strToUtf8Bytes256(a), lb = strToUtf8Bytes256(b);
+    var maxLen = Math.max(la.length, lb.length);
+    var result = la.length ^ lb.length;
+    for (var i = 0; i < maxLen; i++) result |= (la[i] || 0) ^ (lb[i] || 0);
+    return result === 0;
+  }
+
   // ===========================================================================
   // Read env at call time (no module-level vars — Goja isolation)
   // ===========================================================================
   var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
   var waToken       = $os.getenv("WHATSAPP_TOKEN")           || "";
+  var appSecret     = $os.getenv("WHATSAPP_APP_SECRET")      || "";
+  var skipSigCheck  = $os.getenv("WA_SKIP_SIGNATURE_CHECK")  === "1";
 
   // ===========================================================================
-  // Parse Meta JSON payload
+  // Read raw body (needed for HMAC verification before JSON parse)
   // ===========================================================================
+  var rawBody = "";
   var payload = null;
   try {
-    var info = $apis.requestInfo(c);
-    payload = info && info.data ? info.data : null;
+    rawBody  = readerToString(c.request().body) || "";
+    if (rawBody) payload = JSON.parse(rawBody);
   } catch (e) {
-    console.log("[wa_meta] requestInfo error: " + e);
-    // Return 200 — Meta must not retry on parse errors we can't fix
+    console.log("[wa_meta] body read/parse error: " + e);
     return c.string(200, "");
+  }
+
+  // ===========================================================================
+  // X-Hub-Signature-256 verification (HMAC-SHA256 of raw body with app secret)
+  // ===========================================================================
+  if (!skipSigCheck) {
+    if (!appSecret) {
+      console.log("[wa_meta] WHATSAPP_APP_SECRET not set — signature check skipped (set it in prod)");
+    } else {
+      var sigHeader = c.request().header.get("X-Hub-Signature-256") || "";
+      if (!sigHeader) {
+        console.log("[wa_meta] missing X-Hub-Signature-256 — rejecting unsigned POST");
+        return c.string(403, "");
+      }
+      var sigHex = sigHeader.indexOf("sha256=") === 0 ? sigHeader.slice(7) : sigHeader;
+      var computed = hmacSha256Hex(appSecret, rawBody);
+      if (!safeEqualHex(computed, sigHex)) {
+        console.log("[wa_meta] signature mismatch from " + (c.request().header.get("X-Forwarded-For") || "unknown"));
+        return c.string(403, "");
+      }
+      console.log("[wa_meta] signature OK");
+    }
+  } else {
+    console.log("[wa_meta] signature check skipped (WA_SKIP_SIGNATURE_CHECK=1)");
   }
 
   // Validate this is a whatsapp_business_account event
