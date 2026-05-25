@@ -36,15 +36,10 @@ routerAdd("POST", "/api/wa/send", function(c) {
   }
 
   // ===========================================================================
-  // Parse request body
+  // Parse request body — $apis.requestInfo(c) above already consumed the body
+  // stream into info.data, so c.bind() here would read an empty body and throw.
   // ===========================================================================
-  var input = {};
-  try {
-    c.bind(input);
-  } catch (e) {
-    console.log("[wa_send] JSON bind error: " + e);
-    return c.json(400, { error: "invalid JSON body" });
-  }
+  var input = info.data || {};
 
   var to       = (input.to       || "").toString().trim();
   var text     = (input.text     || "").toString().trim();
