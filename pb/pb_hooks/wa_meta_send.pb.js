@@ -36,10 +36,10 @@ routerAdd("POST", "/api/wa/send", function(c) {
   }
 
   // ===========================================================================
-  // Parse request body — $apis.requestInfo(c) above already consumed the body
-  // stream into info.data, so c.bind() here would read an empty body and throw.
+  // Parse request body
   // ===========================================================================
-  var input = info.data || {};
+  // c.bind(non-pointer map) throws in PB v0.22 Goja; use requestInfo.data instead.
+  var input = ($apis.requestInfo(c).data) || {};
 
   var to       = (input.to       || "").toString().trim();
   var text     = (input.text     || "").toString().trim();
