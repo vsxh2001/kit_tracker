@@ -38,11 +38,11 @@ routerAdd("POST", "/api/wa/send", function(c) {
   // ===========================================================================
   // Parse request body
   // ===========================================================================
-  var input = {};
+  var input;
   try {
-    c.bind(input);
+    input = $apis.requestInfo(c).data || {};
   } catch (e) {
-    console.log("[wa_send] JSON bind error: " + e);
+    console.log("[wa_send] JSON parse error: " + e);
     return c.json(400, { error: "invalid JSON body" });
   }
 
