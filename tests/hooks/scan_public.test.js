@@ -37,7 +37,7 @@ describe("scan_public GET /api/scan/:kitId", () => {
     const entityRes = await fetch(`${baseUrl}/api/collections/entities/records`, {
       method: "POST",
       headers: { Authorization: suToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Scan Test Unit", type: "unit", is_active: true }),
+      body: JSON.stringify({ name: "Scan Test Unit", category: "field", is_active: true }),
     });
     const entity = await entityRes.json();
 
