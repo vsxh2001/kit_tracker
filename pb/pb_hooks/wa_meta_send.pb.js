@@ -38,8 +38,8 @@ routerAdd("POST", "/api/wa/send", function(c) {
   // ===========================================================================
   // Parse request body
   // ===========================================================================
-  // c.bind(non-pointer map) throws in PB v0.22 Goja; use requestInfo.data instead.
-  var input = ($apis.requestInfo(c).data) || {};
+  // c.bind(non-pointer map) throws in PB v0.22 Goja; use info.data (already parsed above).
+  var input = info.data || {};
 
   var to       = (input.to       || "").toString().trim();
   var text     = (input.text     || "").toString().trim();
