@@ -49,15 +49,9 @@ routerAdd("POST", "/api/wa/broadcast", function(c) {
   }
 
   // ===========================================================================
-  // Parse request body
+  // Parse request body — use info.data (requestInfo already consumed the stream)
   // ===========================================================================
-  var input = {};
-  try {
-    c.bind(input);
-  } catch (e) {
-    console.log("[wa_broadcast] JSON bind error: " + e);
-    return c.json(400, { error: "invalid JSON body" });
-  }
+  var input = info.data || {};
 
   var recipientFilter = input.recipientFilter || null;
   var message         = input.message || null;
