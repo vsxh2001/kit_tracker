@@ -230,7 +230,7 @@ for (const role of ROLES) {
     test(`${role} — Move kit button on /kits/:id: ${m.canSeeMoveKitButton ? "visible" : "hidden"}`, async ({ page }) => {
       await loginAs(page, role);
       await page.goto(`/kits/${testKitId}`);
-      await page.waitForLoadState("networkidle");
+      await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
       const btn = page.getByRole("button", { name: /move kit/i });
       if (m.canSeeMoveKitButton) {
         await expect(btn).toBeVisible({
@@ -247,7 +247,7 @@ for (const role of ROLES) {
     test(`${role} — Edit/Retire kit buttons: ${m.canSeeEditRetireKit ? "visible" : "hidden"}`, async ({ page }) => {
       await loginAs(page, role);
       await page.goto(`/kits/${testKitId}`);
-      await page.waitForLoadState("networkidle");
+      await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
       const editBtn = page.getByRole("button", { name: /edit/i });
       const retireBtn = page.getByRole("button", { name: /retire kit/i });
       if (m.canSeeEditRetireKit) {
@@ -271,7 +271,7 @@ for (const role of ROLES) {
     test(`${role} — New request button: ${m.canSeeNewRequestButton ? "visible" : "hidden"}`, async ({ page }) => {
       await loginAs(page, role);
       await page.goto("/requests");
-      await page.waitForLoadState("networkidle");
+      await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
       const btn = page.getByRole("button", { name: /new request/i });
       if (m.canSeeNewRequestButton) {
         await expect(btn).toBeVisible({
@@ -293,7 +293,7 @@ for (const role of ROLES) {
       try {
         await loginAs(page, role);
         await page.goto(`/requests/${req.id}`);
-        await page.waitForLoadState("networkidle");
+        await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
 
         const approveBtn = page.getByRole("button", { name: /approve/i });
         const rejectBtn = page.getByRole("button", { name: /reject/i });
@@ -336,7 +336,7 @@ for (const role of ROLES) {
       try {
         await loginAs(page, role);
         await page.goto(`/requests/${req.id}`);
-        await page.waitForLoadState("networkidle");
+        await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
 
         // Danger zone card has heading "Danger zone"
         const dangerZone = page.getByRole("heading", { name: /danger zone/i });
@@ -417,7 +417,7 @@ test.describe("Technician UI happy paths", () => {
 
     await loginAs(page, "technician");
     await page.goto(`/kits/${techKitId}`);
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: /move kit/i }).click();
     // Move dialog should open
@@ -449,7 +449,7 @@ test.describe("Technician UI happy paths", () => {
 
     await loginAs(page, "technician");
     await page.goto(`/requests/${req.id}`);
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
 
     await expect(
       page.getByRole("button", { name: /approve/i })
@@ -477,7 +477,7 @@ test.describe("Technician UI happy paths", () => {
 
     await loginAs(page, "technician");
     await page.goto(`/requests/${req.id}`);
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
 
     await page.getByRole("button", { name: /reject/i }).click();
 
@@ -508,7 +508,7 @@ test.describe("Technician UI happy paths", () => {
 
     await loginAs(page, "technician");
     await page.goto(`/requests/${req.id}`);
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 10_000 });
 
     // Fulfill button present (status === approved)
     const fulfillBtn = page.getByRole("button", { name: /fulfill/i });

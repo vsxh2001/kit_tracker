@@ -234,7 +234,10 @@ test.describe("Profile — admin edits another user's phone/title", () => {
     await page.locator("#edit-title").fill(newTitle);
     await page.getByRole("button", { name: /^save$/i }).click();
 
-    await expect(page.getByText("Profile updated")).toBeVisible({ timeout: 6_000 });
+    // exact: true — the aria-live status region also contains "Profile
+    // updated" as part of its longer announcement string, causing a strict
+    // multi-match against the visible toast title.
+    await expect(page.getByText("Profile updated", { exact: true })).toBeVisible({ timeout: 6_000 });
 
     // Verify via API
     const u = await getUserById(userId);
@@ -286,8 +289,10 @@ test.describe("OnCall — phone column shows for users with phone", () => {
     // Phone column header should be present
     await expect(page.getByRole("columnheader", { name: /phone/i })).toBeVisible({ timeout: 4_000 });
 
-    // tel: link should appear
-    const telLink = page.locator(`a[href="tel:${testPhone}"]`).first();
+    // tel: link should appear in the schedule table. Scope to the table —
+    // the sidebar "On call" widget also renders a tel: link with the same
+    // href but the user's NAME as its text, which would otherwise collide.
+    const telLink = page.locator("table").locator(`a[href="tel:${testPhone}"]`).first();
     await expect(telLink).toBeVisible({ timeout: 4_000 });
     await expect(telLink).toContainText(testPhone);
   });

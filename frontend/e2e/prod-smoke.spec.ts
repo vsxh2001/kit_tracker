@@ -102,17 +102,29 @@ test.describe("Prod-build smoke — env-dependent URL bugs @smoke", () => {
     // present the SDK sends filter=undefined as a literal string to PocketBase
     // which returns 0 results — the heading still renders but we'd see no table
     // AND no empty-state, indicating the data fetch silently returned nothing.
-    // Check: either a table row OR the "No components yet" empty-state message
-    // must be visible (both are absent only during the loading skeleton phase).
-    const hasTable = await page.locator("tbody tr").count();
-    const hasEmptyState = await page
-      .getByText(/no components yet/i)
-      .isVisible()
-      .catch(() => false);
-    expect(
-      hasTable > 0 || hasEmptyState,
-      "components page stuck on loading or filter:undefined returned nothing silently",
-    ).toBe(true);
+    // Check: either a table row OR an empty-state message must appear once the
+    // data has loaded. Poll (rather than a one-shot read) so we don't race the
+    // loading-skeleton phase where both are legitimately absent. The empty
+    // state is either the global "No components yet" or, when data exists but
+    // the active filters match nothing, a per-section "No ... match" message.
+    await expect
+      .poll(
+        async () => {
+          const rows = await page.locator("tbody tr").count();
+          if (rows > 0) return true;
+          return page
+            .getByText(/no components yet|no (serialized|bulk) components match/i)
+            .first()
+            .isVisible()
+            .catch(() => false);
+        },
+        {
+          timeout: 10_000,
+          message:
+            "components page stuck on loading or filter:undefined returned nothing silently",
+        },
+      )
+      .toBe(true);
   });
 
   // =========================================================================

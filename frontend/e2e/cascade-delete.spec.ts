@@ -279,10 +279,13 @@ test.describe("Cascade delete — per-tx trash on kit timeline", () => {
     const timelineCard = page.locator('[class*="card"]').filter({ hasText: /Location history/i });
     await expect(timelineCard).toBeVisible({ timeout: 8_000 });
 
-    // Find the trash button in the timeline (admin-only).
-    // KitTimeline renders Button variant="ghost" size="sm" className="h-7 w-7 p-0 ..." per tx row.
-    // The ghost variant adds no "ghost" class string — match by the explicit h-7 w-7 p-0 classes.
-    const trashBtn = timelineCard.locator('button[class*="h-7"][class*="w-7"]').first();
+    // Find the trash (cascade-delete) button in the timeline (admin-only).
+    // The latest tx row now also renders a "Revert" button with the same
+    // h-7 w-7 p-0 sizing, so match the trash button by its distinguishing
+    // hover:text-destructive class to avoid grabbing Revert instead.
+    const trashBtn = timelineCard
+      .locator('button[class*="h-7"][class*="w-7"][class*="hover:text-destructive"]')
+      .first();
     await expect(trashBtn).toBeVisible({ timeout: 8_000 });
     await trashBtn.click();
 
