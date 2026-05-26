@@ -107,8 +107,8 @@ test.describe("Kit tags — filter by tag", () => {
     await tagChip.click();
 
     // Kit with tag should be visible, kit without should not
-    await expect(page.getByRole("cell", { name: `${TS}-FILT-TAG` })).toBeVisible();
-    await expect(page.getByRole("cell", { name: `${TS}-FILT-NOTAG` })).not.toBeVisible();
+    await expect(page.getByRole("cell", { name: `${TS}-FILT-TAG`, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: `${TS}-FILT-NOTAG`, exact: true })).not.toBeVisible();
   });
 });
 

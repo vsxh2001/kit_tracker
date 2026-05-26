@@ -157,8 +157,10 @@ test.describe("Maintenance — record done", () => {
     await loginAs(page, "admin");
     await page.goto(`/kits/${kitId}`);
 
-    // Find "Record done" button (look for it in the maintenance card section)
-    await expect(page.getByRole("heading").getByText("Maintenance")).toBeVisible({ timeout: 5000 });
+    // Find "Record done" button (look for it in the maintenance card section).
+    // exact: true — the empty-state "No maintenance schedules" heading also
+    // contains "Maintenance" and would otherwise collide.
+    await expect(page.getByRole("heading", { name: "Maintenance", exact: true })).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: "Record done" }).first().click();
 
     // Dialog should appear

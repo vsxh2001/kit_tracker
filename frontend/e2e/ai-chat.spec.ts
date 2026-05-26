@@ -643,7 +643,7 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     expect(typeof data.reply).toBe("string");
   });
 
-  test("MCP tools/list returns all 20 tool definitions for admin", async () => {
+  test("MCP tools/list returns all 26 tool definitions for admin", async () => {
     const token = await (async () => {
       const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
         method: "POST",
@@ -661,7 +661,9 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.result.tools.length).toBe(20);
+    // Tool count grew from the original 20 to 26 with the addition of
+    // update_user_phone (3ab8ff2) and 5 report_* tools (bbc4239).
+    expect(data.result.tools.length).toBe(26);
     const toolNames = data.result.tools.map((t: { name: string }) => t.name);
     expect(toolNames).toContain("resolve_product");
     expect(toolNames).toContain("create_product");
@@ -672,6 +674,13 @@ test.describe("AI Chat — Phase 2B permission gates (direct API)", () => {
     expect(toolNames).toContain("update_entity");
     expect(toolNames).toContain("update_kit");
     expect(toolNames).toContain("update_product");
+    // Newer tools
+    expect(toolNames).toContain("update_user_phone");
+    expect(toolNames).toContain("report_kits_by_entity");
+    expect(toolNames).toContain("report_recent_activity");
+    expect(toolNames).toContain("report_open_requests");
+    expect(toolNames).toContain("report_overdue_returns");
+    expect(toolNames).toContain("report_maintenance_due");
   });
 
   test("MCP create_product returns permission_denied for viewer", async () => {

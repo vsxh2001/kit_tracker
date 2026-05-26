@@ -5,21 +5,40 @@
  */
 import { test, expect } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
+import { createTestEntity, deactivateEntity } from "./helpers/api";
 
 const MOBILE = { width: 375, height: 667 } as const;
 
 test.describe("a11y verify — commit a122490", () => {
+  // Seed an active entity so the /entities mobile cards render their Edit /
+  // Deactivate buttons (checks 6 + 9 depend on at least one active row).
+  const A11Y_ENTITY = `a11y-${Date.now()}`;
+  let a11yEntityId = "";
+
+  test.beforeAll(async () => {
+    const e = await createTestEntity(A11Y_ENTITY, "a11y verify fixture");
+    a11yEntityId = e.id;
+  });
+
+  test.afterAll(async () => {
+    if (a11yEntityId) await deactivateEntity(a11yEntityId);
+  });
+
+  // The mobile nav drawer. Scoped by aria-label because the AI chat panel is
+  // now also an `aside.fixed`, so the bare selector matches 2 elements.
+  const NAV_DRAWER = 'aside[aria-label="Navigation menu"]';
+
   test("Check 1: Esc key closes drawer", async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, "admin");
     // Open drawer
     await page.getByRole("button", { name: "Open menu" }).click();
     // Verify drawer is open (translate-x-0)
-    await expect(page.locator("aside.fixed")).not.toHaveClass(/-translate-x-full/);
+    await expect(page.locator(NAV_DRAWER)).not.toHaveClass(/-translate-x-full/);
     // Press Escape
     await page.keyboard.press("Escape");
     // Drawer should be -translate-x-full
-    await expect(page.locator("aside.fixed")).toHaveClass(/-translate-x-full/);
+    await expect(page.locator(NAV_DRAWER)).toHaveClass(/-translate-x-full/);
   });
 
   test("Check 2: Focus trap — Tab wraps within drawer", async ({ page }) => {
@@ -80,7 +99,7 @@ test.describe("a11y verify — commit a122490", () => {
     await page.setViewportSize(MOBILE);
     await loginAs(page, "admin");
 
-    const drawer = page.locator("aside.fixed");
+    const drawer = page.locator(NAV_DRAWER);
     await expect(drawer).toHaveAttribute("role", "dialog");
     await expect(drawer).toHaveAttribute("aria-modal", "true");
     await expect(drawer).toHaveAttribute("aria-label", "Navigation menu");
@@ -173,12 +192,13 @@ test.describe("a11y verify — commit a122490", () => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
-    // Wait for Delete buttons to be visible (better than waitForLoadState)
-    await expect(page.getByRole("button", { name: "Delete" }).first()).toBeVisible({ timeout: 5000 });
+    // The per-row Delete action was removed in bc4a2ad; Deactivate is the
+    // destructive action that now opens the AlertDialog we're verifying.
+    await expect(page.getByRole("button", { name: "Deactivate" }).first()).toBeVisible({ timeout: 5000 });
 
-    // Trigger delete confirmation on first entity — at 375px mobile, cards are visible not table
-    const deleteBtn = page.locator(".md\\:hidden").getByRole("button", { name: "Delete" }).first();
-    await expect(deleteBtn, "Mobile card Delete button must be visible at 375px").toBeVisible();
+    // Trigger deactivate confirmation on first entity — at 375px mobile, cards are visible not table
+    const deleteBtn = page.locator(".md\\:hidden").getByRole("button", { name: "Deactivate" }).first();
+    await expect(deleteBtn, "Mobile card Deactivate button must be visible at 375px").toBeVisible();
     await deleteBtn.click();
 
     const alertDialog = page.getByRole("alertdialog");

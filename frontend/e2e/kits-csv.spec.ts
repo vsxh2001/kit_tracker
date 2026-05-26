@@ -116,10 +116,10 @@ test.describe("CSV import — happy path", () => {
 
     // Both kits should appear in the table after reload
     await page.getByPlaceholder(/search by serial/i).fill(SERIAL_A);
-    await expect(page.getByRole("cell", { name: SERIAL_A })).toBeVisible();
+    await expect(page.getByRole("cell", { name: SERIAL_A, exact: true })).toBeVisible();
 
     await page.getByPlaceholder(/search by serial/i).fill(SERIAL_B);
-    await expect(page.getByRole("cell", { name: SERIAL_B })).toBeVisible();
+    await expect(page.getByRole("cell", { name: SERIAL_B, exact: true })).toBeVisible();
 
     fs.unlinkSync(tmpPath);
   });
