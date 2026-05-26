@@ -213,8 +213,11 @@ test.describe.serial("Users management — self-row and search", () => {
       // the UI surfaces its catch-all "Failed to update role" toast (the specific
       // "Cannot demote the last admin" text stays server-side). The toast + the
       // role-revert + the API-persistence checks below prove the demotion failed.
+      // exact:true — the aria-live status region concatenates accumulated toast
+      // text ("Notification Failed to update role…"), so a substring/regex match
+      // hits 2 elements (toast div + SR region) and trips strict mode.
       await expect(
-        page.getByText(/failed to update role/i),
+        page.getByText("Failed to update role", { exact: true }),
         "Failure toast must appear when demoting the last admin"
       ).toBeVisible({ timeout: 8_000 });
 
