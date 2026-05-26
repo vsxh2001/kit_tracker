@@ -89,7 +89,7 @@ describe("ai_mcp POST /api/mcp", () => {
     const res = await rpc(adminToken, { jsonrpc: "2.0", method: "notifications/initialized" });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error).toBeUndefined();
+    expect(body).toEqual({});
   });
 
   it("returns 400 -32600 when method is missing", async () => {
