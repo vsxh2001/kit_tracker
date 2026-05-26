@@ -44,6 +44,7 @@ describe("overdue_return_reminder hook (/_test/overdue-reminder)", () => {
       headers: { Authorization: suToken, "Content-Type": "application/json" },
       body: JSON.stringify({
         requester: requesterId,
+        date: new Date().toISOString().slice(0, 10),
         delivery_date: new Date().toISOString().slice(0, 10),
         status: "fulfilled",
         expected_return: expectedReturn,
