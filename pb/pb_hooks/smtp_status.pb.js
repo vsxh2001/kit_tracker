@@ -8,9 +8,9 @@
 // 403 if caller is not admin.
 
 routerAdd("GET", "/api/health/smtp", function(e) {
-  var auth = e.auth;
-  if (!auth || auth.get("role") !== "admin") {
-    throw new ForbiddenError("admin only");
+  var info = $apis.requestInfo(e);
+  if (!info || !info.authRecord || info.authRecord.getString("role") !== "admin") {
+    return e.json(403, { error: "admin only" });
   }
   var settings = $app.settings();
   var enabled = settings.smtp && settings.smtp.enabled === true;
