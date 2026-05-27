@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { getRequest, updateRequestStatus, fulfillRequest } from "../services/requests";
+import { getRequest, updateRequestStatus, fulfillRequest, deleteRequest } from "../services/requests";
 import { listKits } from "../services/kits";
 import { listEntities } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
@@ -27,12 +27,12 @@ import {
 } from "../components/ui/alert-dialog";
 import type { KitRequest, Kit, Entity } from "../types";
 
-type ConfirmKind = "cancel";
+type ConfirmKind = "cancel" | "delete";
 
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { canDecideRequests, user } = useAuth();
+  const { canDecideRequests, isAdmin, user } = useAuth();
   const [request, setRequest] = useState<KitRequest | null>(null);
   const [kits, setKits] = useState<Kit[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -131,6 +131,24 @@ export function RequestDetailPage() {
   async function handleCancel() {
     setConfirmKind(null);
     doAction(() => updateRequestStatus(id!, "cancelled"), "Request cancelled");
+  }
+
+  async function handleDelete() {
+    setConfirmKind(null);
+    setError("");
+    setActionLoading(true);
+    try {
+      await deleteRequest(id!);
+      toast({ title: "Request deleted", variant: "success" });
+      navigate("/requests");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      const msg = e?.message ?? "Delete failed.";
+      setError(msg);
+      toast({ title: "Delete failed", description: msg, variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function handleSaveAssignment() {
@@ -287,6 +305,28 @@ export function RequestDetailPage() {
         )}
       </div>
 
+      {/* Danger zone — admin only, terminal-state requests */}
+      {isAdmin && ["fulfilled", "rejected", "cancelled"].includes(request.status) && (
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold text-destructive">Danger zone</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-sm text-muted-foreground mb-3">
+              Permanently delete this request record. Use only to clean up test data or history errors.
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={actionLoading}
+              onClick={() => setConfirmKind("delete")}
+            >
+              Delete request
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <RequestFormDialog
@@ -300,15 +340,29 @@ export function RequestDetailPage() {
       <AlertDialog open={confirmKind !== null} onOpenChange={(o) => !o && setConfirmKind(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Mark this request as cancelled. You can no longer fulfill it.
-            </AlertDialogDescription>
+            {confirmKind === "delete" ? (
+              <>
+                <AlertDialogTitle>Permanently delete this request?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will hard-delete the request record. This cannot be undone.
+                </AlertDialogDescription>
+              </>
+            ) : (
+              <>
+                <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Mark this request as cancelled. You can no longer fulfill it.
+                </AlertDialogDescription>
+              </>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Back</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleCancel}>
-              Cancel request
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmKind === "delete" ? handleDelete : handleCancel}
+            >
+              {confirmKind === "delete" ? "Delete request" : "Cancel request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
