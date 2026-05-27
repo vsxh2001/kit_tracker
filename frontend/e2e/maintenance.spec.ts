@@ -7,6 +7,7 @@
  *   3. /maintenance page renders with sort + status filter
  *   4. /kits column shows next-maintenance for kit with schedule
  *   5. Permission gate: viewer + user do NOT see /maintenance link; direct nav redirects
+ *   9. Schedule detail page: row click → /maintenance/:id, history table, Record done @smoke
  */
 
 import { test, expect } from "@playwright/test";
@@ -16,15 +17,20 @@ import { createTestKit, deleteKit, createTestComponent, deactivateComponent } fr
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 const TS = `maint-${Date.now()}`;
 
-// Helper: get admin token
-async function adminToken(): Promise<string> {
+// Helper: get admin token + user ID
+async function adminAuth(): Promise<{ token: string; userId: string }> {
   const res = await fetch(`${PB_URL}/api/collections/users/auth-with-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ identity: "logistics@kit.local", password: "Pass1234!" }),
   });
   const data = await res.json();
-  return data.token;
+  return { token: data.token, userId: data.record?.id ?? "" };
+}
+
+// Helper: get admin token
+async function adminToken(): Promise<string> {
+  return (await adminAuth()).token;
 }
 
 async function createScheduleViaApi(kitId: string, type: string, intervalDays = 30): Promise<{ id: string }> {
@@ -604,5 +610,111 @@ test.describe("Maintenance — per-component schedule @smoke", () => {
     await page.goto("/maintenance");
     await expect(page.getByRole("columnheader", { name: "Target" })).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("td:has-text('component')").first()).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helper: create a maintenance record via API (requires admin+tech create rule)
+// ---------------------------------------------------------------------------
+
+async function createMaintenanceRecordViaApi(schedId: string): Promise<{ id: string }> {
+  const { token, userId } = await adminAuth();
+  const today = new Date().toISOString().slice(0, 10);
+  const res = await fetch(`${PB_URL}/api/collections/maintenance_records/records`, {
+    method: "POST",
+    headers: { Authorization: token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      schedule: schedId,
+      performed_at: today,
+      performed_by: userId,
+      notes: "Seeded by detail-page test",
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json();
+    throw new Error(`createMaintenanceRecordViaApi failed: ${JSON.stringify(body)}`);
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Test 9: Schedule detail page — metadata, history table, Record done @smoke
+// ---------------------------------------------------------------------------
+
+test.describe("Maintenance — schedule detail page @smoke", () => {
+  let kitId: string;
+  let schedId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-DETAIL`);
+    kitId = kit.id;
+    const sched = await createScheduleViaApi(kitId, "calibration", 90);
+    schedId = sched.id;
+    // Seed one history record so the detail page shows the history table, not EmptyState.
+    await createMaintenanceRecordViaApi(schedId);
+  });
+
+  test.afterAll(async () => {
+    await deactivateSchedule(schedId);
+    await deleteKit(kitId);
+  });
+
+  test("clicking schedule row on /maintenance navigates to detail page with metadata + history @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance");
+
+    // Wait for desktop table to render
+    await expect(page.locator("table")).toBeVisible({ timeout: 10_000 });
+
+    // Find the row for our kit and click a body cell (td) to trigger navigation.
+    // Buttons in the row use e.stopPropagation(); clicking a plain cell fires the tr onClick.
+    const row = page.locator("tr").filter({ hasText: `${TS}-DETAIL` });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await row.locator("td").first().click();
+
+    // Should navigate to /maintenance/:scheduleId
+    await page.waitForURL(`**/maintenance/${schedId}`, { timeout: 10_000 });
+
+    // Page header shows the schedule type
+    await expect(page.locator("h1")).toContainText("calibration", { timeout: 5_000 });
+
+    // Metadata card: interval displayed
+    await expect(page.getByText("90 days")).toBeVisible();
+
+    // Back link is present
+    await expect(page.getByRole("link", { name: "Back to Maintenance" })).toBeVisible();
+
+    // History table is visible and has at least the seeded record
+    await expect(page.locator("table")).toBeVisible({ timeout: 5_000 });
+    const historyRows = await page.locator("tbody tr").count();
+    expect(historyRows).toBeGreaterThanOrEqual(1);
+
+    // "Record done" button is present (canDecideRequests = true for admin)
+    await expect(page.getByRole("button", { name: "Record done" })).toBeVisible();
+  });
+
+  test("admin records maintenance from detail page, new history row appears @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/maintenance/${schedId}`);
+    await expect(page.locator("h1")).toBeVisible({ timeout: 10_000 });
+
+    // Count existing history rows before recording
+    await expect(page.locator("table")).toBeVisible({ timeout: 5_000 });
+    const initialRows = await page.locator("tbody tr").count();
+
+    // Open RecordMaintenanceDialog
+    await page.getByRole("button", { name: "Record done" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/Record Maintenance/)).toBeVisible();
+
+    // Submit with defaults (today's date, no notes, no cert)
+    await page.getByRole("button", { name: "Record done" }).last().click();
+
+    // Success toast
+    await expect(page.locator("div:has-text('Maintenance recorded')").first()).toBeVisible({ timeout: 10_000 });
+
+    // History table now has one more row than before
+    const newRows = await page.locator("tbody tr").count();
+    expect(newRows).toBe(initialRows + 1);
   });
 });
