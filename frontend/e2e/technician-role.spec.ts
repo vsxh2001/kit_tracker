@@ -322,13 +322,6 @@ for (const role of ROLES) {
 
     // Delete danger zone — only visible to admin on terminal-state requests
     test(`${role} — Delete danger zone on fulfilled request: ${m.canSeeDeleteDangerZone ? "visible" : "hidden"}`, async ({ page }) => {
-      // FEATURE GAP: RequestDetailPage has no Danger-zone delete card, unlike the
-      // entity/product/component/kit detail pages. Defer the admin "visible" path
-      // until the card is built; the non-admin "hidden" path still runs.
-      test.fixme(
-        m.canSeeDeleteDangerZone,
-        "RequestDetailPage lacks a Danger-zone delete card (feature gap)"
-      );
       // Create a fulfilled request to trigger the danger-zone card
       const adminId = await getAdminUserId();
       const req = await createTestRequest({
