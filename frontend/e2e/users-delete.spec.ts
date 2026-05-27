@@ -18,7 +18,6 @@ import {
   deleteTestUser,
   getUserById,
 } from "./helpers/api";
-import { loginAs } from "./helpers/auth";
 
 const PB_URL = process.env.PB_URL ?? "http://127.0.0.1:8090";
 
@@ -249,91 +248,13 @@ test.describe("Users delete — API permissions", () => {
 
 // ---------------------------------------------------------------------------
 // Group 2 — UI: delete via UsersPage
+//
+// REMOVED: the per-row "Delete user" UI was intentionally taken out of
+// UsersPage in commit 5cb9530 ("feat(db-methodology): soft-delete +
+// active-unique compliance sweep") — user-facing deletes are no longer
+// surfaced in the UI by design (admins hard-delete via the API only, covered
+// by the Group 1 API permission tests above). The previous UI tests asserted
+// "Delete <email>" / "Cannot delete your own account" buttons that no longer
+// render, so they were stale test debt and have been removed rather than
+// masked. Hard-delete remains exercised at the API level in Group 1.
 // ---------------------------------------------------------------------------
-
-test.describe("Users delete — UI", () => {
-  test("admin can delete a user via UI", async ({ page }) => {
-    const ts = Date.now();
-    const email = `ui-del-${ts}@test.local`;
-    const created = await createTestUser(email, "viewer");
-    const userId = created.id;
-
-    try {
-      await loginAs(page, "admin");
-      await page.goto("/users");
-      await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 8_000 });
-
-      // Find delete button for the target row (desktop table)
-      const targetRow = page.getByRole("row").filter({ hasText: email });
-      await expect(targetRow).toBeVisible({ timeout: 5_000 });
-
-      const deleteBtn = targetRow.getByRole("button", { name: `Delete ${email}` });
-      await deleteBtn.click();
-
-      // AlertDialog should appear
-      await expect(page.getByRole("alertdialog")).toBeVisible({ timeout: 3_000 });
-      await expect(page.getByText(/permanently delete/i)).toBeVisible();
-
-      // Confirm deletion
-      await page.getByRole("button", { name: "Delete" }).click();
-
-      // Success toast
-      await expect(page.getByText("User deleted", { exact: true })).toBeVisible({ timeout: 8_000 });
-
-      // Row disappears from the table
-      await expect(page.getByRole("row").filter({ hasText: email })).not.toBeVisible({ timeout: 5_000 });
-
-      // Confirm via API
-      const remaining = await getUserById(userId);
-      expect(remaining, "Deleted user should not exist in PB").toBeNull();
-    } catch {
-      // Cleanup if user wasn't deleted by the test
-      try { await deleteTestUser(userId); } catch { /* already gone */ }
-      throw new Error("Test failed");
-    }
-  });
-
-  test("delete button for own row is disabled", async ({ page }) => {
-    await loginAs(page, "admin");
-    await page.goto("/users");
-    await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 8_000 });
-
-    const selfRow = page.getByRole("row").filter({ hasText: "logistics@kit.local" });
-    await expect(selfRow).toBeVisible({ timeout: 5_000 });
-
-    const selfDeleteBtn = selfRow.getByRole("button", { name: "Cannot delete your own account" });
-    await expect(selfDeleteBtn).toBeVisible();
-    await expect(selfDeleteBtn).toBeDisabled();
-  });
-
-  test("cancel on delete dialog leaves user intact", async ({ page }) => {
-    const ts = Date.now();
-    const email = `ui-cancel-del-${ts}@test.local`;
-    const created = await createTestUser(email, "viewer");
-
-    try {
-      await loginAs(page, "admin");
-      await page.goto("/users");
-      await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: 8_000 });
-
-      const targetRow = page.getByRole("row").filter({ hasText: email });
-      await expect(targetRow).toBeVisible({ timeout: 5_000 });
-
-      await targetRow.getByRole("button", { name: `Delete ${email}` }).click();
-      await expect(page.getByRole("alertdialog")).toBeVisible({ timeout: 3_000 });
-
-      // Cancel
-      await page.getByRole("button", { name: "Cancel" }).click();
-      await expect(page.getByRole("alertdialog")).not.toBeVisible({ timeout: 3_000 });
-
-      // Row still visible
-      await expect(page.getByRole("row").filter({ hasText: email })).toBeVisible();
-
-      // User still in PB
-      const remaining = await getUserById(created.id);
-      expect(remaining).not.toBeNull();
-    } finally {
-      await deleteTestUser(created.id);
-    }
-  });
-});

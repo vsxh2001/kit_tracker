@@ -79,6 +79,46 @@ async function getUserById(id: string): Promise<CreatedUser | null> {
   return res.json() as Promise<CreatedUser>;
 }
 
+/**
+ * The last-admin demotion test only behaves correctly when the seeded
+ * logistics admin is genuinely the LAST admin. The e2e suite shares one PB
+ * instance, so other specs that create admin users (and, on crash, may leave
+ * one behind) can break that precondition and make the demotion *succeed*
+ * instead of being rejected. Demote any extra admins to "user" before the
+ * test and restore them afterwards so the assertion is deterministic.
+ */
+async function temporarilyDemoteExtraAdmins(): Promise<string[]> {
+  const token = await getAdminToken();
+  const res = await fetch(
+    `${PB_URL}/api/collections/users/records?filter=${encodeURIComponent("role='admin'")}&perPage=200`,
+    { headers: { Authorization: token } }
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  const extras: string[] = (data.items ?? [])
+    .filter((u: { id: string; email: string }) => u.email !== "logistics@kit.local")
+    .map((u: { id: string }) => u.id);
+  for (const id of extras) {
+    await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "user" }),
+    });
+  }
+  return extras;
+}
+
+async function restoreAdmins(ids: string[]): Promise<void> {
+  const token = await getAdminToken();
+  for (const id of ids) {
+    await fetch(`${PB_URL}/api/collections/users/records/${id}`, {
+      method: "PATCH",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "admin" }),
+    }).catch(() => {});
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Group 1 — Nav and access control (independent of listRule bug)
 // ---------------------------------------------------------------------------
@@ -144,56 +184,69 @@ test.describe.serial("Users management — self-row and search", () => {
   // Self-row is always visible (listRule: id = @request.auth.id includes self).
   // -------------------------------------------------------------------------
   test("admin cannot demote self when last admin", async ({ page }) => {
-    await loginAs(page, "admin");
-    await page.goto("/users");
+    // Guarantee the precondition: logistics is the only admin. Other specs
+    // share this PB instance and may leave extra admins around.
+    const demotedExtraAdmins = await temporarilyDemoteExtraAdmins();
+    try {
+      await loginAs(page, "admin");
+      await page.goto("/users");
 
-    await expect(page.getByText("Loading…")).not.toBeVisible({
-      timeout: 8_000,
-    });
+      await expect(page.getByText("Loading…")).not.toBeVisible({
+        timeout: 8_000,
+      });
 
-    // Self-row is always visible — locate by email
-    const selfRow = page
-      .getByRole("row")
-      .filter({ hasText: "logistics@kit.local" });
-    await expect(
-      selfRow,
-      "The logged-in admin's own row must always be visible"
-    ).toBeVisible();
+      // Self-row is always visible — locate by email
+      const selfRow = page
+        .getByRole("row")
+        .filter({ hasText: "logistics@kit.local" });
+      await expect(
+        selfRow,
+        "The logged-in admin's own row must always be visible"
+      ).toBeVisible();
 
-    // Attempt to demote self to "user"
-    const roleSelect = selfRow.getByRole("combobox");
-    await roleSelect.click();
-    await page.getByRole("option", { name: "User" }).click();
+      // Attempt to demote self to "user"
+      const roleSelect = selfRow.getByRole("combobox");
+      await roleSelect.click();
+      await page.getByRole("option", { name: "User" }).click();
 
-    // Expect error toast from PB hook: "Cannot demote the last admin"
-    await expect(
-      page.getByText(/cannot demote the last admin/i),
-      "Error toast must appear when demoting the last admin"
-    ).toBeVisible({ timeout: 8_000 });
+      // PB v0.22 wraps the last_admin_check hook throw in a generic envelope, so
+      // the UI surfaces its catch-all "Failed to update role" toast (the specific
+      // "Cannot demote the last admin" text stays server-side). The toast + the
+      // role-revert + the API-persistence checks below prove the demotion failed.
+      // exact:true — the aria-live status region concatenates accumulated toast
+      // text ("Notification Failed to update role…"), so a substring/regex match
+      // hits 2 elements (toast div + SR region) and trips strict mode.
+      await expect(
+        page.getByText("Failed to update role", { exact: true }),
+        "Failure toast must appear when demoting the last admin"
+      ).toBeVisible({ timeout: 8_000 });
 
-    // After optimistic-revert, dropdown must show "Admin" again
-    await expect(
-      selfRow.getByRole("combobox"),
-      "Role dropdown must revert to Admin after failed demotion"
-    ).toHaveText(/Admin/i, { timeout: 4_000 });
+      // After optimistic-revert, dropdown must show "Admin" again
+      await expect(
+        selfRow.getByRole("combobox"),
+        "Role dropdown must revert to Admin after failed demotion"
+      ).toHaveText(/Admin/i, { timeout: 4_000 });
 
-    // Verify persistence via API
-    const authRes = await fetch(
-      `${PB_URL}/api/collections/users/auth-with-password`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identity: "logistics@kit.local",
-          password: "Pass1234!",
-        }),
-      }
-    );
-    const { record } = await authRes.json();
-    expect(
-      record.role,
-      "Role must remain 'admin' in PocketBase after failed demotion"
-    ).toBe("admin");
+      // Verify persistence via API
+      const authRes = await fetch(
+        `${PB_URL}/api/collections/users/auth-with-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            identity: "logistics@kit.local",
+            password: "Pass1234!",
+          }),
+        }
+      );
+      const { record } = await authRes.json();
+      expect(
+        record.role,
+        "Role must remain 'admin' in PocketBase after failed demotion"
+      ).toBe("admin");
+    } finally {
+      await restoreAdmins(demotedExtraAdmins);
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -268,14 +321,16 @@ test.describe("Users management — multi-user table", () => {
         `Row for ${email} must be visible (blocked by listRule bug)`
       ).toBeVisible({ timeout: 5_000 });
 
-      // Assert "Pending" badge
+      // The role-less state is now surfaced via the role Select's
+      // "Not assigned" placeholder (the standalone "Pending" badge was
+      // removed in bda698a), so assert that instead of a badge.
+      const roleSelect = pendingRow.getByRole("combobox");
       await expect(
-        pendingRow.getByText("Pending", { exact: true }),
-        "Pending badge must appear for role-less user"
-      ).toBeVisible();
+        roleSelect,
+        "Role-less user must show the assignable role Select"
+      ).toContainText("Not assigned");
 
       // Change role to "user"
-      const roleSelect = pendingRow.getByRole("combobox");
       await roleSelect.click();
       await page.getByRole("option", { name: "User" }).click();
 

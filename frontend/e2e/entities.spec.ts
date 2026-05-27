@@ -18,7 +18,6 @@ import { loginAs } from "./helpers/auth";
 import {
   createTestEntity,
   deactivateEntity,
-  deleteEntityRecord,
   getEntityByName,
   getAdminToken,
   createTestKit,
@@ -59,7 +58,9 @@ test.describe("Entities page — listing", () => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
-    const nameCell = page.getByRole("cell", { name: `${TS}-LIST` });
+    // exact: true — a per-row "Select <name>" checkbox cell also matches the
+    // bare name via substring, so scope to the exact name cell.
+    const nameCell = page.getByRole("cell", { name: `${TS}-LIST`, exact: true });
     await expect(nameCell).toBeVisible();
     // Check that the row contains the description
     const row = nameCell.locator("..");
@@ -203,7 +204,7 @@ test.describe("Entity edit (admin)", () => {
     await expect(
       page.getByRole("heading", { name: "Edit Entity" })
     ).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: NEW_NAME })).toBeVisible({
+    await expect(page.getByRole("cell", { name: NEW_NAME, exact: true })).toBeVisible({
       message: "Updated entity name should appear in the table",
     });
   });
@@ -230,81 +231,36 @@ test.describe("Entity deactivate (admin)", () => {
     const rows = table.locator("tbody tr");
     const entityRow = rows.filter({ hasText: DEACT_NAME }).first();
 
+    await expect(entityRow).toBeVisible();
+
     // Click Deactivate button
     await entityRow.getByRole("button", { name: "Deactivate" }).click();
 
     // Confirm the AlertDialog
     await page.getByRole("alertdialog").getByRole("button", { name: "Deactivate" }).click();
 
-    // After deactivation, wait for the page to reload and check the Active column
-    await expect(entityRow.getByText("No")).toBeVisible({
-      timeout: 5000,
-      message: "Active column should show 'No' after deactivation",
-    });
-
-    // Deactivate button should be gone
+    // Inactive entities are hidden from the list by default, so after the
+    // page reloads the deactivated row disappears entirely.
     await expect(
-      entityRow.getByRole("button", { name: "Deactivate" })
-    ).not.toBeVisible({ message: "Deactivate button should disappear after deactivation" });
+      rows.filter({ hasText: DEACT_NAME })
+    ).toHaveCount(0, {
+      timeout: 5000,
+      message: "Deactivated entity should be hidden from the active list",
+    });
   });
 });
 
 // ---------------------------------------------------------------------------
 // Entity delete (admin)
+//
+// REMOVED: the per-row "Delete" action on the entities list was intentionally
+// taken out in commit bc4a2ad ("fix(security): full P0/P1 audit remediation").
+// On the list page, entities are now retired via "Deactivate" (soft-delete,
+// covered above); a hard delete is only available behind the "Cascade Hard
+// Delete" flow on the entity detail page (covered by cascade-delete.spec.ts).
+// The old tests asserted list-row "Delete" buttons that no longer render —
+// stale test debt, removed rather than masked.
 // ---------------------------------------------------------------------------
-
-test.describe("Entity delete (admin)", () => {
-  const DEL_NAME = `${TS}-DEL`;
-  let entityId: string;
-
-  test.beforeAll(async () => {
-    const e = await createTestEntity(DEL_NAME, "to be deleted");
-    entityId = e.id;
-  });
-
-  test.afterAll(async () => {
-    // Best-effort cleanup in case the delete test didn't run
-    await deleteEntityRecord(entityId).catch(() => {});
-  });
-
-  test("admin sees Delete button on every entity row", async ({ page }) => {
-    await loginAs(page, "admin");
-    await page.goto("/entities");
-    await expect(
-      page.getByRole("button", { name: "Delete" }).first()
-    ).toBeVisible({ message: "Admin should see Delete buttons on entity rows" });
-  });
-
-  test("viewer does not see Delete button", async ({ page }) => {
-    await loginAs(page, "viewer");
-    await page.goto("/entities");
-    await expect(page.getByRole("heading", { name: "Entities" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Delete" })).not.toBeVisible({
-      message: "Viewer should not see Delete buttons",
-    });
-  });
-
-  test("admin can delete an entity (it disappears from the list)", async ({
-    page,
-  }) => {
-    await loginAs(page, "admin");
-    await page.goto("/entities");
-
-    // Confirm the entity exists in the list first
-    await expect(page.getByRole("cell", { name: DEL_NAME })).toBeVisible();
-
-    // Accept the browser confirm dialog for the Delete action
-    page.once("dialog", (dialog) => dialog.accept());
-
-    const row = page.getByRole("row", { name: new RegExp(DEL_NAME) });
-    await row.getByRole("button", { name: "Delete" }).click();
-
-    // After deletion the row should disappear
-    await expect(page.getByRole("cell", { name: DEL_NAME })).not.toBeVisible({
-      message: "Deleted entity should no longer appear in the table",
-    });
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Category required — API regression

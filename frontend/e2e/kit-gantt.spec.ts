@@ -168,7 +168,7 @@ test.describe("Kit with no upcoming approved shows dash", () => {
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-NODEL`);
 
     // The row should be visible
-    await expect(page.getByRole("cell", { name: `${TS}-NODEL` })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("cell", { name: `${TS}-NODEL`, exact: true })).toBeVisible({ timeout: 10_000 });
 
     // Find the row and check the Next delivery cell shows —
     const row = page.getByRole("row").filter({ hasText: `${TS}-NODEL` });

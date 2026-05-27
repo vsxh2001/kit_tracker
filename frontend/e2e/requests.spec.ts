@@ -76,8 +76,10 @@ test.describe("Requests page — listing", () => {
     await loginAs(page, "admin");
     await page.goto("/requests");
 
-    // Click the status filter combobox and select "Open"
-    await page.getByRole("combobox").click();
+    // Click the status filter combobox and select "Open". Scope by its
+    // "All statuses" label — a sibling "All dates" combobox was added, so the
+    // bare role query now matches two elements.
+    await page.getByRole("combobox").filter({ hasText: "All statuses" }).click();
     await page.getByRole("option", { name: "Open" }).click();
 
     // Wait for the table to update with filtered results
@@ -93,7 +95,7 @@ test.describe("Requests page — listing", () => {
     await loginAs(page, "admin");
     await page.goto("/requests");
 
-    await page.getByRole("combobox").click();
+    await page.getByRole("combobox").filter({ hasText: "All statuses" }).click();
     await page.getByRole("option", { name: "Fulfilled" }).click();
 
     // Our open test request should NOT be visible

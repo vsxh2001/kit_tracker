@@ -161,7 +161,7 @@ test.describe("Approved request with empty designated_kit is ignored", () => {
     await page.goto("/kits");
 
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-NODESG`);
-    await expect(page.getByRole("cell", { name: `${TS}-NODESG` })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("cell", { name: `${TS}-NODESG`, exact: true })).toBeVisible({ timeout: 10_000 });
 
     const row = page.getByRole("row").filter({ hasText: `${TS}-NODESG` });
     // The Next delivery cell should show — (the undesignated request must not pollute this kit)
@@ -206,7 +206,7 @@ test.describe("Past delivery_date approved request is not shown", () => {
     await page.goto("/kits");
 
     await page.getByPlaceholder(/search by serial/i).fill(`${TS}-PAST`);
-    await expect(page.getByRole("cell", { name: `${TS}-PAST` })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("cell", { name: `${TS}-PAST`, exact: true })).toBeVisible({ timeout: 10_000 });
 
     const row = page.getByRole("row").filter({ hasText: `${TS}-PAST` });
     await expect(row.getByText("—").last(), { message: "Past delivery date must not appear — filter should exclude it" }).toBeVisible();

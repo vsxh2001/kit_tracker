@@ -184,9 +184,11 @@ test.describe("Kit detail page", () => {
     await expect(page.getByText(`${TS}-Entity`).first()).toBeVisible({
       message: "Current entity name should appear in the Details card",
     });
-    // Transaction history section
+    // Transaction history section — the old "Transaction history" heading was
+    // replaced by a History/Calendar tab toggle; the "History" tab button now
+    // marks the section, and its table still has a "To" column.
     await expect(
-      page.getByRole("heading", { name: "Transaction history" })
+      page.getByRole("button", { name: "History" })
     ).toBeVisible();
     await expect(page.getByRole("columnheader", { name: "To" })).toBeVisible();
   });
