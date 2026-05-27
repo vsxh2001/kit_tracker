@@ -167,9 +167,14 @@ describe("wa_inbound hook (POST /api/wa/webhook)", () => {
     expect(after.length).toBe(before.length);
   });
 
-  it("user with empty role — rejected with friendly reply (200), no write", async () => {
-    const res = await inbound({ from: `whatsapp:${noRolePhone}`, body: "return SOMEKIT" });
+  it("user with empty role — rejected before any write logic (200), no transaction", async () => {
+    // The role gate (`!role || role === "denied"`) fires before the RETURN /
+    // write-verb / AI paths, so this is hermetic AND must leave the DB untouched.
+    const before = await returnTxFor(returnKitId);
+    const res = await inbound({ from: `whatsapp:${noRolePhone}`, body: `return ${TS}-RETKIT` });
     expect(res.status).toBe(200);
+    const after = await returnTxFor(returnKitId);
+    expect(after.length, "empty-role user must not move a kit").toBe(before.length);
   });
 
   // --- T32 write-intent role gate ----------------------------------------
@@ -192,15 +197,14 @@ describe("wa_inbound hook (POST /api/wa/webhook)", () => {
 
   it("technician write-verb — stashes confirmation, no transaction until YES", async () => {
     // A generic write verb (not the RETURN shortcut) stashes a pending confirm
-    // and returns; nothing is written until the user replies YES (which would
-    // route through /api/ai/chat — not exercised here).
+    // and returns at the writeVerbs branch (no /api/ai/chat call); nothing is
+    // written until the user replies YES. The next test re-stashes pendingKey
+    // for this phone, so no explicit cleanup is needed.
     const before = await returnTxFor(returnKitId);
     const res = await inbound({ from: `whatsapp:${techPhone}`, body: `please update ${TS}-RETKIT notes` });
     expect(res.status).toBe(200);
     const after = await returnTxFor(returnKitId);
     expect(after.length).toBe(before.length);
-    // Clear the pending so it doesn't bleed into later technician tests.
-    await inbound({ from: `whatsapp:${techPhone}`, body: "nevermind" });
   });
 
   // --- RETURN shortcut confirm flow (core wedge) -------------------------
@@ -242,7 +246,7 @@ describe("wa_inbound hook (POST /api/wa/webhook)", () => {
     expect((await returnTxFor(returnKitId)).length, "no duplicate transaction").toBe(1);
   });
 
-  it("technician RETURN → 'no' cancels — no transaction created", async () => {
+  it("technician RETURN then a non-YES reply cancels the directExec — kit not moved", async () => {
     // Use a fresh kit so the count is unambiguous.
     const kitRes = await suPost("/api/collections/kits/records", {
       serial: `${TS}-CANCELKIT`,
@@ -250,13 +254,18 @@ describe("wa_inbound hook (POST /api/wa/webhook)", () => {
     });
     const cancelKitId = (await kitRes.json()).id;
 
+    // Stash a directExec RETURN pending.
     const r1 = await inbound({ from: `whatsapp:${techPhone}`, body: `return ${TS}-CANCELKIT` });
     expect(r1.status).toBe(200);
 
-    // Anything other than YES cancels the pending confirmation.
-    const r2 = await inbound({ from: `whatsapp:${techPhone}`, body: "no thanks" });
+    // Any non-YES reply clears the directExec pending and re-processes the body
+    // as a fresh command — crucially it does NOT execute the original RETURN.
+    // We send another write verb so the handler short-circuits at the confirm
+    // re-stash (writeVerbs branch) instead of proxying to /api/ai/chat, keeping
+    // the test hermetic (the AI URL is hardcoded to :8090, a different instance).
+    const r2 = await inbound({ from: `whatsapp:${techPhone}`, body: `move ${TS}-CANCELKIT to nowhere` });
     expect(r2.status).toBe(200);
 
-    expect((await returnTxFor(cancelKitId)).length, "cancelled — no move").toBe(0);
+    expect((await returnTxFor(cancelKitId)).length, "RETURN was cancelled, not executed").toBe(0);
   });
 });
