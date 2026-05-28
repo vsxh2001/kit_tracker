@@ -173,4 +173,49 @@ describe("wa_meta_broadcast auth + body-validation gates", () => {
     expect(body.totalRecipients).toBe(0);
     expect(body.successCount).toBe(0);
   });
+
+  // Regression guard: findRecordsByFilter(limit=0, offset=500) silently throws in PB v0.22,
+  // returning an empty list even when matching users exist. Fixed to (500, 0).
+  it("type=role resolves non-zero recipients when matching users have phones", async () => {
+    // Seed two users with role=admin and a phone number
+    const phoneA = "972501111001";
+    const phoneB = "972501111002";
+    await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "admin-phone-a@wa-broadcast-test.local",
+        password: "Adminpass1!",
+        passwordConfirm: "Adminpass1!",
+        role: "admin",
+        name: "WA Broadcast Admin A",
+        phone: phoneA,
+      }),
+    });
+    await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "admin-phone-b@wa-broadcast-test.local",
+        password: "Adminpass1!",
+        passwordConfirm: "Adminpass1!",
+        role: "admin",
+        name: "WA Broadcast Admin B",
+        phone: phoneB,
+      }),
+    });
+
+    // The broadcast will attempt Meta API calls (which will fail with our fake token)
+    // but the response still reports totalRecipients from the resolved phone list.
+    // If findRecordsByFilter used limit=0 it would silently return [], giving totalRecipients=0.
+    const res = await postBroadcast(baseUrl, adminToken, {
+      recipientFilter: { type: "role", value: "admin" },
+      message: { type: "text", text: "regression check" },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // At least the two seeded admins with phones should appear in totalRecipients.
+    // (admin@hook-test.local has no phone, so only our two seed users count.)
+    expect(body.totalRecipients).toBeGreaterThanOrEqual(2);
+  });
 });
