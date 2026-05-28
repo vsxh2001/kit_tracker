@@ -32,6 +32,7 @@ type ActionFilter = (typeof ACTIONS)[number];
 const VIA_LABELS: Record<AuditVia, string> = {
   web: "Web",
   "wa-bot": "WhatsApp",
+  "wa-meta-bot": "WhatsApp (Meta)",
   "ai-agent": "AI chat",
   mcp: "MCP",
 };
