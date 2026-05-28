@@ -154,6 +154,8 @@ PB v0.22 auto-loads `*.pb.js` files from the hooks dir on `serve` startup. Two h
 - **`role_change_check.pb.js`** — fires on user update; if `oldRole !== newRole` and the requester's role is not `"admin"`, throws `BadRequestError`. **Critical**: PB collection rules can't restrict which fields are written, so without this hook a non-admin could `PATCH users/<self> {"role":"admin"}` and self-promote.
 - **`last_admin_check.pb.js`** — fires on user update; if old role was `"admin"` and new role is not, counts admins where `id != record.id` and rejects when count is 0. Counts via `findRecordsByFilter("users", "role = 'admin' && id != '<id>'", "", 0, 2)` — `limit=2` (not 0; `limit=0` is invalid in PB v0.22 and silently throws, leaving the hook a no-op).
 
+**`findRecordsByFilter` arg order:** signature is `findRecordsByFilter(collection, filter, sort, limit, offset, params)` — `limit` is the 4th arg, `offset` is the 5th. Swapping them (`limit=0, offset=N`) silently returns `[]` in PB v0.22 with no visible error, making the hook a no-op. Only literal `0` at position 4 paired with a positive integer at position 5 is the anti-pattern — variable references at position 4 are allowed. `scripts/audit-find-records.mjs` scans all `pb/pb_hooks/*.pb.js` for this pattern and runs in the `hook-tests` CI job as a mechanical guard.
+
 Both hooks ship in the Docker image (Dockerfile COPYs `pb/`). Local dev: PB picks them up if `--hooksDir` points at `pb/pb_hooks/`.
 
 ### Frontend structure
