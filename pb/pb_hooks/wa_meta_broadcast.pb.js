@@ -106,8 +106,8 @@ routerAdd("POST", "/api/wa/broadcast", function(c) {
         "users",
         "role = {:role} && phone != ''",
         "-created",
-        0,
         500,
+        0,
         { role: role }
       );
     } catch (e) {
