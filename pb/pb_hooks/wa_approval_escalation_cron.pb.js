@@ -46,8 +46,8 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
         "requests",
         "status = 'open' && created <= {:cutoff}",
         "-created",
-        0,
         200,
+        0,
         { cutoff: cutoffStr }
       );
     } catch (fetchErr) {
@@ -302,11 +302,18 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
 
   var openRequests = [];
   try {
+    // threshold_hours=0 means "no minimum age" — skip cutoff filter to avoid
+    // the same-second race where cutoffStr (truncated to seconds) is earlier
+    // than the request's sub-second `created` timestamp.
+    var filterStr = thresholdHours > 0
+      ? "status = 'open' && created <= {:cutoff}"
+      : "status = 'open'";
+    var filterParams = thresholdHours > 0 ? { cutoff: cutoffStr } : {};
     openRequests = $app.dao().findRecordsByFilter(
       "requests",
-      "status = 'open' && created <= {:cutoff}",
-      "-created", 0, 200,
-      { cutoff: cutoffStr }
+      filterStr,
+      "-created", 200, 0,
+      filterParams
     );
   } catch (e) {
     return c.json(500, { error: "requests fetch error: " + String(e) });
