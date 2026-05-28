@@ -2,15 +2,33 @@ import { useState } from "react";
 import { Card, CardContent } from "../ui/card";
 import { KitCalendar } from "../KitCalendar";
 import { formatDate } from "../../lib/utils";
-import type { Transaction } from "../../types";
+import type { AuditVia, Transaction } from "../../types";
+
+const VIA_BADGE: Record<AuditVia, { label: string; className: string }> = {
+  "wa-bot":      { label: "WhatsApp", className: "bg-green-100 text-green-800" },
+  "wa-meta-bot": { label: "WhatsApp", className: "bg-green-100 text-green-800" },
+  "ai-agent":    { label: "AI chat",  className: "bg-purple-100 text-purple-800" },
+  mcp:           { label: "MCP",      className: "bg-blue-100 text-blue-800" },
+  web:           { label: "Web",      className: "bg-slate-100 text-slate-600" },
+};
+
+function OriginBadge({ via }: { via: string }) {
+  const cfg = VIA_BADGE[via as AuditVia];
+  return (
+    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${cfg?.className ?? "bg-slate-100 text-slate-600"}`}>
+      {cfg?.label ?? via}
+    </span>
+  );
+}
 
 interface KitHistoryPanelProps {
   kitId: string;
   kitIsActive: boolean;
   history: Transaction[];
+  viaMap?: Record<string, AuditVia>;
 }
 
-export function KitHistoryPanel({ kitId, kitIsActive, history }: KitHistoryPanelProps) {
+export function KitHistoryPanel({ kitId, kitIsActive, history, viaMap = {} }: KitHistoryPanelProps) {
   const [tab, setTab] = useState<"history" | "calendar">("history");
 
   return (
@@ -62,9 +80,12 @@ export function KitHistoryPanel({ kitId, kitIsActive, history }: KitHistoryPanel
                       <span className="font-mono text-xs text-muted-foreground tabular-nums">
                         {formatDate(tx.timestamp)}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? ""}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {viaMap[tx.id] && <OriginBadge via={viaMap[tx.id]} />}
+                        <span className="text-xs text-muted-foreground">
+                          {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? ""}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-sm font-medium">
                       {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
@@ -85,6 +106,7 @@ export function KitHistoryPanel({ kitId, kitIsActive, history }: KitHistoryPanel
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">From</th>
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">To</th>
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Notes</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Via</th>
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">By</th>
                       </tr>
                     </thead>
@@ -104,6 +126,11 @@ export function KitHistoryPanel({ kitId, kitIsActive, history }: KitHistoryPanel
                             <span className="line-clamp-2">
                               {tx.notes ?? <span className="opacity-30">—</span>}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {viaMap[tx.id]
+                              ? <OriginBadge via={viaMap[tx.id]} />
+                              : <span className="opacity-30">—</span>}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">
                             {tx.expand?.created_by?.name ?? tx.expand?.created_by?.email ?? (

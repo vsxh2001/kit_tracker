@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { KitTimeline } from "../components/KitTimeline";
 import { KitSnapshotCard } from "../components/KitSnapshotCard";
 import { getKit, getKitHistory } from "../services/kits";
+import { getTransactionVia } from "../services/transactions";
 import { useAuth } from "../context/AuthContext";
 import { ActionsCard } from "../components/kit-detail/ActionsCard";
 import { DetailsCard } from "../components/kit-detail/DetailsCard";
@@ -12,7 +13,7 @@ import { MaintenanceSection } from "../components/kit-detail/MaintenanceSection"
 import { KitDetailHeader } from "../components/kit-detail/KitDetailHeader";
 import { KitHistoryPanel } from "../components/kit-detail/KitHistoryPanel";
 import { DangerZoneCard } from "../components/kit-detail/DangerZoneCard";
-import type { Kit, Transaction } from "../types";
+import type { AuditVia, Kit, Transaction } from "../types";
 
 export function KitDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,7 @@ export function KitDetailPage() {
   const [kit, setKit] = useState<Kit | null>(null);
   const [latest, setLatest] = useState<Transaction | null>(null);
   const [history, setHistory] = useState<Transaction[]>([]);
+  const [viaMap, setViaMap] = useState<Record<string, AuditVia>>({});
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -38,6 +40,10 @@ export function KitDetailPage() {
       setKit(k);
       setHistory(h);
       setLatest(h[0] ?? null);
+      // Fetch origin tags — 403 for non-admins; silently ignored (empty map = no badges shown).
+      getTransactionVia(h.map((tx) => tx.id))
+        .then(setViaMap)
+        .catch(() => {});
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (err?.isAbort) { aborted = true; return; }
@@ -107,7 +113,7 @@ export function KitDetailPage() {
 
       <KitTimeline kitId={kit.id} />
 
-      <KitHistoryPanel kitId={kit.id} kitIsActive={kit.is_active} history={history} />
+      <KitHistoryPanel kitId={kit.id} kitIsActive={kit.is_active} history={history} viaMap={viaMap} />
 
       <ComponentsTable kitId={kit.id} canEdit={canDecideRequests} canTransferKits={canTransferKits} />
 

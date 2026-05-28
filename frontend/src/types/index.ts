@@ -130,7 +130,7 @@ export interface Component {
   expand?: { product?: Product };
 }
 
-export type AuditVia = "web" | "wa-bot" | "ai-agent" | "mcp";
+export type AuditVia = "web" | "wa-bot" | "wa-meta-bot" | "ai-agent" | "mcp";
 
 export interface AuditLog {
   id: string;

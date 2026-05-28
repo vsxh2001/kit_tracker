@@ -34,6 +34,7 @@ interface Props {
 const VIA_LABEL: Record<AuditVia, string> = {
   web: "via Web",
   "wa-bot": "via WhatsApp",
+  "wa-meta-bot": "via WhatsApp",
   "ai-agent": "via AI chat",
   mcp: "via MCP",
 };
@@ -41,6 +42,7 @@ const VIA_LABEL: Record<AuditVia, string> = {
 const VIA_STYLE: Record<AuditVia, string> = {
   web: "bg-slate-100 text-slate-600 border border-slate-200",
   "wa-bot": "bg-green-50 text-green-700 border border-green-200",
+  "wa-meta-bot": "bg-green-50 text-green-700 border border-green-200",
   "ai-agent": "bg-indigo-50 text-indigo-700 border border-indigo-200",
   mcp: "bg-amber-50 text-amber-700 border border-amber-200",
 };
