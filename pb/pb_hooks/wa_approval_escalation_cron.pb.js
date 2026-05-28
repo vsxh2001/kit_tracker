@@ -46,8 +46,8 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
         "requests",
         "status = 'open' && created <= {:cutoff}",
         "-created",
-        0,
         200,
+        0,
         { cutoff: cutoffStr }
       );
     } catch (fetchErr) {
@@ -265,4 +265,146 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
   } catch (outerErr) {
     console.log("[wa_escalation] unhandled error:", outerErr);
   }
+});
+
+// ---------------------------------------------------------------------------
+// POST /_test/wa-approval-escalation
+// Dry-run for tests — admin only. Runs the full escalation check logic
+// (DB queries, pref gate, dedup) but skips the actual WA HTTP send.
+// Marks the $app.store() as if a send succeeded so dedup tests work.
+//
+// Query params:
+//   threshold_hours=<float>  (default 0 — all open requests qualify)
+//
+// Returns:
+//   { skipped: "no_wa_creds" | "no_pending_requests" }
+//   { fired: true, open_requests, admin_phones, escalated, already_escalated }
+// ---------------------------------------------------------------------------
+routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
+  var info = $apis.requestInfo(c);
+  if (!info || !info.authRecord || info.authRecord.getString("role") !== "admin") {
+    return c.json(403, { error: "admin only" });
+  }
+
+  var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+  var waToken = $os.getenv("WHATSAPP_TOKEN") || "";
+  if (!phoneNumberId || !waToken) {
+    return c.json(200, { skipped: "no_wa_creds", escalated: 0, open_requests: 0 });
+  }
+
+  var thresholdHours = parseFloat(c.queryParam("threshold_hours") || "0");
+  if (isNaN(thresholdHours) || thresholdHours < 0) thresholdHours = 0;
+  var thresholdMs = thresholdHours * 60 * 60 * 1000;
+
+  var now = new Date();
+  var cutoff = new Date(now.getTime() - thresholdMs);
+  var cutoffStr = cutoff.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+
+  var openRequests = [];
+  try {
+    // threshold_hours=0 means "no minimum age" — skip cutoff filter to avoid
+    // the same-second race where cutoffStr (truncated to seconds) is earlier
+    // than the request's sub-second `created` timestamp.
+    var filterStr = thresholdHours > 0
+      ? "status = 'open' && created <= {:cutoff}"
+      : "status = 'open'";
+    var filterParams = thresholdHours > 0 ? { cutoff: cutoffStr } : {};
+    openRequests = $app.dao().findRecordsByFilter(
+      "requests",
+      filterStr,
+      "-created", 200, 0,
+      filterParams
+    );
+  } catch (e) {
+    return c.json(500, { error: "requests fetch error: " + String(e) });
+  }
+
+  if (!openRequests || openRequests.length === 0) {
+    return c.json(200, { fired: true, skipped: "no_pending_requests", open_requests: 0, admin_phones: 0, escalated: 0, already_escalated: 0 });
+  }
+
+  var admins = [];
+  try {
+    admins = $app.dao().findRecordsByFilter(
+      "users", "role = 'admin' && phone != \"\"",
+      "", 100, 0, {}
+    );
+  } catch (e) {
+    return c.json(500, { error: "admins fetch error: " + String(e) });
+  }
+
+  var adminCount = admins ? admins.length : 0;
+  if (adminCount === 0) {
+    return c.json(200, { fired: true, open_requests: openRequests.length, admin_phones: 0, escalated: 0, already_escalated: 0 });
+  }
+
+  var escalatedCount = 0;
+  var alreadyEscalatedCount = 0;
+
+  for (var ri = 0; ri < openRequests.length; ri++) {
+    var req = openRequests[ri];
+    var requestId = req.id;
+    var escalationKey = "wa_approval_pending:" + requestId;
+
+    var alreadyEscalated = false;
+    try {
+      var storeRaw = $app.store().get(escalationKey);
+      if (storeRaw) {
+        var storeEntry = JSON.parse(storeRaw);
+        if (storeEntry && storeEntry.escalated === true) alreadyEscalated = true;
+      }
+    } catch (_) {}
+
+    if (alreadyEscalated) {
+      alreadyEscalatedCount++;
+      continue;
+    }
+
+    // Apply pref gate: count eligible admins
+    var eligibleAdmins = 0;
+    for (var ai = 0; ai < admins.length; ai++) {
+      var admin = admins[ai];
+      var prefAllowed = true;
+      try {
+        var prefRaw = admin.getString("notification_prefs") || "";
+        if (prefRaw && prefRaw.trim()) {
+          var prefs = JSON.parse(prefRaw);
+          var channels = Array.isArray(prefs && prefs.channels) ? prefs.channels : ["whatsapp", "email"];
+          var chanOk = false;
+          for (var ci = 0; ci < channels.length; ci++) {
+            if (channels[ci] === "whatsapp") { chanOk = true; break; }
+          }
+          if (!chanOk) {
+            prefAllowed = false;
+          } else {
+            var events = (prefs && prefs.events) ? prefs.events : {};
+            if (typeof events["request_escalation"] === "boolean") {
+              prefAllowed = events["request_escalation"];
+            }
+          }
+        }
+      } catch (_) { prefAllowed = true; }
+      if (prefAllowed) eligibleAdmins++;
+    }
+
+    if (eligibleAdmins > 0) {
+      try {
+        $app.store().set(escalationKey, JSON.stringify({
+          escalated: true,
+          escalated_at: now.toISOString(),
+          request_id: requestId,
+          expires: now.getTime() + 24 * 60 * 60 * 1000
+        }));
+        escalatedCount++;
+      } catch (_) {}
+    }
+  }
+
+  return c.json(200, {
+    fired: true,
+    open_requests: openRequests.length,
+    admin_phones: adminCount,
+    escalated: escalatedCount,
+    already_escalated: alreadyEscalatedCount
+  });
 });
