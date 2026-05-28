@@ -98,8 +98,8 @@ function runBroadcast(recipientFilter, message, phoneId, token) {
         "users",
         "role = {:role} && phone != ''",
         "-created",
-        0,
         500,
+        0,
         { role: role }
       );
     } catch (e) {
@@ -237,8 +237,8 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
       "scheduled_broadcasts",
       "enabled = true",
       "-created",
-      0,
       200,
+      0,
       {}
     );
   } catch (e) {
@@ -271,7 +271,7 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
         console.log("[sched_bcast_cron] JSON parse error for schedule id=" + schedId + ": " + parseErr);
         var errResult = { error: "JSON parse error: " + String(parseErr), successCount: 0, totalRecipients: 0, failed: [] };
         try {
-          sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, "") + " UTC");
+          sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""));
           sched.set("last_result", JSON.stringify(errResult));
           $app.dao().saveRecord(sched);
         } catch (_) {}
@@ -288,7 +288,7 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
 
       // Update last_run_at + last_result
       try {
-        sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, "") + " UTC");
+        sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""));
         sched.set("last_result", JSON.stringify(result));
         $app.dao().saveRecord(sched);
       } catch (saveErr) {
@@ -375,8 +375,8 @@ routerAdd("POST", "/_test/scheduled-broadcasts-cron", function(c) {
       "scheduled_broadcasts",
       "enabled = true",
       "-created",
-      0,
       200,
+      0,
       {}
     );
   } catch (e) {
@@ -436,8 +436,8 @@ routerAdd("POST", "/_test/scheduled-broadcasts-cron", function(c) {
           "users",
           "role = {:role} && phone != ''",
           "-created",
-          0,
           500,
+          0,
           { role: role }
         );
         for (var j = 0; j < userRecs.length; j++) {
@@ -465,7 +465,7 @@ routerAdd("POST", "/_test/scheduled-broadcasts-cron", function(c) {
 
     // Mirror real cron: update last_run_at + last_result on the record
     try {
-      sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, "") + " UTC");
+      sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""));
       sched.set("last_result", JSON.stringify({
         totalRecipients: phones.length,
         successCount: 0,
