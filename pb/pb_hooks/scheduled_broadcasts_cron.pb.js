@@ -98,8 +98,8 @@ function runBroadcast(recipientFilter, message, phoneId, token) {
         "users",
         "role = {:role} && phone != ''",
         "-created",
-        0,
         500,
+        0,
         { role: role }
       );
     } catch (e) {
@@ -237,8 +237,8 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
       "scheduled_broadcasts",
       "enabled = true",
       "-created",
-      0,
       200,
+      0,
       {}
     );
   } catch (e) {
@@ -271,7 +271,7 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
         console.log("[sched_bcast_cron] JSON parse error for schedule id=" + schedId + ": " + parseErr);
         var errResult = { error: "JSON parse error: " + String(parseErr), successCount: 0, totalRecipients: 0, failed: [] };
         try {
-          sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, "") + " UTC");
+          sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""));
           sched.set("last_result", JSON.stringify(errResult));
           $app.dao().saveRecord(sched);
         } catch (_) {}
@@ -288,7 +288,7 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
 
       // Update last_run_at + last_result
       try {
-        sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, "") + " UTC");
+        sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""));
         sched.set("last_result", JSON.stringify(result));
         $app.dao().saveRecord(sched);
       } catch (saveErr) {
@@ -300,4 +300,188 @@ cronAdd("scheduled_broadcasts_runner", "* * * * *", function() {
       console.log("[sched_bcast_cron] unhandled error for schedule id=" + schedId + ": " + e);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// POST /_test/scheduled-broadcasts-cron
+// Dry-run for tests — admin only. Checks which enabled schedules would fire,
+// resolves recipients (no actual WA send), and updates last_run_at + last_result
+// to mirror real cron behavior.
+//
+// Query params:
+//   force=1  — skip cron-expression matching; run ALL enabled schedules
+//
+// Returns:
+//   { fired: true, schedules_checked, schedules_matched,
+//     results: [{id, name, cron_matched, totalRecipients, skipped}] }
+//
+// NOTE: routerAdd callbacks cannot reference file-scope functions (Goja
+// isolation), so matchCronField and cronMatches are inlined here as nested
+// function declarations.
+// ---------------------------------------------------------------------------
+routerAdd("POST", "/_test/scheduled-broadcasts-cron", function(c) {
+  var info = $apis.requestInfo(c);
+  if (!info || !info.authRecord || info.authRecord.getString("role") !== "admin") {
+    return c.json(403, { error: "admin only" });
+  }
+
+  var force = c.queryParam("force") === "1";
+  var now = new Date();
+
+  function _matchField(expr, value, min, max) {
+    if (expr === "*") return true;
+    var parts = expr.split(",");
+    for (var pi = 0; pi < parts.length; pi++) {
+      var part = parts[pi];
+      if (part.indexOf("*/") === 0) {
+        var step = parseInt(part.slice(2), 10);
+        if (!isNaN(step) && step > 0 && ((value - min) % step === 0)) return true;
+        continue;
+      }
+      if (part.indexOf("-") !== -1) {
+        var rangeParts = part.split("/");
+        var rangeStr   = rangeParts[0];
+        var rangeStep  = rangeParts.length > 1 ? parseInt(rangeParts[1], 10) : 1;
+        var bounds     = rangeStr.split("-");
+        var lo         = parseInt(bounds[0], 10);
+        var hi         = parseInt(bounds[1], 10);
+        if (!isNaN(lo) && !isNaN(hi) && value >= lo && value <= hi) {
+          if (isNaN(rangeStep) || rangeStep <= 0) rangeStep = 1;
+          if ((value - lo) % rangeStep === 0) return true;
+        }
+        continue;
+      }
+      var n = parseInt(part, 10);
+      if (!isNaN(n) && n === value) return true;
+    }
+    return false;
+  }
+
+  function _cronMatches(expression, ts) {
+    var fields = expression.trim().split(/\s+/);
+    if (fields.length !== 5) return false;
+    return (
+      _matchField(fields[0], ts.getUTCMinutes(),     0, 59) &&
+      _matchField(fields[1], ts.getUTCHours(),       0, 23) &&
+      _matchField(fields[2], ts.getUTCDate(),        1, 31) &&
+      _matchField(fields[3], ts.getUTCMonth() + 1,  1, 12) &&
+      _matchField(fields[4], ts.getUTCDay(),         0,  6)
+    );
+  }
+
+  var schedules = [];
+  try {
+    schedules = $app.dao().findRecordsByFilter(
+      "scheduled_broadcasts",
+      "enabled = true",
+      "-created",
+      200,
+      0,
+      {}
+    );
+  } catch (e) {
+    return c.json(500, { error: "fetch error: " + String(e) });
+  }
+
+  var results = [];
+  var matchedCount = 0;
+
+  for (var i = 0; i < schedules.length; i++) {
+    var sched    = schedules[i];
+    var schedId  = sched.getId();
+    var schedName = sched.getString("name");
+    var cronExpr = sched.getString("cron_expression");
+    var matched  = force || _cronMatches(cronExpr, now);
+
+    var result = {
+      id: schedId,
+      name: schedName,
+      cron_matched: matched,
+      totalRecipients: 0,
+      skipped: null
+    };
+
+    if (!matched) {
+      results.push(result);
+      continue;
+    }
+
+    matchedCount++;
+
+    var recipientFilter = null;
+    var message = null;
+    try {
+      recipientFilter = JSON.parse(sched.getString("recipient_filter") || "null");
+      message         = JSON.parse(sched.getString("message")          || "null");
+    } catch (parseErr) {
+      result.skipped = "invalid_json";
+      result.error   = String(parseErr);
+      results.push(result);
+      continue;
+    }
+
+    if (!recipientFilter || !message) {
+      result.skipped = "null_filter_or_message";
+      results.push(result);
+      continue;
+    }
+
+    var phones = [];
+    var filterType = recipientFilter.type;
+
+    if (filterType === "role") {
+      var role = (recipientFilter.value || "").toString().trim();
+      try {
+        var userRecs = $app.dao().findRecordsByFilter(
+          "users",
+          "role = {:role} && phone != ''",
+          "-created",
+          500,
+          0,
+          { role: role }
+        );
+        for (var j = 0; j < userRecs.length; j++) {
+          var ph = (userRecs[j].getString("phone") || "").trim();
+          if (ph) phones.push(ph);
+        }
+      } catch (qErr) {
+        result.skipped = "users_query_error";
+        result.error   = String(qErr);
+        results.push(result);
+        continue;
+      }
+    } else if (filterType === "phones") {
+      var rawPhones = recipientFilter.value;
+      if (Array.isArray(rawPhones)) {
+        for (var k = 0; k < rawPhones.length; k++) {
+          var p = (rawPhones[k] || "").toString().trim();
+          if (p) phones.push(p);
+        }
+      }
+    }
+
+    result.totalRecipients = phones.length;
+    if (phones.length === 0) result.skipped = "no_recipients";
+
+    // Mirror real cron: update last_run_at + last_result on the record
+    try {
+      sched.set("last_run_at", now.toISOString().replace("T", " ").replace(/\.\d+Z$/, ""));
+      sched.set("last_result", JSON.stringify({
+        totalRecipients: phones.length,
+        successCount: 0,
+        failed: [],
+        dryRun: true
+      }));
+      $app.dao().saveRecord(sched);
+    } catch (_) {}
+
+    results.push(result);
+  }
+
+  return c.json(200, {
+    fired: true,
+    schedules_checked: schedules.length,
+    schedules_matched: matchedCount,
+    results: results
+  });
 });
