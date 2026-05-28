@@ -58,6 +58,9 @@ jobs:
           unzip -o /tmp/pb.zip pocketbase -d pb/
           chmod +x pb/pocketbase
 
+      - name: Audit findRecordsByFilter arg order
+        run: node scripts/audit-find-records.mjs
+
       - name: Run PB hook tests
         run: npm run test:hooks
 
