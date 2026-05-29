@@ -15,11 +15,18 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
   const [kit, setKit] = useState<Kit | null>(null);
   const [fileToken, setFileToken] = useState<string>("");
 
-  async function loadAttachments() {
+  async function loadKit() {
     try {
-      const [k, token] = await Promise.all([getKit(kitId), getAttachmentToken()]);
-      setKit(k);
-      setFileToken(token);
+      setKit(await getKit(kitId));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) console.error(err);
+    }
+  }
+
+  async function refreshFileToken() {
+    try {
+      setFileToken(await getAttachmentToken());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -27,7 +34,15 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { startTransition(() => loadAttachments()); }, [kitId]);
+  useEffect(() => { startTransition(() => loadKit()); }, [kitId]);
+
+  // PB file tokens default to a 120s TTL — refresh ahead of expiry so links
+  // stay valid on long-lived detail views.
+  useEffect(() => {
+    startTransition(() => refreshFileToken());
+    const id = setInterval(() => startTransition(() => refreshFileToken()), 90_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (!kit) return null;
 
