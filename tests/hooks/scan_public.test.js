@@ -123,4 +123,26 @@ describe("scan_public GET /api/scan/:kitId", () => {
     expect(body.serial).toBe("SCAN-NOTX-001");
     expect(body.holder).toBe("");
   });
+
+  it("returns notes field in response (empty when kit has no notes)", async () => {
+    const res = await fetch(`${baseUrl}/api/scan/${activeKit.id}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty("notes");
+    expect(body.notes).toBe("");
+  });
+
+  it("returns notes field populated when kit has notes", async () => {
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: "SCAN-NOTES-001", is_active: true, notes: "fragile — handle with care" }),
+    });
+    const kit = await kitRes.json();
+
+    const res = await fetch(`${baseUrl}/api/scan/${kit.id}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.notes).toBe("fragile — handle with care");
+  });
 });
