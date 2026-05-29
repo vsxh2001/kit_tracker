@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, startTransition } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Sparkles, MessageCircle, Send } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Sparkles, MessageCircle, Send, Radio } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn, formatTelHref } from "../lib/utils";
@@ -193,6 +193,7 @@ export function Layout() {
       {hasRole && isAdmin && (
         <NavLink
           to="/settings/telegram"
+          end
           onClick={closeDrawer}
           className={({ isActive }) =>
             cn(
@@ -205,6 +206,23 @@ export function Layout() {
         >
           <Send className="h-5 w-5 shrink-0" />
           Telegram
+        </NavLink>
+      )}
+      {hasRole && isAdmin && (
+        <NavLink
+          to="/settings/telegram/broadcast"
+          onClick={closeDrawer}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2.5 pl-9 pr-3 py-2 rounded-md text-sm transition-all",
+              isActive
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            )
+          }
+        >
+          <Radio className="h-4 w-4 shrink-0" />
+          Broadcast
         </NavLink>
       )}
       {hasRole && canDecideRequests && (
