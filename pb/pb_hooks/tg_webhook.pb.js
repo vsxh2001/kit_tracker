@@ -1,10 +1,16 @@
 /// <reference path="../pb_data/types.d.ts" />
-// POST /api/tg/webhook — Telegram webhook receiver (Phase 4: /start <code> linking only).
+// POST /api/tg/webhook — Telegram webhook receiver (Phase 5: /start <code> linking + AI bot).
 //
-// Phase 5 will add AI bot for arbitrary messages. This file handles ONLY:
+// Phase 5 additions (on top of Phase 4):
+//   non-/start text with linked+approved user → AI bot via /api/ai/chat (same engine as WhatsApp).
+//   unlinked chat → hint to link in app.
+//   linked + unapproved role → awaiting-approval reply.
+//   ambiguous (>1 user with same telegram_chat_id) → contact-admin reply, no action.
+//
+// This file handles:
 //   /start <code>  — redeem a tg_link_codes row to bind telegram_chat_id to the user.
 //   /start         — no code, reply with hint.
-//   other text     — reply with hint.
+//   other text     — AI bot (Phase 5) or unlinked/role-gate reply.
 //   missing message/text — 200 no-op (Telegram status updates, etc.).
 //
 // SECURITY (high-risk — read before changing):
@@ -28,6 +34,7 @@
 //   TELEGRAM_BOT_SECRET      — random string (openssl rand -hex 20); must match
 //                               secret_token used in setWebhook registration.
 //   TG_SKIP_SIGNATURE_CHECK  — set to "1" to bypass secret check (local dev only).
+//   PB_AI_CHAT_URL           — optional; default "http://127.0.0.1:8090/api/ai/chat".
 //
 // NO module-level vars — PB v0.22 Goja isolation.
 // All helpers defined INSIDE the routerAdd callback.
@@ -262,9 +269,104 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
   }
 
   // ===========================================================================
-  // Route: /start with no code, or any other message → hint
-  // (Phase 5 will handle arbitrary AI messages)
+  // Route: /start with no code → hint
   // ===========================================================================
-  sendTelegram(chatId, "Open kit-tracker → Link Telegram to connect your account.");
+  if (text.startsWith("/start")) {
+    sendTelegram(chatId, "Open kit-tracker → Profile → Link Telegram to connect your account.");
+    return c.json(200, { ok: true });
+  }
+
+  // ===========================================================================
+  // Route: arbitrary text (Phase 5) — AI bot via /api/ai/chat
+  // ===========================================================================
+
+  // Step 1: Resolve user by telegram_chat_id.
+  // Note: telegram_chat_id is non-unique by design (the field has no uniqueness
+  // constraint) — an ambiguous state (>1 user) must be treated as a security
+  // error and must NOT proceed.
+  var dao = $app.dao();
+  var tgUsers = [];
+  try {
+    tgUsers = dao.findRecordsByFilter(
+      "users",
+      "telegram_chat_id = {:cid}",
+      "",
+      2,
+      0,
+      { cid: chatId }
+    );
+  } catch (e) {
+    console.log("[tg_webhook] user lookup error chatId=" + chatId + ": " + e);
+  }
+
+  if (!tgUsers || tgUsers.length === 0) {
+    console.log("[tg_webhook] no user linked for chatId=" + chatId);
+    sendTelegram(chatId, "Your Telegram isn't linked. Open kit-tracker → Profile → Link Telegram to connect.");
+    return c.json(200, { ok: true });
+  }
+
+  if (tgUsers.length > 1) {
+    // Ambiguous — do NOT act on behalf of any user.
+    console.log("[tg_webhook] ambiguous: " + tgUsers.length + " users share chatId=" + chatId);
+    sendTelegram(chatId, "Multiple accounts are linked to this Telegram. Contact an admin.");
+    return c.json(200, { ok: true });
+  }
+
+  var tgUser = tgUsers[0];
+
+  // Step 2: Role gate (mirror wa_meta_webhook ~461)
+  var tgRole = tgUser.getString("role");
+  if (!tgRole || tgRole === "denied") {
+    console.log("[tg_webhook] user=" + tgUser.id + " role=" + tgRole + " — awaiting approval");
+    sendTelegram(chatId, "Your account is awaiting approval — an admin needs to set your role.");
+    return c.json(200, { ok: true });
+  }
+
+  // Step 3: Mint token + call /api/ai/chat (mirror wa_meta_webhook ~819-847)
+  // SECURITY: never log the token.
+  var tgToken = "";
+  try {
+    tgToken = $tokens.recordAuthToken($app, tgUser);
+  } catch (e) {
+    console.log("[tg_webhook] token mint error user=" + tgUser.id + ": " + e);
+    sendTelegram(chatId, "Sorry — I hit an error. Try again in a moment.");
+    return c.json(200, { ok: true });
+  }
+
+  var aiChatUrl = $os.getenv("PB_AI_CHAT_URL") || "http://127.0.0.1:8090/api/ai/chat";
+  var aiRes;
+  try {
+    aiRes = $http.send({
+      url: aiChatUrl,
+      method: "POST",
+      headers: {
+        "Authorization": tgToken,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ message: text, sessionId: "tg:" + chatId }),
+      timeout: 60000
+    });
+  } catch (e) {
+    console.log("[tg_webhook] /api/ai/chat HTTP error user=" + tgUser.id + ": " + e);
+    sendTelegram(chatId, "Sorry — I hit an error. Try again in a moment.");
+    return c.json(200, { ok: true });
+  }
+
+  if (!aiRes || aiRes.statusCode < 200 || aiRes.statusCode >= 300) {
+    var statusCode = aiRes ? aiRes.statusCode : "none";
+    console.log("[tg_webhook] /api/ai/chat returned " + statusCode + " user=" + tgUser.id);
+    sendTelegram(chatId, "Sorry — I hit an error. Try again in a moment.");
+    return c.json(200, { ok: true });
+  }
+
+  var tgReplyText = "(no reply)";
+  try {
+    var parsedAi = JSON.parse(aiRes.raw);
+    if (parsedAi && parsedAi.reply) tgReplyText = String(parsedAi.reply);
+  } catch (_) {
+    console.log("[tg_webhook] ai_chat reply parse error user=" + tgUser.id);
+  }
+
+  sendTelegram(chatId, tgReplyText);
   return c.json(200, { ok: true });
 });

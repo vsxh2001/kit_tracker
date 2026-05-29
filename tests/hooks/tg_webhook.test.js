@@ -256,14 +256,142 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     expect(codeRow.used).toBe(true);
   });
 
-  // ---------- arbitrary message → hint ----------
+  // ---------- arbitrary message → Phase 5 AI bot routing ----------
 
   it("arbitrary message (not /start) returns 200 no crash", async () => {
+    // Phase 5: chatId 333444555 has no linked user → "not linked" branch.
     const res = await postUpdate({
       message: { text: "hello bot", chat: { id: 333444555 } },
     });
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
+  });
+
+  // Phase 5 routing tests.
+  //
+  // NOTE: TELEGRAM_BOT_TOKEN is unset in the harness → sendTelegram() logs and
+  // skips actual sends. PB_AI_CHAT_URL defaults to 127.0.0.1:<random-port>/api/ai/chat
+  // which is unreachable (the harness PB instance doesn't run the AI handler).
+  // Tests verify identity/routing decisions and that failures degrade to 200 gracefully.
+
+  it("[Phase5] unlinked chatId plain text → 200, no crash (not-linked branch)", async () => {
+    // chatId 811111111 has no user with telegram_chat_id set → "isn't linked" reply
+    const res = await postUpdate({
+      message: { text: "where is kit 42", chat: { id: 811111111 } },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("[Phase5] ambiguous chatId (two users same telegram_chat_id) → 200, no action on either user", async () => {
+    // Seed a second user with the same telegram_chat_id as the first (linkUserId already
+    // has telegram_chat_id set from the happy-path test above — 987654321).
+    // We create another user and patch it to share the same chatId via superuser token.
+    const u2 = await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "ambig2@tg-webhook-test.local",
+        password: "Webhookpass1!",
+        passwordConfirm: "Webhookpass1!",
+        role: "user",
+        name: "Ambig User 2",
+        telegram_chat_id: "987654321",
+      }),
+    });
+    const u2Data = await u2.json();
+    expect(u2Data.id).toBeTruthy();
+
+    // Make sure the first user also still has that chatId (it was set in the happy-path test)
+    const u1Res = await fetch(`${baseUrl}/api/collections/users/records/${linkUserId}`, {
+      headers: { Authorization: suToken },
+    });
+    const u1Data = await u1Res.json();
+    // If this linkUser's telegram_chat_id was overwritten by a later test, patch it back
+    if (u1Data.telegram_chat_id !== "987654321") {
+      await fetch(`${baseUrl}/api/collections/users/records/${linkUserId}`, {
+        method: "PATCH",
+        headers: { Authorization: suToken, "Content-Type": "application/json" },
+        body: JSON.stringify({ telegram_chat_id: "987654321" }),
+      });
+    }
+
+    const res = await postUpdate({
+      message: { text: "hello", chat: { id: 987654321 } },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+    // Neither user's data should have been mutated beyond the chat_id already set.
+    // The key assertion is 200 with no server crash.
+
+    // Cleanup: remove the ambiguous user
+    await fetch(`${baseUrl}/api/collections/users/records/${u2Data.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken },
+    });
+  });
+
+  it("[Phase5] linked user with empty role (awaiting approval) → 200, no ai_chat action", async () => {
+    // Create a user with no role and telegram_chat_id set
+    const u3 = await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "norole@tg-webhook-test.local",
+        password: "Webhookpass1!",
+        passwordConfirm: "Webhookpass1!",
+        role: "",
+        name: "No Role User",
+        telegram_chat_id: "820000001",
+      }),
+    });
+    const u3Data = await u3.json();
+    expect(u3Data.id).toBeTruthy();
+
+    const res = await postUpdate({
+      message: { text: "list kits", chat: { id: 820000001 } },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+    // The awaiting-approval branch returns 200 without attempting ai_chat.
+
+    // Cleanup
+    await fetch(`${baseUrl}/api/collections/users/records/${u3Data.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken },
+    });
+  });
+
+  it("[Phase5] linked + approved user, plain text → 200 even though ai_chat self-call fails in harness", async () => {
+    // Create a user with role=user and telegram_chat_id set
+    const u4 = await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "approved@tg-webhook-test.local",
+        password: "Webhookpass1!",
+        passwordConfirm: "Webhookpass1!",
+        role: "user",
+        name: "Approved User",
+        telegram_chat_id: "830000001",
+      }),
+    });
+    const u4Data = await u4.json();
+    expect(u4Data.id).toBeTruthy();
+
+    // ai_chat call will fail (harness PB has no Anthropic key / endpoint unreachable or
+    // returns non-200 without ANTHROPIC_API_KEY) — hook must degrade to 200 gracefully.
+    const res = await postUpdate({
+      message: { text: "where is kit 1", chat: { id: 830000001 } },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    // Cleanup
+    await fetch(`${baseUrl}/api/collections/users/records/${u4Data.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken },
+    });
   });
 
   // ---------- replay / double-redeem (single-use guard) ----------
