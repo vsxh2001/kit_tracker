@@ -19,6 +19,65 @@
 //
 // PB v0.22 Goja isolation: all logic inlined. NO module-level vars.
 
+// ---------------------------------------------------------------------------
+// _sendTelegram(chatId, text) — top-level helper (file scope; retained by
+// cronAdd closures — same pattern as wa_meta_auto_notify.pb.js).
+// Token read at call time; if unset, logs + skips (no crash).
+// ---------------------------------------------------------------------------
+function _sendTelegramEscalation(chatId, text) {
+  var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+  if (!token) {
+    console.log("[tg_escalation] TELEGRAM_BOT_TOKEN not set — skip");
+    return;
+  }
+  var MAX = 4000;
+  var chunks = [];
+  var remaining = text;
+  while (remaining.length > MAX) {
+    var breakAt = -1;
+    var dbl = remaining.lastIndexOf("\n\n", MAX);
+    if (dbl > 0) {
+      breakAt = dbl + 2;
+    } else {
+      var nl = remaining.lastIndexOf("\n", MAX);
+      if (nl > 0) {
+        breakAt = nl + 1;
+      } else {
+        var sp = remaining.lastIndexOf(" ", MAX);
+        breakAt = sp > 0 ? sp + 1 : MAX;
+      }
+    }
+    chunks.push(remaining.slice(0, breakAt).trimRight());
+    remaining = remaining.slice(breakAt);
+  }
+  if (remaining.trim()) chunks.push(remaining.trim());
+
+  var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+  for (var i = 0; i < chunks.length; i++) {
+    try {
+      var res = $http.send({
+        url: url,
+        method: "POST",
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunks[i],
+          parse_mode: "HTML",
+          disable_web_page_preview: true
+        }),
+        headers: { "content-type": "application/json" },
+        timeout: 20000
+      });
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        console.log("[tg_escalation] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+      } else {
+        console.log("[tg_escalation] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+      }
+    } catch (chunkErr) {
+      console.log("[tg_escalation] chunk send error:", chunkErr);
+    }
+  }
+}
+
 cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
   try {
     var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
@@ -242,6 +301,55 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
         } catch (auditErr) {
           console.log("[wa_escalation] audit_log write failed for admin " + admin.id + ":", auditErr);
         }
+
+        // ---- Telegram branch (Phase 6 — parallel to WA, additive only) ----
+        var tgPrefAllowed = true;
+        try {
+          var tgPrefRaw = admin.getString("notification_prefs") || "";
+          if (tgPrefRaw && tgPrefRaw.trim()) {
+            var tgPrefs = JSON.parse(tgPrefRaw);
+            var tgChannels = Array.isArray(tgPrefs && tgPrefs.channels) ? tgPrefs.channels : ["whatsapp", "email"];
+            var tgChanOk = false;
+            for (var tci = 0; tci < tgChannels.length; tci++) {
+              if (tgChannels[tci] === "telegram") { tgChanOk = true; break; }
+            }
+            if (!tgChanOk) {
+              tgPrefAllowed = false;
+            } else {
+              var tgEvents = (tgPrefs && tgPrefs.events) ? tgPrefs.events : {};
+              if (typeof tgEvents["request_escalation"] === "boolean") {
+                tgPrefAllowed = tgEvents["request_escalation"];
+              }
+            }
+          }
+        } catch (_) {
+          tgPrefAllowed = true;
+        }
+        if (tgPrefAllowed) {
+          var tgChatId = admin.getString("telegram_chat_id");
+          if (tgChatId) {
+            _sendTelegramEscalation(tgChatId, msgText);
+            // Audit — best-effort
+            try {
+              var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+              var tgAuditRec = new Record(tgAuditCol);
+              tgAuditRec.set("collection_name", "messages");
+              tgAuditRec.set("record_id", tgChatId);
+              tgAuditRec.set("action", "send_telegram");
+              tgAuditRec.set("changes", JSON.stringify({
+                to: tgChatId,
+                event: "request_escalation",
+                request_id: requestId,
+                short_id: shortId,
+                success: true
+              }));
+              $app.dao().saveRecord(tgAuditRec);
+            } catch (tgAuditErr) {
+              console.log("[tg_escalation] audit_log write failed for admin " + admin.id + ":", tgAuditErr);
+            }
+          }
+        }
+        // ---- end Telegram branch ----
       }
 
       // 5. Mark as escalated in store (24h TTL)

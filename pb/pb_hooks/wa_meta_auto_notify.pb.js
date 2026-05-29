@@ -88,6 +88,67 @@ function _waNotifAllowed(user, channel, event) {
 }
 
 // ---------------------------------------------------------------------------
+// _sendTelegram(chatId, text) — top-level helper (file scope; retained by
+// onRecord/cron closures — confirmed safe per existing _waNotifAllowed usage).
+// Token read at call time; if unset, logs + skips (no crash).
+// Chunks at 4000 chars (comfortably under Telegram 4096 limit).
+// Each chunk send is non-fatal: catches individually.
+// ---------------------------------------------------------------------------
+function _sendTelegram(chatId, text) {
+  var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+  if (!token) {
+    console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+    return;
+  }
+  var MAX = 4000;
+  var chunks = [];
+  var remaining = text;
+  while (remaining.length > MAX) {
+    var breakAt = -1;
+    var dbl = remaining.lastIndexOf("\n\n", MAX);
+    if (dbl > 0) {
+      breakAt = dbl + 2;
+    } else {
+      var nl = remaining.lastIndexOf("\n", MAX);
+      if (nl > 0) {
+        breakAt = nl + 1;
+      } else {
+        var sp = remaining.lastIndexOf(" ", MAX);
+        breakAt = sp > 0 ? sp + 1 : MAX;
+      }
+    }
+    chunks.push(remaining.slice(0, breakAt).trimRight());
+    remaining = remaining.slice(breakAt);
+  }
+  if (remaining.trim()) chunks.push(remaining.trim());
+
+  var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+  for (var i = 0; i < chunks.length; i++) {
+    try {
+      var res = $http.send({
+        url: url,
+        method: "POST",
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunks[i],
+          parse_mode: "HTML",
+          disable_web_page_preview: true
+        }),
+        headers: { "content-type": "application/json" },
+        timeout: 20000
+      });
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+      } else {
+        console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+      }
+    } catch (chunkErr) {
+      console.log("[tg_notify] chunk send error:", chunkErr);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Request fulfilled — approved → fulfilled transition notifies requester
 // ---------------------------------------------------------------------------
 onRecordAfterUpdateRequest(function(e) {
@@ -229,6 +290,31 @@ onRecordAfterUpdateRequest(function(e) {
     } catch (auditErr) {
       console.log("[wa_auto_notify] audit_log write failed:", auditErr);
     }
+
+    // ---- Telegram branch (Phase 6 — parallel to WA, additive only) ----
+    if (_waNotifAllowed(requester, "telegram", "request_fulfilled")) {
+      var tgChat = requester.getString("telegram_chat_id");
+      if (tgChat && !_isInQuietHours(requester)) {
+        _sendTelegram(tgChat, msgText);
+        // Audit — best-effort
+        try {
+          var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var tgAuditRec = new Record(tgAuditCol);
+          tgAuditRec.set("collection_name", "messages");
+          tgAuditRec.set("record_id", tgChat);
+          tgAuditRec.set("action", "send_telegram");
+          tgAuditRec.set("changes", JSON.stringify({
+            to: tgChat,
+            event: "request_fulfilled",
+            success: true
+          }));
+          $app.dao().saveRecord(tgAuditRec);
+        } catch (tgAuditErr) {
+          console.log("[tg_notify] audit_log write failed (request_fulfilled):", tgAuditErr);
+        }
+      }
+    }
+    // ---- end Telegram branch ----
 
   } catch (outerErr) {
     console.log("[wa_auto_notify] onRecordAfterUpdateRequest(requests) error:", outerErr);
@@ -440,6 +526,33 @@ onRecordAfterCreateRequest(function(e) {
       } catch (auditErr) {
         console.log("[wa_auto_notify] audit_log write failed (request_pending):", auditErr);
       }
+
+      // ---- Telegram branch (Phase 6 — parallel to WA, additive only) ----
+      if (_waNotifAllowed(admin, "telegram", "request_pending")) {
+        var tgChat = admin.getString("telegram_chat_id");
+        if (tgChat && !_isInQuietHours(admin)) {
+          _sendTelegram(tgChat, msgText);
+          // Audit — best-effort
+          try {
+            var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+            var tgAuditRec = new Record(tgAuditCol);
+            tgAuditRec.set("collection_name", "messages");
+            tgAuditRec.set("record_id", tgChat);
+            tgAuditRec.set("action", "send_telegram");
+            tgAuditRec.set("changes", JSON.stringify({
+              to: tgChat,
+              event: "request_pending",
+              request_id: requestId,
+              short_id: shortId,
+              success: true
+            }));
+            $app.dao().saveRecord(tgAuditRec);
+          } catch (tgAuditErr) {
+            console.log("[tg_notify] audit_log write failed (request_pending):", tgAuditErr);
+          }
+        }
+      }
+      // ---- end Telegram branch ----
     }
 
   } catch (outerErr) {
@@ -591,6 +704,31 @@ onRecordAfterCreateRequest(function(e) {
     } catch (auditErr) {
       console.log("[wa_auto_notify] audit_log write failed (kit_moved):", auditErr);
     }
+
+    // ---- Telegram branch (Phase 6 — parallel to WA, additive only) ----
+    if (_waNotifAllowed(requester, "telegram", "kit_moved")) {
+      var tgChat = requester.getString("telegram_chat_id");
+      if (tgChat && !_isInQuietHours(requester)) {
+        _sendTelegram(tgChat, msgText);
+        // Audit — best-effort
+        try {
+          var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var tgAuditRec = new Record(tgAuditCol);
+          tgAuditRec.set("collection_name", "messages");
+          tgAuditRec.set("record_id", tgChat);
+          tgAuditRec.set("action", "send_telegram");
+          tgAuditRec.set("changes", JSON.stringify({
+            to: tgChat,
+            event: "kit_moved",
+            success: true
+          }));
+          $app.dao().saveRecord(tgAuditRec);
+        } catch (tgAuditErr) {
+          console.log("[tg_notify] audit_log write failed (kit_moved):", tgAuditErr);
+        }
+      }
+    }
+    // ---- end Telegram branch ----
 
   } catch (outerErr) {
     console.log("[wa_auto_notify] onRecordAfterCreateRequest(transactions) error:", outerErr);
