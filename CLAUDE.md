@@ -430,6 +430,27 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 
 **Skip-when-unset:** `TELEGRAM_BOT_SECRET` unset → log warning + proceed (no rejection). `TG_SKIP_SIGNATURE_CHECK=1` → always skip. `TELEGRAM_BOT_TOKEN` unset → reply sends are skipped/logged, logic still runs.
 
+### Telegram per-user transactional notifications (Phase 6)
+
+Per-user transactional notifications and approval escalation now also deliver via Telegram **in addition to** WhatsApp (parallel run; WhatsApp branches are byte-for-byte unchanged).
+
+**Hooks:** `pb/pb_hooks/wa_meta_auto_notify.pb.js` + `pb/pb_hooks/wa_approval_escalation_cron.pb.js`.
+
+**Conditions for a Telegram send:**
+1. `users.notification_prefs.channels` includes `"telegram"`.
+2. `users.telegram_chat_id` is set (linked via Phase 2/5 account linking).
+3. The relevant event is enabled in `notification_prefs.events` (default true).
+4. Current time is not in the user's quiet hours.
+5. `TELEGRAM_BOT_TOKEN` is set (skip-silently convention when unset — no crash).
+
+**Events covered:**
+- `request_fulfilled` — notifies requester when their request transitions approved → fulfilled.
+- `request_pending` — notifies admin(s) when a new request is created.
+- `kit_moved` — notifies requester when their kit is relocated (opt-in via `WHATSAPP_NOTIFY_MOVES=1`).
+- `request_escalation` — notifies all admins when an open request is unanswered for >1h (escalation cron).
+
+Default channels when prefs are unset remain `["whatsapp","email"]` — Telegram is opt-in and only activates when the user explicitly adds `"telegram"` to their channels.
+
 ### First-boot identity
 
 PB has two identity stores: `_superusers` (panel `/_/`) and `users` (app `/login`).

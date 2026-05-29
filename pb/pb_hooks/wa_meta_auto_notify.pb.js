@@ -16,13 +16,15 @@
 // ---------------------------------------------------------------------------
 // notificationAllowed(user, channel, event) — inline pref gate.
 // Empty/missing prefs → full opt-in (preserves existing behavior).
-// channel: "whatsapp" | "email"
+// channel: "whatsapp" | "email" | "telegram"
 // event: "request_fulfilled" | "kit_moved" | "maintenance_digest" | "overdue_return"
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// _isInQuietHours(user) — returns true if current time is in quiet hours for user.
-// Reads prefs.quiet_hours: { enabled, start "HH:MM", end "HH:MM", timezone }
+// Top-level helper declarations kept as canonical source only.
+// PB v0.22 Goja isolation: top-level function declarations are NOT reliably
+// visible inside onRecord/cron/routerAdd callbacks at runtime. Each callback
+// below inlines its own local copies of the helpers it needs.
 // ---------------------------------------------------------------------------
 function _isInQuietHours(user) {
   var raw = user.getString("notification_prefs") || "";
@@ -87,16 +89,182 @@ function _waNotifAllowed(user, channel, event) {
   }
 }
 
+function _sendTelegram(chatId, text) {
+  var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+  if (!token) {
+    console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+    return "skipped_no_token";
+  }
+  var MAX = 4000;
+  var chunks = [];
+  var remaining = text;
+  while (remaining.length > MAX) {
+    var breakAt = -1;
+    var dbl = remaining.lastIndexOf("\n\n", MAX);
+    if (dbl > 0) {
+      breakAt = dbl + 2;
+    } else {
+      var nl = remaining.lastIndexOf("\n", MAX);
+      if (nl > 0) {
+        breakAt = nl + 1;
+      } else {
+        var sp = remaining.lastIndexOf(" ", MAX);
+        breakAt = sp > 0 ? sp + 1 : MAX;
+      }
+    }
+    chunks.push(remaining.slice(0, breakAt).trimRight());
+    remaining = remaining.slice(breakAt);
+  }
+  if (remaining.trim()) chunks.push(remaining.trim());
+
+  var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+  var lastOutcome = "sent";
+  for (var i = 0; i < chunks.length; i++) {
+    try {
+      var res = $http.send({
+        url: url,
+        method: "POST",
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunks[i],
+          parse_mode: "HTML",
+          disable_web_page_preview: true
+        }),
+        headers: { "content-type": "application/json" },
+        timeout: 20000
+      });
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+        lastOutcome = "failed";
+      } else {
+        console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+      }
+    } catch (chunkErr) {
+      console.log("[tg_notify] chunk send error:", chunkErr);
+      lastOutcome = "failed";
+    }
+  }
+  return lastOutcome;
+}
+
 // ---------------------------------------------------------------------------
 // Request fulfilled — approved → fulfilled transition notifies requester
 // ---------------------------------------------------------------------------
 onRecordAfterUpdateRequest(function(e) {
+  // PB v0.22 Goja isolation: helpers inlined at top of callback so they are
+  // visible at runtime (top-level function declarations are not reliably so).
+  function _isInQuietHours(user) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return false;
+    try {
+      var prefs = JSON.parse(raw);
+      if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+      var tz = prefs.quiet_hours.timezone || "UTC";
+      var start = prefs.quiet_hours.start || "22:00";
+      var end = prefs.quiet_hours.end || "08:00";
+      var nowHHMM = (function(tz) {
+        try {
+          var fmt = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          var parts = fmt.formatToParts(new Date());
+          var h = parts.find(function(p) { return p.type === "hour"; }).value;
+          var m = parts.find(function(p) { return p.type === "minute"; }).value;
+          return h + ":" + m;
+        } catch (_) {
+          var d = new Date();
+          return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+        }
+      })(tz);
+      if (start <= end) {
+        return nowHHMM >= start && nowHHMM < end;
+      } else {
+        return nowHHMM >= start || nowHHMM < end;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  function _waNotifAllowed(user, channel, event) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return true;
+    try {
+      var prefs = JSON.parse(raw);
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var chanOk = false;
+      for (var ci = 0; ci < channels.length; ci++) {
+        if (channels[ci] === channel) { chanOk = true; break; }
+      }
+      if (!chanOk) return false;
+      var events = (prefs && prefs.events) ? prefs.events : {};
+      if (typeof events[event] === "boolean") return events[event];
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  function _sendTelegram(chatId, text) {
+    var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+    if (!token) {
+      console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+      return "skipped_no_token";
+    }
+    var MAX = 4000;
+    var chunks = [];
+    var remaining = text;
+    while (remaining.length > MAX) {
+      var breakAt = -1;
+      var dbl = remaining.lastIndexOf("\n\n", MAX);
+      if (dbl > 0) {
+        breakAt = dbl + 2;
+      } else {
+        var nl = remaining.lastIndexOf("\n", MAX);
+        if (nl > 0) {
+          breakAt = nl + 1;
+        } else {
+          var sp = remaining.lastIndexOf(" ", MAX);
+          breakAt = sp > 0 ? sp + 1 : MAX;
+        }
+      }
+      chunks.push(remaining.slice(0, breakAt).trimRight());
+      remaining = remaining.slice(breakAt);
+    }
+    if (remaining.trim()) chunks.push(remaining.trim());
+    var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+    var lastOutcome = "sent";
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        var res = $http.send({
+          url: url,
+          method: "POST",
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: chunks[i],
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          headers: { "content-type": "application/json" },
+          timeout: 20000
+        });
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+          lastOutcome = "failed";
+        } else {
+          console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+        }
+      } catch (chunkErr) {
+        console.log("[tg_notify] chunk send error:", chunkErr);
+        lastOutcome = "failed";
+      }
+    }
+    return lastOutcome;
+  }
+
   // Must run in try/catch — failure must NOT block the update response.
   try {
-    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
-    var token = $os.getenv("WHATSAPP_TOKEN") || "";
-    if (!phoneNumberId || !token) return; // no creds — skip silently
-
     var record = e.record;
     var original = e.record.originalCopy();
 
@@ -118,21 +286,7 @@ onRecordAfterUpdateRequest(function(e) {
       return;
     }
 
-    // Notification pref gate
-    if (!_waNotifAllowed(requester, "whatsapp", "request_fulfilled")) {
-      console.log("[wa_auto_notify] request_fulfilled skipped by prefs for user", requesterId);
-      return;
-    }
-
-    // Quiet hours gate
-    if (_isInQuietHours(requester)) {
-      console.log("[wa_meta] suppressed (quiet hours) for " + requesterId);
-      return;
-    }
-
-    var recipientPhone = requester.getString("phone");
-    if (!recipientPhone) return; // no phone — skip silently
-
+    // Resolve shared message content (used by both WA and TG)
     var recipientName = requester.getString("name") || requester.getString("email") || "there";
 
     // Look up designated kit serial
@@ -167,68 +321,112 @@ onRecordAfterUpdateRequest(function(e) {
       (entityName ? "Now at: " + entityName + "\n" : "") +
       (deliveryDate ? "Delivery date: " + deliveryDate : "");
 
-    // Strip leading "whatsapp:" prefix if present (normalize)
-    var toPhone = recipientPhone;
-    if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
+    // ── WhatsApp branch ────────────────────────────────────────────────────
+    // Guarded: requires WA creds + whatsapp channel pref + phone + not quiet.
+    // Never early-returns from the handler — TG block below is always reachable.
+    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+    var waToken = $os.getenv("WHATSAPP_TOKEN") || "";
+    if (phoneNumberId && waToken &&
+        _waNotifAllowed(requester, "whatsapp", "request_fulfilled") &&
+        !_isInQuietHours(requester)) {
 
-    // POST to Meta Cloud API (free-form text — works within 24h reply window)
-    var apiUrl = "https://graph.facebook.com/v19.0/" + phoneNumberId + "/messages";
-    var payload = JSON.stringify({
-      messaging_product: "whatsapp",
-      to: toPhone,
-      type: "text",
-      text: { body: msgText }
-    });
+      var recipientPhone = requester.getString("phone");
+      if (recipientPhone) {
+        // Strip leading "whatsapp:" prefix if present (normalize)
+        var toPhone = recipientPhone;
+        if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
 
-    var success = false;
-    var wamid = "failed";
+        var apiUrl = "https://graph.facebook.com/v19.0/" + phoneNumberId + "/messages";
+        var payload = JSON.stringify({
+          messaging_product: "whatsapp",
+          to: toPhone,
+          type: "text",
+          text: { body: msgText }
+        });
 
-    try {
-      var res = $http.send({
-        method: "POST",
-        url: apiUrl,
-        body: payload,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        },
-        timeout: 10000
-      });
+        var waSuccess = false;
+        var wamid = "failed";
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        success = true;
-        // Extract wamid from response
         try {
-          var parsed = JSON.parse(res.raw);
-          if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
-            wamid = parsed.messages[0].id;
-          }
-        } catch (_) {}
-        console.log("[wa_auto_notify] request_fulfilled sent to " + toPhone + " wamid=" + wamid);
-      } else {
-        console.log("[wa_auto_notify] request_fulfilled Meta API " + res.statusCode + ": " + res.raw);
-        // 4xx "outside window" or template error — swallow per spec
-      }
-    } catch (httpErr) {
-      console.log("[wa_auto_notify] request_fulfilled HTTP error:", httpErr);
-    }
+          var waRes = $http.send({
+            method: "POST",
+            url: apiUrl,
+            body: payload,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + waToken
+            },
+            timeout: 10000
+          });
 
-    // Audit log — best-effort
-    try {
-      var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
-      var auditRec = new Record(auditCol);
-      auditRec.set("collection_name", "messages");
-      auditRec.set("record_id", wamid);
-      auditRec.set("action", "send_whatsapp");
-      auditRec.set("changes", JSON.stringify({
-        to: toPhone,
-        event: "request_fulfilled",
-        success: success
-      }));
-      $app.dao().saveRecord(auditRec);
-    } catch (auditErr) {
-      console.log("[wa_auto_notify] audit_log write failed:", auditErr);
+          if (waRes.statusCode >= 200 && waRes.statusCode < 300) {
+            waSuccess = true;
+            // Extract wamid from response
+            try {
+              var parsed = JSON.parse(waRes.raw);
+              if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
+                wamid = parsed.messages[0].id;
+              }
+            } catch (_) {}
+            console.log("[wa_auto_notify] request_fulfilled sent to " + toPhone + " wamid=" + wamid);
+          } else {
+            console.log("[wa_auto_notify] request_fulfilled Meta API " + waRes.statusCode + ": " + waRes.raw);
+            // 4xx "outside window" or template error — swallow per spec
+          }
+        } catch (httpErr) {
+          console.log("[wa_auto_notify] request_fulfilled HTTP error:", httpErr);
+        }
+
+        // Audit log — best-effort
+        try {
+          var waAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var waAuditRec = new Record(waAuditCol);
+          waAuditRec.set("collection_name", "messages");
+          waAuditRec.set("record_id", wamid);
+          waAuditRec.set("action", "send_whatsapp");
+          waAuditRec.set("changes", JSON.stringify({
+            to: toPhone,
+            event: "request_fulfilled",
+            success: waSuccess
+          }));
+          $app.dao().saveRecord(waAuditRec);
+        } catch (auditErr) {
+          console.log("[wa_auto_notify] audit_log write failed:", auditErr);
+        }
+      } else {
+        console.log("[wa_auto_notify] request_fulfilled: WA allowed but no phone for user", requesterId);
+      }
     }
+    // ── end WhatsApp branch ────────────────────────────────────────────────
+
+    // ── Telegram branch (Phase 6 — independent of WA gates) ────────────────
+    // Reachable even if: WA creds absent, user has no phone, user opted out of WA.
+    if (_waNotifAllowed(requester, "telegram", "request_fulfilled") &&
+        !_isInQuietHours(requester)) {
+      var tgChat = requester.getString("telegram_chat_id");
+      if (tgChat) {
+        var tgOutcome = _sendTelegram(tgChat, msgText);
+        // Audit — best-effort; written even for skipped_no_token so branch is observable
+        try {
+          var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var tgAuditRec = new Record(tgAuditCol);
+          tgAuditRec.set("collection_name", "messages");
+          tgAuditRec.set("record_id", tgChat);
+          tgAuditRec.set("actor", requester.id);
+          tgAuditRec.set("action", "send_telegram");
+          tgAuditRec.set("changes", JSON.stringify({
+            to: tgChat,
+            event: "request_fulfilled",
+            outcome: tgOutcome,
+            chars: msgText.length
+          }));
+          $app.dao().saveRecord(tgAuditRec);
+        } catch (tgAuditErr) {
+          console.log("[tg_notify] audit_log write failed (request_fulfilled):", tgAuditErr);
+        }
+      }
+    }
+    // ── end Telegram branch ────────────────────────────────────────────────
 
   } catch (outerErr) {
     console.log("[wa_auto_notify] onRecordAfterUpdateRequest(requests) error:", outerErr);
@@ -236,16 +434,124 @@ onRecordAfterUpdateRequest(function(e) {
 }, "requests");
 
 // ---------------------------------------------------------------------------
-// Request created — notify all admins with phone for approval (WhatsApp)
+// Request created — notify all admins with phone or telegram_chat_id for approval
 // Each admin gets a short-id prompt: "approve <id6>" / "reject <id6>"
 // $app.store() key: wa_approval_map:<short_id> → full request id (24h TTL)
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
-  try {
-    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
-    var token = $os.getenv("WHATSAPP_TOKEN") || "";
-    if (!phoneNumberId || !token) return; // no creds — skip silently
+  // PB v0.22 Goja isolation: helpers inlined at top of callback so they are
+  // visible at runtime (top-level function declarations are not reliably so).
+  function _isInQuietHours(user) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return false;
+    try {
+      var prefs = JSON.parse(raw);
+      if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+      var tz = prefs.quiet_hours.timezone || "UTC";
+      var start = prefs.quiet_hours.start || "22:00";
+      var end = prefs.quiet_hours.end || "08:00";
+      var nowHHMM = (function(tz) {
+        try {
+          var fmt = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          var parts = fmt.formatToParts(new Date());
+          var h = parts.find(function(p) { return p.type === "hour"; }).value;
+          var m = parts.find(function(p) { return p.type === "minute"; }).value;
+          return h + ":" + m;
+        } catch (_) {
+          var d = new Date();
+          return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+        }
+      })(tz);
+      if (start <= end) {
+        return nowHHMM >= start && nowHHMM < end;
+      } else {
+        return nowHHMM >= start || nowHHMM < end;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  function _waNotifAllowed(user, channel, event) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return true;
+    try {
+      var prefs = JSON.parse(raw);
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var chanOk = false;
+      for (var ci = 0; ci < channels.length; ci++) {
+        if (channels[ci] === channel) { chanOk = true; break; }
+      }
+      if (!chanOk) return false;
+      var events = (prefs && prefs.events) ? prefs.events : {};
+      if (typeof events[event] === "boolean") return events[event];
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  function _sendTelegram(chatId, text) {
+    var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+    if (!token) {
+      console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+      return "skipped_no_token";
+    }
+    var MAX = 4000;
+    var chunks = [];
+    var remaining = text;
+    while (remaining.length > MAX) {
+      var breakAt = -1;
+      var dbl = remaining.lastIndexOf("\n\n", MAX);
+      if (dbl > 0) {
+        breakAt = dbl + 2;
+      } else {
+        var nl = remaining.lastIndexOf("\n", MAX);
+        if (nl > 0) {
+          breakAt = nl + 1;
+        } else {
+          var sp = remaining.lastIndexOf(" ", MAX);
+          breakAt = sp > 0 ? sp + 1 : MAX;
+        }
+      }
+      chunks.push(remaining.slice(0, breakAt).trimRight());
+      remaining = remaining.slice(breakAt);
+    }
+    if (remaining.trim()) chunks.push(remaining.trim());
+    var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+    var lastOutcome = "sent";
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        var res = $http.send({
+          url: url,
+          method: "POST",
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: chunks[i],
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          headers: { "content-type": "application/json" },
+          timeout: 20000
+        });
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+          lastOutcome = "failed";
+        } else {
+          console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+        }
+      } catch (chunkErr) {
+        console.log("[tg_notify] chunk send error:", chunkErr);
+        lastOutcome = "failed";
+      }
+    }
+    return lastOutcome;
+  }
 
+  try {
     var record = e.record;
     var requestId = record.id;
     var shortId = requestId.slice(-6);
@@ -307,6 +613,7 @@ onRecordAfterCreateRequest(function(e) {
       "- 'reject " + shortId + "' to reject";
 
     // On-call routing: prefer admins currently on shift; fall back to all admins
+    // Broadened query: include admins with phone OR telegram_chat_id
     function getCurrentOnCallAdmins() {
       try {
         var now = new Date();
@@ -327,7 +634,7 @@ onRecordAfterCreateRequest(function(e) {
         var quotedIds = userIds.map(function(id) { return '"' + id + '"'; }).join(",");
         var onCallAdmins = $app.dao().findRecordsByFilter(
           "users",
-          "role = 'admin' && phone != \"\" && id IN (" + quotedIds + ")",
+          "role = 'admin' && (phone != \"\" || telegram_chat_id != \"\") && id IN (" + quotedIds + ")",
           "",
           100, 0,
           {}
@@ -339,7 +646,7 @@ onRecordAfterCreateRequest(function(e) {
       }
     }
 
-    // Find all admins with phone set and request_pending pref not false
+    // Find all admins with phone or telegram_chat_id set and request_pending pref not false
     var admins = [];
     try {
       var onCallAdmins = getCurrentOnCallAdmins();
@@ -349,7 +656,7 @@ onRecordAfterCreateRequest(function(e) {
       } else {
         admins = $app.dao().findRecordsByFilter(
           "users",
-          "role = 'admin' && phone != \"\"",
+          "role = 'admin' && (phone != \"\" || telegram_chat_id != \"\")",
           "",
           100,
           0,
@@ -361,85 +668,117 @@ onRecordAfterCreateRequest(function(e) {
       return;
     }
 
+    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+    var waToken = $os.getenv("WHATSAPP_TOKEN") || "";
     var apiUrl = "https://graph.facebook.com/v19.0/" + phoneNumberId + "/messages";
 
     for (var i = 0; i < admins.length; i++) {
       var admin = admins[i];
 
-      // Pref gate — request_pending defaults to true
-      if (!_waNotifAllowed(admin, "whatsapp", "request_pending")) {
-        console.log("[wa_auto_notify] request_pending skipped by prefs for admin", admin.id);
-        continue;
-      }
+      // ── WhatsApp branch (per-admin) ────────────────────────────────────
+      // Guarded: requires WA creds + whatsapp channel pref + phone + not quiet.
+      // Does NOT continue/skip to next admin — TG block below must run too.
+      if (phoneNumberId && waToken &&
+          _waNotifAllowed(admin, "whatsapp", "request_pending") &&
+          !_isInQuietHours(admin)) {
 
-      // Quiet hours gate
-      if (_isInQuietHours(admin)) {
-        console.log("[wa_meta] suppressed (quiet hours) for " + admin.id);
-        continue;
-      }
+        var adminPhone = admin.getString("phone") || "";
+        if (adminPhone) {
+          var toPhone = adminPhone;
+          if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
 
-      var adminPhone = admin.getString("phone") || "";
-      if (!adminPhone) continue;
+          var payload = JSON.stringify({
+            messaging_product: "whatsapp",
+            to: toPhone,
+            type: "text",
+            text: { body: msgText }
+          });
 
-      var toPhone = adminPhone;
-      if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
+          var waSuccess = false;
+          var wamid = "failed";
 
-      var payload = JSON.stringify({
-        messaging_product: "whatsapp",
-        to: toPhone,
-        type: "text",
-        text: { body: msgText }
-      });
-
-      var success = false;
-      var wamid = "failed";
-
-      try {
-        var res = $http.send({
-          method: "POST",
-          url: apiUrl,
-          body: payload,
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-          },
-          timeout: 10000
-        });
-
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          success = true;
           try {
-            var parsed = JSON.parse(res.raw);
-            if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
-              wamid = parsed.messages[0].id;
-            }
-          } catch (_) {}
-          console.log("[wa_auto_notify] request_pending sent to admin " + admin.id + " phone=" + toPhone + " wamid=" + wamid);
-        } else {
-          console.log("[wa_auto_notify] request_pending Meta API " + res.statusCode + " for admin " + admin.id + ": " + res.raw);
-        }
-      } catch (httpErr) {
-        console.log("[wa_auto_notify] request_pending HTTP error for admin " + admin.id + ":", httpErr);
-      }
+            var waRes = $http.send({
+              method: "POST",
+              url: apiUrl,
+              body: payload,
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + waToken
+              },
+              timeout: 10000
+            });
 
-      // Audit log — best-effort per admin
-      try {
-        var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
-        var auditRec = new Record(auditCol);
-        auditRec.set("collection_name", "messages");
-        auditRec.set("record_id", wamid);
-        auditRec.set("action", "send_whatsapp");
-        auditRec.set("changes", JSON.stringify({
-          to: toPhone,
-          event: "request_pending",
-          request_id: requestId,
-          short_id: shortId,
-          success: success
-        }));
-        $app.dao().saveRecord(auditRec);
-      } catch (auditErr) {
-        console.log("[wa_auto_notify] audit_log write failed (request_pending):", auditErr);
+            if (waRes.statusCode >= 200 && waRes.statusCode < 300) {
+              waSuccess = true;
+              try {
+                var parsed = JSON.parse(waRes.raw);
+                if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
+                  wamid = parsed.messages[0].id;
+                }
+              } catch (_) {}
+              console.log("[wa_auto_notify] request_pending sent to admin " + admin.id + " phone=" + toPhone + " wamid=" + wamid);
+            } else {
+              console.log("[wa_auto_notify] request_pending Meta API " + waRes.statusCode + " for admin " + admin.id + ": " + waRes.raw);
+            }
+          } catch (httpErr) {
+            console.log("[wa_auto_notify] request_pending HTTP error for admin " + admin.id + ":", httpErr);
+          }
+
+          // Audit log — best-effort per admin
+          try {
+            var waAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+            var waAuditRec = new Record(waAuditCol);
+            waAuditRec.set("collection_name", "messages");
+            waAuditRec.set("record_id", wamid);
+            waAuditRec.set("action", "send_whatsapp");
+            waAuditRec.set("changes", JSON.stringify({
+              to: toPhone,
+              event: "request_pending",
+              request_id: requestId,
+              short_id: shortId,
+              success: waSuccess
+            }));
+            $app.dao().saveRecord(waAuditRec);
+          } catch (auditErr) {
+            console.log("[wa_auto_notify] audit_log write failed (request_pending):", auditErr);
+          }
+        } else {
+          console.log("[wa_auto_notify] request_pending: WA allowed but no phone for admin", admin.id);
+        }
       }
+      // ── end WhatsApp branch ────────────────────────────────────────────
+
+      // ── Telegram branch (per-admin, independent of WA gates) ───────────
+      // Reachable even if: WA creds absent, admin has no phone, admin opted out of WA.
+      if (_waNotifAllowed(admin, "telegram", "request_pending") &&
+          !_isInQuietHours(admin)) {
+        var tgChat = admin.getString("telegram_chat_id");
+        if (tgChat) {
+          var tgOutcome = _sendTelegram(tgChat, msgText);
+          // Audit — best-effort; written even for skipped_no_token so branch is observable
+          try {
+            var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+            var tgAuditRec = new Record(tgAuditCol);
+            tgAuditRec.set("collection_name", "messages");
+            tgAuditRec.set("record_id", tgChat);
+            tgAuditRec.set("actor", admin.id);
+            tgAuditRec.set("action", "send_telegram");
+            tgAuditRec.set("changes", JSON.stringify({
+              to: tgChat,
+              event: "request_pending",
+              request_id: requestId,
+              short_id: shortId,
+              outcome: tgOutcome,
+              chars: msgText.length
+            }));
+            $app.dao().saveRecord(tgAuditRec);
+          } catch (tgAuditErr) {
+            console.log("[tg_notify] audit_log write failed (request_pending):", tgAuditErr);
+          }
+        }
+      }
+      // ── end Telegram branch ────────────────────────────────────────────
     }
 
   } catch (outerErr) {
@@ -451,20 +790,128 @@ onRecordAfterCreateRequest(function(e) {
 // Transaction created — kit moved notification (OPT-IN via WHATSAPP_NOTIFY_MOVES=1)
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
+  // PB v0.22 Goja isolation: helpers inlined at top of callback so they are
+  // visible at runtime (top-level function declarations are not reliably so).
+  function _isInQuietHours(user) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return false;
+    try {
+      var prefs = JSON.parse(raw);
+      if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+      var tz = prefs.quiet_hours.timezone || "UTC";
+      var start = prefs.quiet_hours.start || "22:00";
+      var end = prefs.quiet_hours.end || "08:00";
+      var nowHHMM = (function(tz) {
+        try {
+          var fmt = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          var parts = fmt.formatToParts(new Date());
+          var h = parts.find(function(p) { return p.type === "hour"; }).value;
+          var m = parts.find(function(p) { return p.type === "minute"; }).value;
+          return h + ":" + m;
+        } catch (_) {
+          var d = new Date();
+          return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+        }
+      })(tz);
+      if (start <= end) {
+        return nowHHMM >= start && nowHHMM < end;
+      } else {
+        return nowHHMM >= start || nowHHMM < end;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  function _waNotifAllowed(user, channel, event) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return true;
+    try {
+      var prefs = JSON.parse(raw);
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var chanOk = false;
+      for (var ci = 0; ci < channels.length; ci++) {
+        if (channels[ci] === channel) { chanOk = true; break; }
+      }
+      if (!chanOk) return false;
+      var events = (prefs && prefs.events) ? prefs.events : {};
+      if (typeof events[event] === "boolean") return events[event];
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  function _sendTelegram(chatId, text) {
+    var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+    if (!token) {
+      console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+      return "skipped_no_token";
+    }
+    var MAX = 4000;
+    var chunks = [];
+    var remaining = text;
+    while (remaining.length > MAX) {
+      var breakAt = -1;
+      var dbl = remaining.lastIndexOf("\n\n", MAX);
+      if (dbl > 0) {
+        breakAt = dbl + 2;
+      } else {
+        var nl = remaining.lastIndexOf("\n", MAX);
+        if (nl > 0) {
+          breakAt = nl + 1;
+        } else {
+          var sp = remaining.lastIndexOf(" ", MAX);
+          breakAt = sp > 0 ? sp + 1 : MAX;
+        }
+      }
+      chunks.push(remaining.slice(0, breakAt).trimRight());
+      remaining = remaining.slice(breakAt);
+    }
+    if (remaining.trim()) chunks.push(remaining.trim());
+    var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+    var lastOutcome = "sent";
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        var res = $http.send({
+          url: url,
+          method: "POST",
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: chunks[i],
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          headers: { "content-type": "application/json" },
+          timeout: 20000
+        });
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+          lastOutcome = "failed";
+        } else {
+          console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+        }
+      } catch (chunkErr) {
+        console.log("[tg_notify] chunk send error:", chunkErr);
+        lastOutcome = "failed";
+      }
+    }
+    return lastOutcome;
+  }
+
   try {
     // Opt-in guard
     var notifyMoves = $os.getenv("WHATSAPP_NOTIFY_MOVES") || "";
     if (notifyMoves !== "1") return;
 
-    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
-    var token = $os.getenv("WHATSAPP_TOKEN") || "";
-    if (!phoneNumberId || !token) return;
-
     var record = e.record;
     var kitId = record.getString("kit");
     if (!kitId) return;
 
-    // Check if this kit has an active approved/fulfilled request with a phone-equipped requester
+    // Check if this kit has an active approved/fulfilled request with a requester
     var relatedRequests = [];
     try {
       relatedRequests = $app.dao().findRecordsByFilter(
@@ -494,21 +941,7 @@ onRecordAfterCreateRequest(function(e) {
       return;
     }
 
-    // Notification pref gate
-    if (!_waNotifAllowed(requester, "whatsapp", "kit_moved")) {
-      console.log("[wa_auto_notify] kit_moved skipped by prefs for user", requesterId);
-      return;
-    }
-
-    // Quiet hours gate
-    if (_isInQuietHours(requester)) {
-      console.log("[wa_meta] suppressed (quiet hours) for " + requesterId);
-      return;
-    }
-
-    var recipientPhone = requester.getString("phone");
-    if (!recipientPhone) return;
-
+    // Resolve shared message content (used by both WA and TG)
     var recipientName = requester.getString("name") || requester.getString("email") || "there";
 
     // Look up kit serial
@@ -533,64 +966,109 @@ onRecordAfterCreateRequest(function(e) {
       "Kit: " + kitSerial + "\n" +
       (toEntityName ? "Now at: " + toEntityName : "");
 
-    var toPhone = recipientPhone;
-    if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
+    // ── WhatsApp branch ────────────────────────────────────────────────────
+    // Guarded: requires WA creds + whatsapp channel pref + phone + not quiet.
+    // Never early-returns from the handler — TG block below is always reachable.
+    var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
+    var waToken = $os.getenv("WHATSAPP_TOKEN") || "";
+    if (phoneNumberId && waToken &&
+        _waNotifAllowed(requester, "whatsapp", "kit_moved") &&
+        !_isInQuietHours(requester)) {
 
-    var apiUrl = "https://graph.facebook.com/v19.0/" + phoneNumberId + "/messages";
-    var payload = JSON.stringify({
-      messaging_product: "whatsapp",
-      to: toPhone,
-      type: "text",
-      text: { body: msgText }
-    });
+      var recipientPhone = requester.getString("phone");
+      if (recipientPhone) {
+        var toPhone = recipientPhone;
+        if (toPhone.indexOf("whatsapp:") === 0) toPhone = toPhone.substring("whatsapp:".length);
 
-    var success = false;
-    var wamid = "failed";
+        var apiUrl = "https://graph.facebook.com/v19.0/" + phoneNumberId + "/messages";
+        var payload = JSON.stringify({
+          messaging_product: "whatsapp",
+          to: toPhone,
+          type: "text",
+          text: { body: msgText }
+        });
 
-    try {
-      var res = $http.send({
-        method: "POST",
-        url: apiUrl,
-        body: payload,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        },
-        timeout: 10000
-      });
+        var waSuccess = false;
+        var wamid = "failed";
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        success = true;
         try {
-          var parsed = JSON.parse(res.raw);
-          if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
-            wamid = parsed.messages[0].id;
-          }
-        } catch (_) {}
-        console.log("[wa_auto_notify] kit_moved sent to " + toPhone + " wamid=" + wamid);
-      } else {
-        console.log("[wa_auto_notify] kit_moved Meta API " + res.statusCode + ": " + res.raw);
-      }
-    } catch (httpErr) {
-      console.log("[wa_auto_notify] kit_moved HTTP error:", httpErr);
-    }
+          var waRes = $http.send({
+            method: "POST",
+            url: apiUrl,
+            body: payload,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + waToken
+            },
+            timeout: 10000
+          });
 
-    // Audit log — best-effort
-    try {
-      var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
-      var auditRec = new Record(auditCol);
-      auditRec.set("collection_name", "messages");
-      auditRec.set("record_id", wamid);
-      auditRec.set("action", "send_whatsapp");
-      auditRec.set("changes", JSON.stringify({
-        to: toPhone,
-        event: "kit_moved",
-        success: success
-      }));
-      $app.dao().saveRecord(auditRec);
-    } catch (auditErr) {
-      console.log("[wa_auto_notify] audit_log write failed (kit_moved):", auditErr);
+          if (waRes.statusCode >= 200 && waRes.statusCode < 300) {
+            waSuccess = true;
+            try {
+              var parsed = JSON.parse(waRes.raw);
+              if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].id) {
+                wamid = parsed.messages[0].id;
+              }
+            } catch (_) {}
+            console.log("[wa_auto_notify] kit_moved sent to " + toPhone + " wamid=" + wamid);
+          } else {
+            console.log("[wa_auto_notify] kit_moved Meta API " + waRes.statusCode + ": " + waRes.raw);
+          }
+        } catch (httpErr) {
+          console.log("[wa_auto_notify] kit_moved HTTP error:", httpErr);
+        }
+
+        // Audit log — best-effort
+        try {
+          var waAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var waAuditRec = new Record(waAuditCol);
+          waAuditRec.set("collection_name", "messages");
+          waAuditRec.set("record_id", wamid);
+          waAuditRec.set("action", "send_whatsapp");
+          waAuditRec.set("changes", JSON.stringify({
+            to: toPhone,
+            event: "kit_moved",
+            success: waSuccess
+          }));
+          $app.dao().saveRecord(waAuditRec);
+        } catch (auditErr) {
+          console.log("[wa_auto_notify] audit_log write failed (kit_moved):", auditErr);
+        }
+      } else {
+        console.log("[wa_auto_notify] kit_moved: WA allowed but no phone for user", requesterId);
+      }
     }
+    // ── end WhatsApp branch ────────────────────────────────────────────────
+
+    // ── Telegram branch (Phase 6 — independent of WA gates) ────────────────
+    // Reachable even if: WA creds absent, user has no phone, user opted out of WA.
+    if (_waNotifAllowed(requester, "telegram", "kit_moved") &&
+        !_isInQuietHours(requester)) {
+      var tgChat = requester.getString("telegram_chat_id");
+      if (tgChat) {
+        var tgOutcome = _sendTelegram(tgChat, msgText);
+        // Audit — best-effort; written even for skipped_no_token so branch is observable
+        try {
+          var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var tgAuditRec = new Record(tgAuditCol);
+          tgAuditRec.set("collection_name", "messages");
+          tgAuditRec.set("record_id", tgChat);
+          tgAuditRec.set("actor", requester.id);
+          tgAuditRec.set("action", "send_telegram");
+          tgAuditRec.set("changes", JSON.stringify({
+            to: tgChat,
+            event: "kit_moved",
+            outcome: tgOutcome,
+            chars: msgText.length
+          }));
+          $app.dao().saveRecord(tgAuditRec);
+        } catch (tgAuditErr) {
+          console.log("[tg_notify] audit_log write failed (kit_moved):", tgAuditErr);
+        }
+      }
+    }
+    // ── end Telegram branch ────────────────────────────────────────────────
 
   } catch (outerErr) {
     console.log("[wa_auto_notify] onRecordAfterCreateRequest(transactions) error:", outerErr);
