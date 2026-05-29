@@ -21,8 +21,10 @@
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// _isInQuietHours(user) — returns true if current time is in quiet hours for user.
-// Reads prefs.quiet_hours: { enabled, start "HH:MM", end "HH:MM", timezone }
+// Top-level helper declarations kept as canonical source only.
+// PB v0.22 Goja isolation: top-level function declarations are NOT reliably
+// visible inside onRecord/cron/routerAdd callbacks at runtime. Each callback
+// below inlines its own local copies of the helpers it needs.
 // ---------------------------------------------------------------------------
 function _isInQuietHours(user) {
   var raw = user.getString("notification_prefs") || "";
@@ -87,14 +89,6 @@ function _waNotifAllowed(user, channel, event) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// _sendTelegram(chatId, text) — top-level helper (file scope; retained by
-// onRecord/cron closures — confirmed safe per existing _waNotifAllowed usage).
-// Token read at call time; if unset, logs + returns "skipped_no_token".
-// Returns: "sent" | "failed" | "skipped_no_token"
-// Chunks at 4000 chars (comfortably under Telegram 4096 limit).
-// Each chunk send is non-fatal: catches individually.
-// ---------------------------------------------------------------------------
 function _sendTelegram(chatId, text) {
   var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
   if (!token) {
@@ -157,6 +151,118 @@ function _sendTelegram(chatId, text) {
 // Request fulfilled — approved → fulfilled transition notifies requester
 // ---------------------------------------------------------------------------
 onRecordAfterUpdateRequest(function(e) {
+  // PB v0.22 Goja isolation: helpers inlined at top of callback so they are
+  // visible at runtime (top-level function declarations are not reliably so).
+  function _isInQuietHours(user) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return false;
+    try {
+      var prefs = JSON.parse(raw);
+      if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+      var tz = prefs.quiet_hours.timezone || "UTC";
+      var start = prefs.quiet_hours.start || "22:00";
+      var end = prefs.quiet_hours.end || "08:00";
+      var nowHHMM = (function(tz) {
+        try {
+          var fmt = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          var parts = fmt.formatToParts(new Date());
+          var h = parts.find(function(p) { return p.type === "hour"; }).value;
+          var m = parts.find(function(p) { return p.type === "minute"; }).value;
+          return h + ":" + m;
+        } catch (_) {
+          var d = new Date();
+          return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+        }
+      })(tz);
+      if (start <= end) {
+        return nowHHMM >= start && nowHHMM < end;
+      } else {
+        return nowHHMM >= start || nowHHMM < end;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  function _waNotifAllowed(user, channel, event) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return true;
+    try {
+      var prefs = JSON.parse(raw);
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var chanOk = false;
+      for (var ci = 0; ci < channels.length; ci++) {
+        if (channels[ci] === channel) { chanOk = true; break; }
+      }
+      if (!chanOk) return false;
+      var events = (prefs && prefs.events) ? prefs.events : {};
+      if (typeof events[event] === "boolean") return events[event];
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  function _sendTelegram(chatId, text) {
+    var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+    if (!token) {
+      console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+      return "skipped_no_token";
+    }
+    var MAX = 4000;
+    var chunks = [];
+    var remaining = text;
+    while (remaining.length > MAX) {
+      var breakAt = -1;
+      var dbl = remaining.lastIndexOf("\n\n", MAX);
+      if (dbl > 0) {
+        breakAt = dbl + 2;
+      } else {
+        var nl = remaining.lastIndexOf("\n", MAX);
+        if (nl > 0) {
+          breakAt = nl + 1;
+        } else {
+          var sp = remaining.lastIndexOf(" ", MAX);
+          breakAt = sp > 0 ? sp + 1 : MAX;
+        }
+      }
+      chunks.push(remaining.slice(0, breakAt).trimRight());
+      remaining = remaining.slice(breakAt);
+    }
+    if (remaining.trim()) chunks.push(remaining.trim());
+    var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+    var lastOutcome = "sent";
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        var res = $http.send({
+          url: url,
+          method: "POST",
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: chunks[i],
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          headers: { "content-type": "application/json" },
+          timeout: 20000
+        });
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+          lastOutcome = "failed";
+        } else {
+          console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+        }
+      } catch (chunkErr) {
+        console.log("[tg_notify] chunk send error:", chunkErr);
+        lastOutcome = "failed";
+      }
+    }
+    return lastOutcome;
+  }
+
   // Must run in try/catch — failure must NOT block the update response.
   try {
     var record = e.record;
@@ -333,6 +439,118 @@ onRecordAfterUpdateRequest(function(e) {
 // $app.store() key: wa_approval_map:<short_id> → full request id (24h TTL)
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
+  // PB v0.22 Goja isolation: helpers inlined at top of callback so they are
+  // visible at runtime (top-level function declarations are not reliably so).
+  function _isInQuietHours(user) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return false;
+    try {
+      var prefs = JSON.parse(raw);
+      if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+      var tz = prefs.quiet_hours.timezone || "UTC";
+      var start = prefs.quiet_hours.start || "22:00";
+      var end = prefs.quiet_hours.end || "08:00";
+      var nowHHMM = (function(tz) {
+        try {
+          var fmt = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          var parts = fmt.formatToParts(new Date());
+          var h = parts.find(function(p) { return p.type === "hour"; }).value;
+          var m = parts.find(function(p) { return p.type === "minute"; }).value;
+          return h + ":" + m;
+        } catch (_) {
+          var d = new Date();
+          return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+        }
+      })(tz);
+      if (start <= end) {
+        return nowHHMM >= start && nowHHMM < end;
+      } else {
+        return nowHHMM >= start || nowHHMM < end;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  function _waNotifAllowed(user, channel, event) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return true;
+    try {
+      var prefs = JSON.parse(raw);
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var chanOk = false;
+      for (var ci = 0; ci < channels.length; ci++) {
+        if (channels[ci] === channel) { chanOk = true; break; }
+      }
+      if (!chanOk) return false;
+      var events = (prefs && prefs.events) ? prefs.events : {};
+      if (typeof events[event] === "boolean") return events[event];
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  function _sendTelegram(chatId, text) {
+    var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+    if (!token) {
+      console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+      return "skipped_no_token";
+    }
+    var MAX = 4000;
+    var chunks = [];
+    var remaining = text;
+    while (remaining.length > MAX) {
+      var breakAt = -1;
+      var dbl = remaining.lastIndexOf("\n\n", MAX);
+      if (dbl > 0) {
+        breakAt = dbl + 2;
+      } else {
+        var nl = remaining.lastIndexOf("\n", MAX);
+        if (nl > 0) {
+          breakAt = nl + 1;
+        } else {
+          var sp = remaining.lastIndexOf(" ", MAX);
+          breakAt = sp > 0 ? sp + 1 : MAX;
+        }
+      }
+      chunks.push(remaining.slice(0, breakAt).trimRight());
+      remaining = remaining.slice(breakAt);
+    }
+    if (remaining.trim()) chunks.push(remaining.trim());
+    var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+    var lastOutcome = "sent";
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        var res = $http.send({
+          url: url,
+          method: "POST",
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: chunks[i],
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          headers: { "content-type": "application/json" },
+          timeout: 20000
+        });
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+          lastOutcome = "failed";
+        } else {
+          console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+        }
+      } catch (chunkErr) {
+        console.log("[tg_notify] chunk send error:", chunkErr);
+        lastOutcome = "failed";
+      }
+    }
+    return lastOutcome;
+  }
+
   try {
     var record = e.record;
     var requestId = record.id;
@@ -572,6 +790,118 @@ onRecordAfterCreateRequest(function(e) {
 // Transaction created — kit moved notification (OPT-IN via WHATSAPP_NOTIFY_MOVES=1)
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
+  // PB v0.22 Goja isolation: helpers inlined at top of callback so they are
+  // visible at runtime (top-level function declarations are not reliably so).
+  function _isInQuietHours(user) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return false;
+    try {
+      var prefs = JSON.parse(raw);
+      if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+      var tz = prefs.quiet_hours.timezone || "UTC";
+      var start = prefs.quiet_hours.start || "22:00";
+      var end = prefs.quiet_hours.end || "08:00";
+      var nowHHMM = (function(tz) {
+        try {
+          var fmt = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          });
+          var parts = fmt.formatToParts(new Date());
+          var h = parts.find(function(p) { return p.type === "hour"; }).value;
+          var m = parts.find(function(p) { return p.type === "minute"; }).value;
+          return h + ":" + m;
+        } catch (_) {
+          var d = new Date();
+          return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+        }
+      })(tz);
+      if (start <= end) {
+        return nowHHMM >= start && nowHHMM < end;
+      } else {
+        return nowHHMM >= start || nowHHMM < end;
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+  function _waNotifAllowed(user, channel, event) {
+    var raw = user.getString("notification_prefs") || "";
+    if (!raw || !raw.trim()) return true;
+    try {
+      var prefs = JSON.parse(raw);
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var chanOk = false;
+      for (var ci = 0; ci < channels.length; ci++) {
+        if (channels[ci] === channel) { chanOk = true; break; }
+      }
+      if (!chanOk) return false;
+      var events = (prefs && prefs.events) ? prefs.events : {};
+      if (typeof events[event] === "boolean") return events[event];
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  function _sendTelegram(chatId, text) {
+    var token = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
+    if (!token) {
+      console.log("[tg_notify] TELEGRAM_BOT_TOKEN not set — skip");
+      return "skipped_no_token";
+    }
+    var MAX = 4000;
+    var chunks = [];
+    var remaining = text;
+    while (remaining.length > MAX) {
+      var breakAt = -1;
+      var dbl = remaining.lastIndexOf("\n\n", MAX);
+      if (dbl > 0) {
+        breakAt = dbl + 2;
+      } else {
+        var nl = remaining.lastIndexOf("\n", MAX);
+        if (nl > 0) {
+          breakAt = nl + 1;
+        } else {
+          var sp = remaining.lastIndexOf(" ", MAX);
+          breakAt = sp > 0 ? sp + 1 : MAX;
+        }
+      }
+      chunks.push(remaining.slice(0, breakAt).trimRight());
+      remaining = remaining.slice(breakAt);
+    }
+    if (remaining.trim()) chunks.push(remaining.trim());
+    var url = "https://api.telegram.org/bot" + token + "/sendMessage";
+    var lastOutcome = "sent";
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        var res = $http.send({
+          url: url,
+          method: "POST",
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: chunks[i],
+            parse_mode: "HTML",
+            disable_web_page_preview: true
+          }),
+          headers: { "content-type": "application/json" },
+          timeout: 20000
+        });
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          console.log("[tg_notify] Telegram API error status=" + res.statusCode + " body=" + res.raw);
+          lastOutcome = "failed";
+        } else {
+          console.log("[tg_notify] sent chunk " + (i + 1) + "/" + chunks.length + " to chatId=" + chatId);
+        }
+      } catch (chunkErr) {
+        console.log("[tg_notify] chunk send error:", chunkErr);
+        lastOutcome = "failed";
+      }
+    }
+    return lastOutcome;
+  }
+
   try {
     // Opt-in guard
     var notifyMoves = $os.getenv("WHATSAPP_NOTIFY_MOVES") || "";
