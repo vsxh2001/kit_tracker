@@ -41,9 +41,10 @@ jobs:
             exit 1
           fi
 
-          # Trigger backup
+          # Trigger backup.
+          # PB v0.22 accepts the raw token in the Authorization header; v0.23+ may require 'Bearer $TOKEN'.
           HTTP=$(curl -s -o /tmp/backup-resp.json -w '%{http_code}' -X POST "$APP_BASE_URL/api/backups" \
-            -H "Authorization: $TOKEN" \  # PB v0.22 accepts raw token; v0.23+ may require 'Bearer $TOKEN'
+            -H "Authorization: $TOKEN" \
             -H 'Content-Type: application/json' \
             -d "{\"name\":\"$SNAPSHOT\"}")
           if [ "$HTTP" != "204" ] && [ "$HTTP" != "200" ]; then
