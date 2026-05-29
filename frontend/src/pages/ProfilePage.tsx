@@ -6,6 +6,7 @@ import { Label } from "../components/ui/label";
 import { getUser, updateUserProfile, updateNotificationPrefs } from "../services/users";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
+import { TelegramLinkDialog } from "../components/TelegramLinkDialog";
 import type { NotificationPrefs } from "../types";
 
 const DEFAULT_PREFS: NotificationPrefs = {
@@ -60,6 +61,11 @@ export function ProfilePage() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
+  // Telegram linking state
+  const [telegramChatId, setTelegramChatId] = useState<string>("");
+  const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
+  const [unlinkingTelegram, setUnlinkingTelegram] = useState(false);
+
   async function load() {
     if (!currentUser?.id) return;
     setLoading(true);
@@ -68,6 +74,7 @@ export function ProfilePage() {
       setName(u.name ?? "");
       setPhone(u.phone ?? "");
       setTitle(u.title ?? "");
+      setTelegramChatId(u.telegram_chat_id ?? "");
       // Parse notification_prefs JSON; fall back to defaults if missing/malformed
       if (u.notification_prefs) {
         try {
@@ -141,7 +148,7 @@ export function ProfilePage() {
     }
   }
 
-  function toggleChannel(ch: "whatsapp" | "email") {
+  function toggleChannel(ch: "whatsapp" | "email" | "telegram") {
     setNotifPrefs((prev) => {
       const has = prev.channels.includes(ch);
       return {
@@ -178,6 +185,29 @@ export function ProfilePage() {
       });
     } finally {
       setSavingPrefs(false);
+    }
+  }
+
+  async function handleUnlinkTelegram() {
+    if (!currentUser?.id) return;
+    setUnlinkingTelegram(true);
+    try {
+      await updateUserProfile(currentUser.id, { telegram_chat_id: "" });
+      setTelegramChatId("");
+      toast({
+        title: "Telegram unlinked",
+        description: "Your Telegram account has been disconnected.",
+        variant: "success",
+      });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast({
+        title: "Failed to unlink Telegram",
+        description: err?.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUnlinkingTelegram(false);
     }
   }
 
@@ -271,6 +301,15 @@ export function ProfilePage() {
                     className="h-4 w-4"
                   />
                   <span className="text-sm">Email</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.channels.includes("telegram")}
+                    onChange={() => toggleChannel("telegram")}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm">Telegram</span>
                 </label>
               </div>
             </div>
@@ -431,6 +470,50 @@ export function ProfilePage() {
           </form>
         </div>
       )}
+
+      {!loading && (
+        <div className="border rounded-lg p-4 space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Integrations</p>
+            <h2 className="text-lg font-semibold">Telegram</h2>
+          </div>
+          {telegramChatId ? (
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-green-700 font-medium">Connected ✓</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUnlinkTelegram}
+                disabled={unlinkingTelegram}
+              >
+                {unlinkingTelegram ? "Unlinking…" : "Unlink"}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Link your Telegram account to receive notifications via the bot.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTelegramDialogOpen(true)}
+              >
+                Link Telegram
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <TelegramLinkDialog
+        open={telegramDialogOpen}
+        onClose={() => {
+          setTelegramDialogOpen(false);
+          // Refresh to pick up any new telegram_chat_id set by the bot
+          startTransition(() => load());
+        }}
+      />
     </div>
   );
 }
