@@ -111,7 +111,55 @@ test.describe("Kit files — delete", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 3: viewer sees list but NO upload/delete buttons
+// Test 3: attachment links include file token; raw URL without token → 403
+// ---------------------------------------------------------------------------
+
+test.describe("Kit files — token auth protection", () => {
+  let kitId: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-TOKEN`);
+    kitId = kit.id;
+  });
+
+  test.afterAll(async () => {
+    if (kitId) await deleteKit(kitId);
+  });
+
+  test("attachment link href includes token, raw URL without token returns 403 @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+
+    await expect(page.getByText("Attachments", { exact: true }).first()).toBeVisible();
+
+    // Upload a temp file
+    const tmpDir = os.tmpdir();
+    const tmpFile = path.join(tmpDir, `test-token-${TS}.txt`);
+    fs.writeFileSync(tmpFile, "token auth protection test");
+
+    const fileInput = page.locator('[data-testid="attachment-file-input"]');
+    await fileInput.setInputFiles(tmpFile);
+
+    await expect(page.getByText("File uploaded", { exact: true })).toBeVisible({ timeout: 10_000 });
+
+    // Verify the rendered link includes ?token= (protected file URL)
+    const linkLocator = page.locator('[data-testid^="attachment-link-"]').first();
+    await expect(linkLocator).toBeVisible();
+    const href = await linkLocator.getAttribute("href");
+    expect(href).toBeTruthy();
+    expect(href).toContain("token=");
+
+    // Strip the token — PocketBase should reject the raw URL with 403
+    const rawUrl = href!.replace(/[?&]token=[^&]+/, "").replace(/[?&]$/, "").replace(/\?$/, "");
+    const response = await page.request.get(rawUrl);
+    expect(response.status()).toBe(403);
+
+    fs.unlinkSync(tmpFile);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 4: viewer sees list but NO upload/delete buttons
 // ---------------------------------------------------------------------------
 
 test.describe("Kit files — viewer access", () => {
