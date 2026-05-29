@@ -318,6 +318,18 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       },
       {
+        name: "update_user_telegram_chat_id",
+        description: "Set the Telegram chat_id for a user. Used to bind a Telegram account to a user record for direct messaging. Admin can update any user; non-admin can only update self. Undo not available via MCP — issue a reverse update_user_telegram_chat_id. Only admin/technician+ can call this.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "Target user email (required)" },
+            telegram_chat_id: { type: "string", description: "Telegram chat_id (numeric string, e.g. '123456789'). Must be non-empty." }
+          },
+          required: ["email", "telegram_chat_id"]
+        }
+      },
+      {
         name: "report_kits_by_entity",
         description: "Report how many active kits are currently at each entity, sorted by count descending. Use when user asks 'where are kits located', 'how many kits at each site', 'kit distribution'.",
         inputSchema: {
@@ -1595,6 +1607,53 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeUpdateUserTelegramChatId(dao, args, userId, userRole) {
+      var email = String(args.email || "").trim();
+      if (!email) {
+        return { error: "missing_required", detail: "email is required" };
+      }
+      var rawChatId = String(args.telegram_chat_id === undefined ? "" : args.telegram_chat_id);
+      var newChatId = rawChatId.trim();
+      if (!newChatId) {
+        return { error: "invalid_input", detail: "telegram_chat_id must not be empty or whitespace-only" };
+      }
+      var target;
+      try {
+        var matches = dao.findRecordsByFilter("users", "email = {:e}", "", 1, 0, { e: email });
+        if (matches && matches.length > 0) target = matches[0];
+      } catch (_) {}
+      if (!target) {
+        return { error: "not_found", detail: "no user with email: " + email };
+      }
+      if (userRole !== "admin" && target.id !== userId) {
+        return { error: "permission_denied", detail: "Only admin can update another user's telegram_chat_id." };
+      }
+      var before = { telegram_chat_id: target.getString ? target.getString("telegram_chat_id") : "" };
+      target.set("telegram_chat_id", newChatId);
+      try {
+        dao.save(target);
+        saveMcpAuditLog(dao, {
+          collection_name: "users",
+          record_id: target.id,
+          actor: userId,
+          action: "update",
+          tool: "update_user_telegram_chat_id",
+          changes: { before: before, after: { telegram_chat_id: newChatId } }
+        });
+        return {
+          success: true,
+          record_id: target.id,
+          email: email,
+          before: before,
+          after: { telegram_chat_id: newChatId },
+          description: "Updated telegram_chat_id for " + email + ". Note: undo is not available via MCP — issue a reverse update_user_telegram_chat_id."
+        };
+      } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "users", record_id: target.id, actor: userId, action: "update_failed", tool: "update_user_telegram_chat_id", changes: { error_detail: String(err) } });
+        return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function executeReportKitsByEntity(dao) {
       try {
         var kits = dao.findRecordsByFilter("kits", "is_active = true", "serial", 500, 0, {});
@@ -1831,6 +1890,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "update_kit") return executeUpdateKit(dao, args, userId, userRole);
         if (toolName === "update_product") return executeUpdateProduct(dao, args, userId, userRole);
         if (toolName === "update_user_phone") return executeUpdateUserPhone(dao, args, userId, userRole);
+        if (toolName === "update_user_telegram_chat_id") return executeUpdateUserTelegramChatId(dao, args, userId, userRole);
         if (toolName === "report_kits_by_entity") return executeReportKitsByEntity(dao);
         if (toolName === "report_recent_activity") return executeReportRecentActivity(dao, args);
         if (toolName === "report_open_requests") return executeReportOpenRequests(dao, args);
@@ -1932,7 +1992,8 @@ routerAdd("POST", "/api/mcp", function(c) {
         toolName === "update_entity" ||
         toolName === "update_kit" ||
         toolName === "update_product" ||
-        toolName === "update_user_phone"
+        toolName === "update_user_phone" ||
+        toolName === "update_user_telegram_chat_id"
       );
 
       // Permission gate for write tools
