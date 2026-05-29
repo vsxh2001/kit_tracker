@@ -28,6 +28,7 @@ import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { ScanPage } from "./pages/ScanPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 import { WhatsAppSettingsPage } from "./pages/WhatsAppSettingsPage";
+import { TelegramSettingsPage } from "./pages/TelegramSettingsPage";
 import { WhatsAppBroadcastPage } from "./pages/WhatsAppBroadcastPage";
 import { WhatsAppConversationsPage } from "./pages/WhatsAppConversationsPage";
 import { WhatsAppScheduledBroadcastsPage } from "./pages/WhatsAppScheduledBroadcastsPage";
@@ -94,6 +95,7 @@ export default function App() {
             <Route path="settings/whatsapp/conversations" element={<AdminOnly><WhatsAppConversationsPage /></AdminOnly>} />
             <Route path="settings/whatsapp/scheduled" element={<AdminOnly><WhatsAppScheduledBroadcastsPage /></AdminOnly>} />
             <Route path="settings/whatsapp/templates" element={<AdminOnly><WhatsAppTemplatesPage /></AdminOnly>} />
+            <Route path="settings/telegram" element={<AdminOnly><TelegramSettingsPage /></AdminOnly>} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
