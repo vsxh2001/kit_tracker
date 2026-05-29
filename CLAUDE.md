@@ -372,7 +372,17 @@ curl -X POST https://kit-tracker.fly.dev/api/tg/digest/run \
 # Returns: { "sent": true, "chars": <n> }
 ```
 
-**Skip-silently behavior:** if either `TELEGRAM_BOT_TOKEN` or `TELEGRAM_GROUP_CHAT_ID` is unset, both the cron and the manual trigger skip/return 500 without crashing — so local dev and CI without secrets stay green.
+**Dry-run preview** — build and return the digest text without sending to Telegram. Works without Telegram secrets (useful for local dev and content preview):
+
+```bash
+curl -X POST "https://kit-tracker.fly.dev/api/tg/digest/run?dry=1" \
+  -H "Authorization: <admin-PB-token>"
+# Returns: { "dry": true, "chars": <n>, "text": "<digest HTML>" }
+```
+
+Alternatively pass `{ "dry": true }` in the JSON body. The admin gate still applies — non-admins get 403 even in dry-run mode.
+
+**Skip-silently behavior:** if either `TELEGRAM_BOT_TOKEN` or `TELEGRAM_GROUP_CHAT_ID` is unset, both the cron and the non-dry manual trigger skip/return 500 without crashing — so local dev and CI without secrets stay green.
 
 ### First-boot identity
 
