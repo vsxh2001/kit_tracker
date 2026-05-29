@@ -17,6 +17,7 @@ import type { Kit } from "../types";
 
 interface Props {
   kit: Kit;
+  fileToken?: string;
   onUpload?: (file: File) => Promise<void>;
   onDelete?: (filename: string) => Promise<void>;
   canEdit: boolean;
@@ -31,7 +32,7 @@ function fileIcon(filename: string) {
   return Paperclip;
 }
 
-export function AttachmentList({ kit, onUpload, onDelete, canEdit }: Props) {
+export function AttachmentList({ kit, fileToken, onUpload, onDelete, canEdit }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const attachments = kit.attachments ?? [];
 
@@ -75,7 +76,7 @@ export function AttachmentList({ kit, onUpload, onDelete, canEdit }: Props) {
         <ul className="space-y-1.5">
           {attachments.map((filename) => {
             const Icon = fileIcon(filename);
-            const url = attachmentUrl(kit, filename);
+            const url = attachmentUrl(kit, filename, fileToken);
             return (
               <li
                 key={filename}

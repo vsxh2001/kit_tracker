@@ -1,6 +1,5 @@
 import Papa from "papaparse";
 import { pb } from "../lib/pocketbase";
-import { baseUrl } from "./admin";
 import type { Kit, KitRequest, Transaction } from "../types";
 import { getTransactionVia } from "./transactions";
 
@@ -213,8 +212,12 @@ export async function deleteKitAttachment(kitId: string, filename: string): Prom
   }, { requestKey: `delete-attach-${kitId}-${filename}` });
 }
 
-export function attachmentUrl(kit: Kit, filename: string): string {
-  return `${baseUrl()}/api/files/kits/${kit.id}/${filename}`;
+export async function getAttachmentToken(): Promise<string> {
+  return pb.files.getToken();
+}
+
+export function attachmentUrl(kit: Kit, filename: string, token?: string): string {
+  return pb.files.getUrl(kit, filename, token ? { token } : {});
 }
 
 export async function importKitsCsv(file: File): Promise<ImportResult> {
