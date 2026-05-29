@@ -346,6 +346,34 @@ The script POSTs a Meta-spec-compliant payload. Hook logs (`fly logs`) will show
 
 Read tokens at runtime via `$os.getenv("WHATSAPP_*")` — never hardcoded.
 
+### Telegram group digest
+
+Hook: `pb/pb_hooks/tg_group_digest.pb.js` — posts a daily HTML digest to a Telegram group chat.
+
+**Fly secrets required:**
+
+```bash
+flyctl secrets set -a kit-tracker \
+  TELEGRAM_BOT_TOKEN=<token-from-BotFather>    \
+  TELEGRAM_GROUP_CHAT_ID=<negative-number>
+```
+
+- `TELEGRAM_BOT_TOKEN` — create a bot via [@BotFather](https://t.me/BotFather) (`/newbot`); copy the token it returns.
+- `TELEGRAM_GROUP_CHAT_ID` — add the bot to the target group, then call `https://api.telegram.org/bot<TOKEN>/getUpdates` and read `message.chat.id` (a negative integer for groups).
+- `TG_DIGEST_CRON` — optional cron expression for the scheduled job (default `0 8 * * *` — daily 08:00 UTC).
+
+**Digest content:** open requests, overdue returns, maintenance due in the next 7 days. If all three are empty the message is "✅ All clear — no open requests, overdue returns, or maintenance due."
+
+**Manual trigger** (admin only):
+
+```bash
+curl -X POST https://kit-tracker.fly.dev/api/tg/digest/run \
+  -H "Authorization: <admin-PB-token>"
+# Returns: { "sent": true, "chars": <n> }
+```
+
+**Skip-silently behavior:** if either `TELEGRAM_BOT_TOKEN` or `TELEGRAM_GROUP_CHAT_ID` is unset, both the cron and the manual trigger skip/return 500 without crashing — so local dev and CI without secrets stay green.
+
 ### First-boot identity
 
 PB has two identity stores: `_superusers` (panel `/_/`) and `users` (app `/login`).

@@ -1,0 +1,116 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { startPb, stopPb, authUser } from "./_helper.js";
+
+// Tests for POST /api/tg/digest/run (manual admin trigger).
+// Source: pb/pb_hooks/tg_group_digest.pb.js
+//
+// TELEGRAM_BOT_TOKEN and TELEGRAM_GROUP_CHAT_ID are NOT set in tests —
+// the hook must skip silently (returning 500 with "Telegram credentials not configured")
+// rather than crashing. This verifies the env-check path and auth gate without
+// hitting the real Telegram API.
+
+describe("tg_group_digest hook (POST /api/tg/digest/run)", () => {
+  let pb, baseUrl, suToken, adminToken, userToken;
+
+  beforeAll(async () => {
+    pb = await startPb();
+    baseUrl = pb.baseUrl;
+    suToken = pb.suToken;
+
+    adminToken = await authUser(baseUrl, "admin@hook-test.local", "Adminpass1!");
+
+    // Create a non-admin user for 403 tests
+    await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "user@tg-digest-test.local",
+        password: "Userpass1!",
+        passwordConfirm: "Userpass1!",
+        role: "user",
+        name: "TG Digest Test User",
+      }),
+    });
+    userToken = await authUser(baseUrl, "user@tg-digest-test.local", "Userpass1!");
+  }, 60000);
+
+  afterAll(async () => {
+    await stopPb();
+  });
+
+  it("returns 403 without Authorization header", async () => {
+    const res = await fetch(`${baseUrl}/api/tg/digest/run`, { method: "POST" });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("admin only");
+  });
+
+  it("returns 403 for a non-admin (role=user) token", async () => {
+    const res = await fetch(`${baseUrl}/api/tg/digest/run`, {
+      method: "POST",
+      headers: { Authorization: userToken },
+    });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("admin only");
+  });
+
+  it("returns 500 with 'Telegram credentials not configured' when env vars are unset", async () => {
+    // TELEGRAM_BOT_TOKEN and TELEGRAM_GROUP_CHAT_ID are not set in the test env.
+    // The hook must reach the credentials check without crashing on digest build.
+    const res = await fetch(`${baseUrl}/api/tg/digest/run`, {
+      method: "POST",
+      headers: { Authorization: adminToken },
+    });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("Telegram credentials not configured");
+  });
+
+  it("still returns 500 (not 5xx crash) after seeding an open request", async () => {
+    // Seed an entity + kit + request to exercise the digest builder code paths.
+    // Because creds are unset, the endpoint must still return 500 "not configured"
+    // (not a 500 from a digest-build crash). This confirms buildDigest() works.
+    const entityRes = await fetch(`${baseUrl}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "TG-Digest-Entity-1", type: "unit", is_active: true }),
+    });
+    const entityId = (await entityRes.json()).id;
+
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: "TG-DIGEST-KIT-1", is_active: true }),
+    });
+    const kitId = (await kitRes.json()).id;
+
+    const adminRec = await fetch(`${baseUrl}/api/collections/users/records?filter=(email='admin@hook-test.local')`, {
+      headers: { Authorization: suToken },
+    });
+    const adminId = (await adminRec.json()).items[0].id;
+
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    await fetch(`${baseUrl}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: adminToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: adminId,
+        date: new Date().toISOString().split("T")[0],
+        delivery_date: tomorrow,
+        status: "open",
+        designated_kit: kitId,
+        target_entity: entityId,
+      }),
+    });
+
+    // Digest build should succeed; credential check follows, returns 500 "not configured".
+    const res = await fetch(`${baseUrl}/api/tg/digest/run`, {
+      method: "POST",
+      headers: { Authorization: adminToken },
+    });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("Telegram credentials not configured");
+  });
+});
