@@ -384,6 +384,41 @@ Alternatively pass `{ "dry": true }` in the JSON body. The admin gate still appl
 
 **Skip-silently behavior:** if either `TELEGRAM_BOT_TOKEN` or `TELEGRAM_GROUP_CHAT_ID` is unset, both the cron and the non-dry manual trigger skip/return 500 without crashing — so local dev and CI without secrets stay green.
 
+### Telegram account linking
+
+Hook: `pb/pb_hooks/tg_link.pb.js` (mint) + `pb/pb_hooks/tg_webhook.pb.js` (redeem).
+
+**Fly secrets required:**
+
+```bash
+flyctl secrets set -a kit-tracker \
+  TELEGRAM_BOT_SECRET=<openssl rand -hex 20>   \
+  TELEGRAM_BOT_USERNAME=<your-bot-username>     # optional — enables deep_link in response
+```
+
+- `TELEGRAM_BOT_SECRET` — random string; must match the `secret_token` passed to Telegram's `setWebhook` call. If unset, secret check is skipped with a warning (CI/local dev stays green).
+- `TELEGRAM_BOT_USERNAME` — bot username without `@` (e.g. `kit_tracker_bot`). When set, mint endpoint returns a `deep_link` (`https://t.me/<username>?start=<code>`).
+
+**Endpoints:**
+
+`POST /api/tg/link/code` — any authenticated user mints a one-time link code (128-bit entropy, 10-min TTL). Response: `{ code, expires_at, instructions, deep_link? }`. Invalidates prior unused codes for that user. Use the code with the bot via `/start <code>`.
+
+`POST /api/tg/webhook` — Telegram inbound webhook (Phase 4: linking only).
+  - `/start <code>` → validates code (expiry + used check), sets `users.telegram_chat_id`, audit-logs with `via: "tg-link"`, replies "Linked!".
+  - `/start` (no code) or any other text → replies hint to open the app.
+  - Missing message/text → 200 no-op.
+  - Bad secret token → 401 (when `TELEGRAM_BOT_SECRET` is set).
+
+**Webhook registration (operator step):**
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+  -d "url=https://kit-tracker.fly.dev/api/tg/webhook" \
+  -d "secret_token=<TELEGRAM_BOT_SECRET>"
+```
+
+**Skip-when-unset:** `TELEGRAM_BOT_SECRET` unset → log warning + proceed (no rejection). `TG_SKIP_SIGNATURE_CHECK=1` → always skip. `TELEGRAM_BOT_TOKEN` unset → reply sends are skipped/logged, logic still runs.
+
 ### First-boot identity
 
 PB has two identity stores: `_superusers` (panel `/_/`) and `users` (app `/login`).
