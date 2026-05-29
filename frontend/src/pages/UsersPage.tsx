@@ -54,10 +54,11 @@ export function UsersPage() {
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  // Edit profile dialog (phone/title)
+  // Edit profile dialog (phone/title/telegram_chat_id)
   const [editTarget, setEditTarget] = useState<PBUser | null>(null);
   const [editPhone, setEditPhone] = useState("");
   const [editTitle, setEditTitle] = useState("");
+  const [editTelegramChatId, setEditTelegramChatId] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
 
@@ -172,6 +173,7 @@ export function UsersPage() {
     setEditTarget(u);
     setEditPhone(u.phone ?? "");
     setEditTitle(u.title ?? "");
+    setEditTelegramChatId(u.telegram_chat_id ?? "");
   }
 
   async function handleEditSave() {
@@ -179,12 +181,13 @@ export function UsersPage() {
     setEditSaving(true);
     const prevPhone = editTarget.phone;
     const prevTitle = editTarget.title;
+    const prevTelegramChatId = editTarget.telegram_chat_id;
 
     // Optimistic update
     setUsers((prev) =>
       prev.map((x) =>
         x.id === editTarget.id
-          ? { ...x, phone: editPhone.trim(), title: editTitle.trim() }
+          ? { ...x, phone: editPhone.trim(), title: editTitle.trim(), telegram_chat_id: editTelegramChatId.trim() }
           : x
       )
     );
@@ -194,6 +197,7 @@ export function UsersPage() {
       await updateUserProfile(editTarget.id, {
         phone: editPhone.trim(),
         title: editTitle.trim(),
+        telegram_chat_id: editTelegramChatId.trim(),
       });
       toast({
         title: "Profile updated",
@@ -205,7 +209,7 @@ export function UsersPage() {
       setUsers((prev) =>
         prev.map((x) =>
           x.id === editTarget.id
-            ? { ...x, phone: prevPhone, title: prevTitle }
+            ? { ...x, phone: prevPhone, title: prevTitle, telegram_chat_id: prevTelegramChatId }
             : x
         )
       );
@@ -283,6 +287,7 @@ export function UsersPage() {
                         {u.name && <p className="text-xs text-muted-foreground">{u.name}</p>}
                         {u.phone && <p className="text-xs text-muted-foreground">{u.phone}</p>}
                         {u.title && <p className="text-xs text-muted-foreground">{u.title}</p>}
+                        {u.telegram_chat_id && <p className="text-xs text-muted-foreground">TG: {u.telegram_chat_id}</p>}
                         {u.role === "denied" && u.denial_notes && (
                           <p className="text-xs italic text-red-500 mt-0.5">{u.denial_notes}</p>
                         )}
@@ -324,6 +329,7 @@ export function UsersPage() {
                       <th className="text-left p-3 font-medium text-muted-foreground">Email</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Name</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Phone</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Telegram ID</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Title</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Role</th>
                       <th className="text-left p-3 font-medium text-muted-foreground">Created</th>
@@ -351,6 +357,7 @@ export function UsersPage() {
                           </td>
                           <td className="p-3 text-muted-foreground">{u.name ?? "—"}</td>
                           <td className="p-3 text-muted-foreground">{u.phone ?? "—"}</td>
+                          <td className="p-3 text-muted-foreground">{u.telegram_chat_id ?? "—"}</td>
                           <td className="p-3 text-muted-foreground">{u.title ?? "—"}</td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
@@ -426,13 +433,13 @@ export function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit phone/title dialog */}
+      {/* Edit phone/title/telegram_chat_id dialog */}
       <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit contact info</DialogTitle>
             <DialogDescription>
-              Update phone and title for <strong>{editTarget?.email}</strong>.
+              Update phone, title and Telegram chat ID for <strong>{editTarget?.email}</strong>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-2">
@@ -454,6 +461,16 @@ export function UsersPage() {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="e.g. Field Technician"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-telegram-chat-id">Telegram Chat ID</Label>
+              <Input
+                id="edit-telegram-chat-id"
+                type="text"
+                value={editTelegramChatId}
+                onChange={(e) => setEditTelegramChatId(e.target.value)}
+                placeholder="e.g. 123456789"
               />
             </div>
             <div className="flex justify-end gap-2 pt-1">

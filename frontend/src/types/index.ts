@@ -71,7 +71,7 @@ export interface KitRequest {
 }
 
 export interface NotificationPrefs {
-  channels: ("whatsapp" | "email")[];
+  channels: ("whatsapp" | "email" | "telegram")[];
   events: {
     request_fulfilled: boolean;
     kit_moved: boolean;
@@ -96,6 +96,7 @@ export interface PBUser {
   entity?: string;
   phone?: string;
   title?: string;
+  telegram_chat_id?: string;
   denial_notes?: string;
   notification_prefs?: string;
   created: string;

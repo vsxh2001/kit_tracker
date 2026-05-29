@@ -37,7 +37,7 @@ export async function restoreUser(
 
 export async function updateUserProfile(
   id: string,
-  data: { name?: string; phone?: string; title?: string }
+  data: { name?: string; phone?: string; title?: string; telegram_chat_id?: string }
 ): Promise<PBUser> {
   return pb.collection("users").update<PBUser>(id, data, {
     requestKey: `update-profile-${id}`,
