@@ -370,7 +370,7 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
           var tgChatId = admin.getString("telegram_chat_id");
           if (tgChatId) {
             var tgOutcome = _sendTelegramEscalation(tgChatId, msgText);
-            sentToAtLeastOne = true;
+            if (tgOutcome === "sent") sentToAtLeastOne = true;
             // Audit — best-effort; written even for skipped_no_token so branch is observable
             try {
               var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
@@ -433,7 +433,7 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
 //
 // Returns:
 //   { skipped: "no_pending_requests" }
-//   { fired: true, open_requests, admin_count, escalated, already_escalated,
+//   { fired: true, open_requests, admin_phones, escalated, already_escalated,
 //     tg_sent (count of send_telegram audit rows written in this run) }
 // ---------------------------------------------------------------------------
 routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
@@ -470,7 +470,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
   }
 
   if (!openRequests || openRequests.length === 0) {
-    return c.json(200, { fired: true, skipped: "no_pending_requests", open_requests: 0, admin_count: 0, escalated: 0, already_escalated: 0, tg_sent: 0 });
+    return c.json(200, { fired: true, skipped: "no_pending_requests", open_requests: 0, admin_phones: 0, escalated: 0, already_escalated: 0, tg_sent: 0 });
   }
 
   // Broadened admin query: include admins with phone OR telegram_chat_id
@@ -486,7 +486,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
 
   var adminCount = admins ? admins.length : 0;
   if (adminCount === 0) {
-    return c.json(200, { fired: true, open_requests: openRequests.length, admin_count: 0, escalated: 0, already_escalated: 0, tg_sent: 0 });
+    return c.json(200, { fired: true, open_requests: openRequests.length, admin_phones: 0, escalated: 0, already_escalated: 0, tg_sent: 0 });
   }
 
   var escalatedCount = 0;
@@ -599,12 +599,12 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
 
     // Apply pref gates per admin; track eligible counts for WA + TG
     var eligibleWa = 0;
-    var eligibleTg = 0;
+    var tgActuallySent = 0;
 
     for (var ai = 0; ai < admins.length; ai++) {
       var admin = admins[ai];
 
-      // ── WA pref gate (count eligible) ──
+      // ── WA pref gate (count eligible — route is dry-run; eligible = simulated 2xx) ──
       var waPrefAllowed = true;
       try {
         var prefRaw = admin.getString("notification_prefs") || "";
@@ -650,8 +650,10 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
       if (tgChannelOk && tgEventOk) {
         var tgChatId = admin.getString("telegram_chat_id");
         if (tgChatId) {
-          eligibleTg++;
           var tgOutcome = inlineSendTelegram(tgChatId, msgText);
+          // Only count as a real delivery on actual "sent" — skipped_no_token / failed must not
+          // suppress WA retry next tick (Fix 2 — retry-semantics correctness).
+          if (tgOutcome === "sent") tgActuallySent++;
           // Audit — best-effort; written even for skipped_no_token so branch is observable in tests
           try {
             var tgAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
@@ -676,7 +678,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
       }
     }
 
-    if (eligibleWa > 0 || eligibleTg > 0) {
+    if (eligibleWa > 0 || tgActuallySent > 0) {
       try {
         $app.store().set(escalationKey, JSON.stringify({
           escalated: true,
@@ -692,7 +694,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
   return c.json(200, {
     fired: true,
     open_requests: openRequests.length,
-    admin_count: adminCount,
+    admin_phones: adminCount,
     escalated: escalatedCount,
     already_escalated: alreadyEscalatedCount,
     tg_sent: tgSentCount

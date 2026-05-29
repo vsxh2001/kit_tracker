@@ -415,13 +415,15 @@ describe("tg_notify Phase 6 — escalation TG branch (/_test/ route)", () => {
     }
   });
 
-  // Dedup: second trigger doesn't re-escalate same request
-  it("dedup still works with telegram-only admin", async () => {
+  // Dedup: test with a phone admin (WA eligible) so escalation actually fires and dedup is exercised.
+  // When TG token is unset, TG-only admin gets skipped_no_token which does NOT mark escalated
+  // (Fix 2 — retry semantics). Use phone admin for the dedup path instead.
+  it("dedup still works: second trigger for same request returns already_escalated>=1", async () => {
     await patchAdmin({
-      phone: "",
+      phone: "+15559991111",
       telegram_chat_id: "esc-dedup-chat-555",
       notification_prefs: JSON.stringify({
-        channels: ["telegram"],
+        channels: ["telegram", "whatsapp"],
         events: { request_escalation: true },
       }),
     });
@@ -430,12 +432,14 @@ describe("tg_notify Phase 6 — escalation TG branch (/_test/ route)", () => {
       const res1 = await trigger({ threshold_hours: "0" });
       expect(res1.status).toBe(200);
       const body1 = await res1.json();
+      // WA eligible (phone set + WA creds set in beforeAll) → escalated >= 1
       expect(body1.escalated).toBeGreaterThanOrEqual(1);
 
       const res2 = await trigger({ threshold_hours: "0" });
       expect(res2.status).toBe(200);
       const body2 = await res2.json();
       expect(body2.already_escalated).toBeGreaterThanOrEqual(1);
+      expect(body2.escalated).toBe(0);
     } finally {
       await deleteRequest(reqId);
       await patchAdmin({ phone: "", telegram_chat_id: "", notification_prefs: "" });
