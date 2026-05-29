@@ -213,7 +213,10 @@ export async function deleteKitAttachment(kitId: string, filename: string): Prom
 }
 
 export async function getAttachmentToken(): Promise<string> {
-  return pb.files.getToken();
+  // requestKey: null disables SDK auto-cancel so the 90s refresh interval in
+  // AttachmentsSection doesn't race the initial mount-fetch and silently abort
+  // (CLAUDE.md "PocketBase SDK auto-cancellation").
+  return pb.files.getToken({ requestKey: null });
 }
 
 export function attachmentUrl(kit: Kit, filename: string, token?: string): string {
