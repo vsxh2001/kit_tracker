@@ -164,18 +164,35 @@ cronAdd("tg_group_digest", cronExpr, function() {
     } catch (_) {
       maintNote = " (kit_maintenance_schedules collection not available)";
     }
+    // Schedules target EITHER a kit OR a component (XOR — see
+    // maintenance_xor_target.pb.js + migration 1779300000). Handle both, else
+    // component-only schedules silently vanish from the digest.
     var dueItems = [];
     for (var k = 0; k < schedules.length; k++) {
       var s = schedules[k];
-      try {
-        var kit = dao.findRecordById("kits", s.getString("kit") || "");
-        if (!kit || !kit.getBool("is_active")) continue;
-        dueItems.push({
-          kitSerial: escHtml(kit.getString("serial") || ""),
-          nextDue: escHtml(s.getString("next_due_at") || ""),
-          type: escHtml(s.getString("type") || "")
-        });
-      } catch (_) {}
+      var schedKit = s.getString("kit") || "";
+      var schedComp = s.getString("component") || "";
+      var targetLabel = "";
+      if (schedKit) {
+        try {
+          var kit = dao.findRecordById("kits", schedKit);
+          if (!kit || !kit.getBool("is_active")) continue;
+          targetLabel = kit.getString("serial") || "";
+        } catch (_) { continue; }
+      } else if (schedComp) {
+        try {
+          var comp = dao.findRecordById("components", schedComp);
+          if (!comp) continue;
+          targetLabel = (comp.getString("serial") || "") + " (component)";
+        } catch (_) { continue; }
+      } else {
+        continue;
+      }
+      dueItems.push({
+        target: escHtml(targetLabel),
+        nextDue: escHtml(s.getString("next_due_at") || ""),
+        type: escHtml(s.getString("type") || "")
+      });
     }
     lines.push("<b>Maintenance Due (next 7 days) — " + dueItems.length + maintNote + "</b>");
     if (dueItems.length === 0) {
@@ -184,7 +201,7 @@ cronAdd("tg_group_digest", cronExpr, function() {
       for (var m = 0; m < dueItems.length; m++) {
         var d = dueItems[m];
         var mParts = [];
-        if (d.kitSerial) mParts.push("kit=" + d.kitSerial);
+        if (d.target) mParts.push("item=" + d.target);
         if (d.type) mParts.push("type=" + d.type);
         if (d.nextDue) mParts.push("due=" + d.nextDue);
         lines.push("  • " + mParts.join(", "));
@@ -348,18 +365,35 @@ routerAdd("POST", "/api/tg/digest/run", function(c) {
     } catch (_) {
       maintNote = " (kit_maintenance_schedules collection not available)";
     }
+    // Schedules target EITHER a kit OR a component (XOR — see
+    // maintenance_xor_target.pb.js + migration 1779300000). Handle both, else
+    // component-only schedules silently vanish from the digest.
     var dueItems = [];
     for (var k = 0; k < schedules.length; k++) {
       var s = schedules[k];
-      try {
-        var kit = dao.findRecordById("kits", s.getString("kit") || "");
-        if (!kit || !kit.getBool("is_active")) continue;
-        dueItems.push({
-          kitSerial: escHtml(kit.getString("serial") || ""),
-          nextDue: escHtml(s.getString("next_due_at") || ""),
-          type: escHtml(s.getString("type") || "")
-        });
-      } catch (_) {}
+      var schedKit = s.getString("kit") || "";
+      var schedComp = s.getString("component") || "";
+      var targetLabel = "";
+      if (schedKit) {
+        try {
+          var kit = dao.findRecordById("kits", schedKit);
+          if (!kit || !kit.getBool("is_active")) continue;
+          targetLabel = kit.getString("serial") || "";
+        } catch (_) { continue; }
+      } else if (schedComp) {
+        try {
+          var comp = dao.findRecordById("components", schedComp);
+          if (!comp) continue;
+          targetLabel = (comp.getString("serial") || "") + " (component)";
+        } catch (_) { continue; }
+      } else {
+        continue;
+      }
+      dueItems.push({
+        target: escHtml(targetLabel),
+        nextDue: escHtml(s.getString("next_due_at") || ""),
+        type: escHtml(s.getString("type") || "")
+      });
     }
     lines.push("<b>Maintenance Due (next 7 days) — " + dueItems.length + maintNote + "</b>");
     if (dueItems.length === 0) {
@@ -368,7 +402,7 @@ routerAdd("POST", "/api/tg/digest/run", function(c) {
       for (var m = 0; m < dueItems.length; m++) {
         var d = dueItems[m];
         var mParts = [];
-        if (d.kitSerial) mParts.push("kit=" + d.kitSerial);
+        if (d.target) mParts.push("item=" + d.target);
         if (d.type) mParts.push("type=" + d.type);
         if (d.nextDue) mParts.push("due=" + d.nextDue);
         lines.push("  • " + mParts.join(", "));
