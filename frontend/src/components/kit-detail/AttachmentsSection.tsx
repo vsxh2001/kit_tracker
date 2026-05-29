@@ -2,7 +2,7 @@ import { useEffect, startTransition } from "react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { AttachmentList } from "../AttachmentList";
-import { getKit, uploadKitAttachment, deleteKitAttachment } from "../../services/kits";
+import { getKit, uploadKitAttachment, deleteKitAttachment, getAttachmentToken } from "../../services/kits";
 import { toast } from "../ui/use-toast";
 import type { Kit } from "../../types";
 
@@ -13,11 +13,13 @@ interface AttachmentsSectionProps {
 
 export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) {
   const [kit, setKit] = useState<Kit | null>(null);
+  const [fileToken, setFileToken] = useState<string>("");
 
   async function loadAttachments() {
     try {
-      const k = await getKit(kitId);
+      const [k, token] = await Promise.all([getKit(kitId), getAttachmentToken()]);
       setKit(k);
+      setFileToken(token);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -37,6 +39,7 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
       <CardContent className="pt-0">
         <AttachmentList
           kit={kit}
+          fileToken={fileToken}
           canEdit={isAdmin}
           onUpload={isAdmin ? async (file) => {
             try {
