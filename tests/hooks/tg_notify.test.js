@@ -26,32 +26,41 @@ const TS = `tgnotify-${Date.now()}`;
 async function pollAuditRow(baseUrl, suToken, action, event, outcome, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    var filterParts = [`action="${action}"`, `changes ~ '"event":"${event}"'`];
-    if (outcome) filterParts.push(`changes ~ '"outcome":"${outcome}"'`);
-    var filter = filterParts.join(" && ");
+    // Filter by `action` only (reliable select-enum equality), then JS-parse the
+    // `changes` text to match event/outcome — avoids PB `~` substring-filter
+    // ambiguity on the JSON text field (proven pattern from other hook tests).
     const res = await fetch(
-      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(filter)}&perPage=200`,
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`action="${action}"`)}&perPage=400&sort=-created`,
       { headers: { Authorization: suToken } }
     );
     if (res.ok) {
       const body = await res.json();
-      if (body.items && body.items.length > 0) return body.items[0];
+      for (const row of (body.items || [])) {
+        let c;
+        try { c = JSON.parse(row.changes); } catch (_) { continue; }
+        if (c && c.event === event && (!outcome || c.outcome === outcome)) return row;
+      }
     }
     await new Promise(r => setTimeout(r, 200));
   }
   return null;
 }
 
-// Helper: count audit rows for a specific (action, event) pair.
+// Helper: count audit rows for a specific (action, event) pair — same approach.
 async function countAuditRows(baseUrl, suToken, action, event) {
-  var filter = `action="${action}" && changes ~ '"event":"${event}"'`;
   const res = await fetch(
-    `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(filter)}&perPage=200`,
+    `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`action="${action}"`)}&perPage=400&sort=-created`,
     { headers: { Authorization: suToken } }
   );
   if (!res.ok) return -1;
   const body = await res.json();
-  return body.totalItems ?? body.items?.length ?? 0;
+  let n = 0;
+  for (const row of (body.items || [])) {
+    let c;
+    try { c = JSON.parse(row.changes); } catch (_) { continue; }
+    if (c && c.event === event) n++;
+  }
+  return n;
 }
 
 describe("tg_notify Phase 6 — request_fulfilled TG branch", () => {

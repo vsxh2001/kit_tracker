@@ -377,6 +377,7 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
               var tgAuditRec = new Record(tgAuditCol);
               tgAuditRec.set("collection_name", "messages");
               tgAuditRec.set("record_id", tgChatId);
+              tgAuditRec.set("actor", admin.id);
               tgAuditRec.set("action", "send_telegram");
               tgAuditRec.set("changes", JSON.stringify({
                 to: tgChatId,
@@ -660,6 +661,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
             var tgAuditRec = new Record(tgAuditCol);
             tgAuditRec.set("collection_name", "messages");
             tgAuditRec.set("record_id", tgChatId);
+            tgAuditRec.set("actor", admin.id);
             tgAuditRec.set("action", "send_telegram");
             tgAuditRec.set("changes", JSON.stringify({
               to: tgChatId,

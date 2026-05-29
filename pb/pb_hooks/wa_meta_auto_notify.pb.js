@@ -306,6 +306,7 @@ onRecordAfterUpdateRequest(function(e) {
           var tgAuditRec = new Record(tgAuditCol);
           tgAuditRec.set("collection_name", "messages");
           tgAuditRec.set("record_id", tgChat);
+          tgAuditRec.set("actor", requester.id);
           tgAuditRec.set("action", "send_telegram");
           tgAuditRec.set("changes", JSON.stringify({
             to: tgChat,
@@ -543,6 +544,7 @@ onRecordAfterCreateRequest(function(e) {
             var tgAuditRec = new Record(tgAuditCol);
             tgAuditRec.set("collection_name", "messages");
             tgAuditRec.set("record_id", tgChat);
+            tgAuditRec.set("actor", admin.id);
             tgAuditRec.set("action", "send_telegram");
             tgAuditRec.set("changes", JSON.stringify({
               to: tgChat,
@@ -722,6 +724,7 @@ onRecordAfterCreateRequest(function(e) {
           var tgAuditRec = new Record(tgAuditCol);
           tgAuditRec.set("collection_name", "messages");
           tgAuditRec.set("record_id", tgChat);
+          tgAuditRec.set("actor", requester.id);
           tgAuditRec.set("action", "send_telegram");
           tgAuditRec.set("changes", JSON.stringify({
             to: tgChat,
