@@ -180,12 +180,12 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
 
   // ---------- expired code ----------
 
-  it("expired code returns 200 without updating the user", async () => {
+  it("expired code returns 200 without updating the user or mutating the code row", async () => {
     // Seed a code that expired 1 minute ago
     const pastIso = new Date(Date.now() - 60000).toISOString()
       .replace("T", " ").replace("Z", "") + "Z";
     const expiredCode = "aaaa1111bbbb2222cccc3333dddd4444";
-    await seedCode({
+    const seeded = await seedCode({
       userId: linkUserId,
       code: expiredCode,
       expiresAt: pastIso,
@@ -206,17 +206,25 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     );
     const userRec = await userRes.json();
     expect(userRec.telegram_chat_id).not.toBe(chatId);
+
+    // Code row must NOT have been mutated (used flag still false)
+    const codeRes = await fetch(
+      `${baseUrl}/api/collections/tg_link_codes/records/${seeded.id}`,
+      { headers: { Authorization: suToken } }
+    );
+    const codeRow = await codeRes.json();
+    expect(codeRow.used).toBe(false);
   });
 
   // ---------- already-used code ----------
 
-  it("used=true code returns 200 without updating the user", async () => {
+  it("used=true code returns 200 without updating the user or mutating the code row", async () => {
     const usedCode = "ffff0000ffff0000ffff0000ffff0000";
     const futureIso = new Date(Date.now() + 600000).toISOString()
       .replace("T", " ").replace("Z", "") + "Z";
     const nowIso = new Date().toISOString()
       .replace("T", " ").replace("Z", "") + "Z";
-    await seedCode({
+    const seeded = await seedCode({
       userId: linkUserId,
       code: usedCode,
       expiresAt: futureIso,
@@ -238,6 +246,14 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     );
     const userRec = await userRes.json();
     expect(userRec.telegram_chat_id).not.toBe(chatId);
+
+    // Code row must remain used=true and not have been reset
+    const codeRes = await fetch(
+      `${baseUrl}/api/collections/tg_link_codes/records/${seeded.id}`,
+      { headers: { Authorization: suToken } }
+    );
+    const codeRow = await codeRes.json();
+    expect(codeRow.used).toBe(true);
   });
 
   // ---------- arbitrary message → hint ----------
@@ -248,5 +264,122 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     });
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
+  });
+
+  // ---------- replay / double-redeem (single-use guard) ----------
+
+  it("second /start with same code from a different chat id is rejected and user stays linked to first chat", async () => {
+    const code = await mintCode(linkUserToken);
+    const firstChatId = "777000001";
+    const secondChatId = "777000002";
+
+    // First redeem — should succeed
+    const res1 = await postUpdate({
+      message: { text: "/start " + code, chat: { id: Number(firstChatId) } },
+    });
+    expect(res1.status).toBe(200);
+    expect((await res1.json()).ok).toBe(true);
+
+    // Verify first redeem linked the first chat
+    const afterFirst = await fetch(
+      `${baseUrl}/api/collections/users/records/${linkUserId}`,
+      { headers: { Authorization: suToken } }
+    );
+    const userAfterFirst = await afterFirst.json();
+    expect(userAfterFirst.telegram_chat_id).toBe(firstChatId);
+
+    // Verify code is now consumed
+    const codeRows = await fetch(
+      `${baseUrl}/api/collections/tg_link_codes/records?filter=(code="${code}")`,
+      { headers: { Authorization: suToken } }
+    );
+    const codeData = await codeRows.json();
+    expect(codeData.items).toHaveLength(1);
+    expect(codeData.items[0].used).toBe(true);
+
+    // Second redeem with same code from a different chat — must be rejected
+    const res2 = await postUpdate({
+      message: { text: "/start " + code, chat: { id: Number(secondChatId) } },
+    });
+    expect(res2.status).toBe(200);
+    expect((await res2.json()).ok).toBe(true);
+
+    // User's telegram_chat_id must still be the FIRST chat id (not overwritten)
+    const afterSecond = await fetch(
+      `${baseUrl}/api/collections/users/records/${linkUserId}`,
+      { headers: { Authorization: suToken } }
+    );
+    const userAfterSecond = await afterSecond.json();
+    expect(userAfterSecond.telegram_chat_id).toBe(firstChatId);
+    expect(userAfterSecond.telegram_chat_id).not.toBe(secondChatId);
+  });
+});
+
+// ===========================================================================
+// Secret-token enforcement (TELEGRAM_BOT_SECRET set)
+//
+// This describe block boots its own PocketBase instance with
+// TELEGRAM_BOT_SECRET set in process.env before spawn, which PB inherits.
+// It tears down its own PB so it does not interfere with the main describe.
+//
+// The helper uses spawn() with no explicit env option → inherits process.env.
+// We set/restore process.env.TELEGRAM_BOT_SECRET around startPb() so the
+// spawned PB process sees the secret at hook load time ($os.getenv reads the
+// env once per request in Goja).
+// ===========================================================================
+
+describe("tg_webhook hook — secret-token enforcement", () => {
+  let pb2, baseUrl2;
+  const TEST_SECRET = "test-secret-xyz-abc-123";
+
+  function postWebhook(update, headers = {}) {
+    return fetch(`${baseUrl2}/api/tg/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(update),
+    });
+  }
+
+  beforeAll(async () => {
+    // Set secret BEFORE spawning PB so the child process inherits it.
+    // TG_SKIP_SIGNATURE_CHECK must not be set (ensure it's absent).
+    process.env.TELEGRAM_BOT_SECRET = TEST_SECRET;
+    delete process.env.TG_SKIP_SIGNATURE_CHECK;
+    pb2 = await startPb();
+    baseUrl2 = pb2.baseUrl;
+  }, 60000);
+
+  afterAll(async () => {
+    await stopPb();
+    // Restore env so subsequent test files are unaffected.
+    delete process.env.TELEGRAM_BOT_SECRET;
+  });
+
+  it("POST with no X-Telegram-Bot-Api-Secret-Token header → 401", async () => {
+    const res = await postWebhook({ message: { text: "/start", chat: { id: 1 } } });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("bad secret");
+  });
+
+  it("POST with wrong secret header value → 401", async () => {
+    const res = await postWebhook(
+      { message: { text: "/start", chat: { id: 1 } } },
+      { "X-Telegram-Bot-Api-Secret-Token": "wrong-secret-value" }
+    );
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("bad secret");
+  });
+
+  it("POST with correct secret header → 200 (proceeds past auth gate)", async () => {
+    const res = await postWebhook(
+      { message: { text: "/start", chat: { id: 99 } } },
+      { "X-Telegram-Bot-Api-Secret-Token": TEST_SECRET }
+    );
+    // The request passes the auth gate; /start with no code returns 200 ok:true
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
   });
 });

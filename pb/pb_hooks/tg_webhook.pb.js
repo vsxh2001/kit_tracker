@@ -144,7 +144,10 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
 
   var chatId = String(chat.id);
 
-  console.log("[tg_webhook] inbound chatId=" + chatId + " text=" + text.slice(0, 60));
+  // SECURITY: never log message text — /start <code> text IS the bearer credential.
+  // Log only the chat id and a redacted verb indicator.
+  var logVerb = text.startsWith("/start") ? "/start <redacted>" : "len=" + text.length;
+  console.log("[tg_webhook] inbound chatId=" + chatId + " msg=" + logVerb);
 
   // ===========================================================================
   // Route: /start <code>
@@ -189,8 +192,34 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       return c.json(200, { ok: true });
     }
 
-    // Valid code — load user and set telegram_chat_id
+    // SECURITY: consume code FIRST, then link user.
+    // PB v0.22 Goja does not expose $app.dao().runInTransaction — no transaction API
+    // is available in this runtime. We use a consume-first + both-fatal pattern instead:
+    //   1. Mark code used=true and save (FATAL if it fails — code stays clean).
+    //   2. Load user and set telegram_chat_id and save (FATAL if it fails — code is
+    //      burned but user not linked; user must re-mint. This is the safe failure mode:
+    //      an attacker who obtained the code cannot replay it, and the victim re-mints).
+    //   3. Write audit log (non-fatal — linking already succeeded).
+    // Residual TOCTOU window: two concurrent requests can both pass the pre-tx used-check
+    // above; the first to reach saveRecord(code) wins (SQLite serialises writes), the
+    // second gets a save error and returns the generic error message. The window is
+    // narrow (milliseconds, same code, same user) and the worst outcome is one extra
+    // failed attempt — not a privilege escalation.
     var userId = codeRec.getString("user");
+
+    // Step 1: consume the code (FATAL — no silent swallow)
+    var nowIso = now.toISOString().replace("T", " ").replace("Z", "") + "Z";
+    codeRec.set("used", true);
+    codeRec.set("used_at", nowIso);
+    try {
+      dao.saveRecord(codeRec);
+    } catch (e) {
+      console.log("[tg_webhook] saveRecord(code) consume error uid=" + userId + ": " + e);
+      sendTelegram(chatId, "Invalid or expired link code. Generate a new one in the app.");
+      return c.json(200, { ok: true });
+    }
+
+    // Step 2: load user and link (FATAL — code is already burned; user must re-mint)
     var userRec = null;
     try {
       userRec = dao.findRecordById("users", userId);
@@ -204,23 +233,12 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
     try {
       dao.saveRecord(userRec);
     } catch (e) {
-      console.log("[tg_webhook] saveRecord(user) error: " + e);
+      console.log("[tg_webhook] saveRecord(user) link error uid=" + userId + ": " + e);
       sendTelegram(chatId, "Internal error — please try again.");
       return c.json(200, { ok: true });
     }
 
-    // Mark code used (single-use enforced)
-    var nowIso = now.toISOString().replace("T", " ").replace("Z", "") + "Z";
-    codeRec.set("used", true);
-    codeRec.set("used_at", nowIso);
-    try {
-      dao.saveRecord(codeRec);
-    } catch (e) {
-      console.log("[tg_webhook] saveRecord(code) used-mark error: " + e);
-      // Non-fatal: user is already linked; code will expire naturally
-    }
-
-    // Audit log (mirrors wa_meta_send.pb.js shape; action="update" per spec)
+    // Step 3: audit log (non-fatal — linking already succeeded)
     try {
       var auditCol = dao.findCollectionByNameOrId("audit_log");
       var auditRec = new Record(auditCol);
