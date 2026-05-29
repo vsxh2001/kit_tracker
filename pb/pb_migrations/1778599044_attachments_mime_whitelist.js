@@ -1,9 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 // H2: Restrict kits.attachments to an explicit MIME whitelist.
-// protected remains false for now — see TODO below.
-//
-// TODO: set protected:true in a follow-up migration coordinated with
-// frontend changes to use pb.files.getUrl(record, filename, { token }).
+// protected=false here; set to true in follow-up migration 1780200000_kits_attachments_protected.js.
 
 migrate(
   (db) => {
@@ -36,7 +33,7 @@ migrate(
           "text/csv"
         ],
         thumbs: [],
-        protected: false // keep false until frontend passes file tokens
+        protected: false // upgraded to true in migration 1780200000
       }
     }));
     return dao.saveCollection(c);
