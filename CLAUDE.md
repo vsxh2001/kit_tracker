@@ -403,11 +403,22 @@ flyctl secrets set -a kit-tracker \
 
 `POST /api/tg/link/code` — any authenticated user mints a one-time link code (128-bit entropy, 10-min TTL). Response: `{ code, expires_at, instructions, deep_link? }`. Invalidates prior unused codes for that user. Use the code with the bot via `/start <code>`.
 
-`POST /api/tg/webhook` — Telegram inbound webhook (Phase 4: linking only).
+`POST /api/tg/webhook` — Telegram inbound webhook (Phase 5: linking + AI bot).
   - `/start <code>` → validates code (expiry + used check), sets `users.telegram_chat_id`, audit-logs with `via: "tg-link"`, replies "Linked!".
-  - `/start` (no code) or any other text → replies hint to open the app.
+  - `/start` (no code) → replies hint to open the app.
+  - Non-`/start` text with linked+approved user → answered by AI assistant via `/api/ai/chat` (same engine as WhatsApp bot). Session keyed by `"tg:<chatId>"`.
+  - Non-`/start` text, no linked user → "isn't linked" hint.
+  - Non-`/start` text, role empty or `"denied"` → awaiting-approval reply.
+  - Non-`/start` text, >1 user with same `telegram_chat_id` → ambiguous error, no action.
   - Missing message/text → 200 no-op.
   - Bad secret token → 401 (when `TELEGRAM_BOT_SECRET` is set).
+
+### Telegram inbound bot
+
+Phase 5 routes non-`/start` messages from linked, approved Telegram users to the AI assistant. Identical engine to WhatsApp (`ai_chat.pb.js`). The hook mints a short-lived PB auth token for the user, POSTs `{ message, sessionId }` to `/api/ai/chat`, and sends the `reply` field back via `sendTelegram`.
+
+**Env var:**
+- `PB_AI_CHAT_URL` — optional; defaults to `http://127.0.0.1:8090/api/ai/chat`. Override in multi-process or custom-port deployments.
 
 **Webhook registration (operator step):**
 
