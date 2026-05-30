@@ -346,44 +346,6 @@ The script POSTs a Meta-spec-compliant payload. Hook logs (`fly logs`) will show
 
 Read tokens at runtime via `$os.getenv("WHATSAPP_*")` — never hardcoded.
 
-### Telegram group digest
-
-Hook: `pb/pb_hooks/tg_group_digest.pb.js` — posts a daily HTML digest to a Telegram group chat.
-
-**Fly secrets required:**
-
-```bash
-flyctl secrets set -a kit-tracker \
-  TELEGRAM_BOT_TOKEN=<token-from-BotFather>    \
-  TELEGRAM_GROUP_CHAT_ID=<negative-number>
-```
-
-- `TELEGRAM_BOT_TOKEN` — create a bot via [@BotFather](https://t.me/BotFather) (`/newbot`); copy the token it returns.
-- `TELEGRAM_GROUP_CHAT_ID` — add the bot to the target group, then call `https://api.telegram.org/bot<TOKEN>/getUpdates` and read `message.chat.id` (a negative integer for groups).
-- `TG_DIGEST_CRON` — optional cron expression for the scheduled job (default `0 8 * * *` — daily 08:00 UTC).
-
-**Digest content:** open requests, overdue returns, maintenance due in the next 7 days. If all three are empty the message is "✅ All clear — no open requests, overdue returns, or maintenance due."
-
-**Manual trigger** (admin only):
-
-```bash
-curl -X POST https://kit-tracker.fly.dev/api/tg/digest/run \
-  -H "Authorization: <admin-PB-token>"
-# Returns: { "sent": true, "chars": <n> }
-```
-
-**Dry-run preview** — build and return the digest text without sending to Telegram. Works without Telegram secrets (useful for local dev and content preview):
-
-```bash
-curl -X POST "https://kit-tracker.fly.dev/api/tg/digest/run?dry=1" \
-  -H "Authorization: <admin-PB-token>"
-# Returns: { "dry": true, "chars": <n>, "text": "<digest HTML>" }
-```
-
-Alternatively pass `{ "dry": true }` in the JSON body. The admin gate still applies — non-admins get 403 even in dry-run mode.
-
-**Skip-silently behavior:** if either `TELEGRAM_BOT_TOKEN` or `TELEGRAM_GROUP_CHAT_ID` is unset, both the cron and the non-dry manual trigger skip/return 500 without crashing — so local dev and CI without secrets stay green.
-
 ### Telegram account linking
 
 Hook: `pb/pb_hooks/tg_link.pb.js` (mint) + `pb/pb_hooks/tg_webhook.pb.js` (redeem).
@@ -429,27 +391,6 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 ```
 
 **Skip-when-unset:** `TELEGRAM_BOT_SECRET` unset → log warning + proceed (no rejection). `TG_SKIP_SIGNATURE_CHECK=1` → always skip. `TELEGRAM_BOT_TOKEN` unset → reply sends are skipped/logged, logic still runs.
-
-### Telegram per-user transactional notifications (Phase 6)
-
-Per-user transactional notifications and approval escalation now also deliver via Telegram **in addition to** WhatsApp (parallel run; WhatsApp branches are byte-for-byte unchanged).
-
-**Hooks:** `pb/pb_hooks/wa_meta_auto_notify.pb.js` + `pb/pb_hooks/wa_approval_escalation_cron.pb.js`.
-
-**Conditions for a Telegram send:**
-1. `users.notification_prefs.channels` includes `"telegram"`.
-2. `users.telegram_chat_id` is set (linked via Phase 2/5 account linking).
-3. The relevant event is enabled in `notification_prefs.events` (default true).
-4. Current time is not in the user's quiet hours.
-5. `TELEGRAM_BOT_TOKEN` is set (skip-silently convention when unset — no crash).
-
-**Events covered:**
-- `request_fulfilled` — notifies requester when their request transitions approved → fulfilled.
-- `request_pending` — notifies admin(s) when a new request is created.
-- `kit_moved` — notifies requester when their kit is relocated (opt-in via `WHATSAPP_NOTIFY_MOVES=1`).
-- `request_escalation` — notifies all admins when an open request is unanswered for >1h (escalation cron).
-
-Default channels when prefs are unset remain `["whatsapp","email"]` — Telegram is opt-in and only activates when the user explicitly adds `"telegram"` to their channels.
 
 ### First-boot identity
 
