@@ -588,7 +588,7 @@ describe("tg_webhook P1 — command dispatch", () => {
     const comp = await fetch(`${baseUrl3}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: suToken3, "Content-Type": "application/json" },
-      body: JSON.stringify({ product: prodId, quantity: 2, is_active: true }),
+      body: JSON.stringify({ product: prodId, quantity: 2, is_active: true, is_bulk: true }),
     });
     compId = (await comp.json()).id;
 
