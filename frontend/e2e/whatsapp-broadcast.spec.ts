@@ -19,7 +19,7 @@ test.describe("WhatsApp broadcast page", () => {
     await page.goto("/settings/whatsapp/broadcast");
 
     await expect(
-      page.getByRole("heading", { name: /broadcast/i })
+      page.getByText(/^Broadcast$/i)
     ).toBeVisible({ timeout: 10_000 });
 
     // Recipients card
