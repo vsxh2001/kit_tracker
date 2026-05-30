@@ -113,6 +113,7 @@ export interface Product {
   specs?: string; // JSON string
   url?: string;
   is_serialized: boolean;
+  track_in_status: boolean;
   is_active: boolean;
   created: string;
   updated: string;

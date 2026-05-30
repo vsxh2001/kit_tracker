@@ -322,6 +322,7 @@ export function ProductsPage() {
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Model</th>
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Components</th>
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Tracked</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -358,6 +359,11 @@ export function ProductsPage() {
                               {product.is_active
                                 ? <Badge variant="outline" className="text-xs">Active</Badge>
                                 : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                            </td>
+                            <td className="px-4 py-3">
+                              {product.track_in_status
+                                ? <Badge variant="secondary" className="text-xs">Tracked</Badge>
+                                : <span className="text-muted-foreground opacity-40">—</span>}
                             </td>
                           </tr>
                         );
