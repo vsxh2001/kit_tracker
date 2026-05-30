@@ -282,6 +282,11 @@ export function RequestDetailPage() {
                 <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={actionLoading}>
                   Edit request
                 </Button>
+                {isOwner && (
+                  <Button size="sm" variant="destructive" onClick={() => setConfirmKind("cancel")} disabled={actionLoading}>
+                    Cancel request
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
