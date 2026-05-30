@@ -385,14 +385,8 @@ describe("tg_notify Phase 6 — escalation TG branch (/_test/ route)", () => {
       const body = await res.json();
       expect(body.fired).toBe(true);
 
-      // TG branch ran → audit row written
-      const row = await pollAuditRow(baseUrl, suToken, "send_telegram", "request_escalation", "skipped_no_token");
-      expect(row, "send_telegram audit row must exist for telegram-only admin in escalation").not.toBeNull();
-      const changes = JSON.parse(row.changes);
-      expect(changes.outcome).toBe("skipped_no_token");
-      expect(changes.to).toBe("esc-tgonly-chat-777");
-      // tg_sent reflects the count in this run
-      expect(body.tg_sent).toBeGreaterThanOrEqual(1);
+      // TG branch was removed in PR #194 — tg_sent is always 0 (kept in API response for backwards compat)
+      expect(body.tg_sent).toBe(0);
     } finally {
       await deleteRequest(reqId);
       await patchAdmin({ phone: "", telegram_chat_id: "", notification_prefs: "" });
@@ -455,8 +449,8 @@ describe("tg_notify Phase 6 — escalation TG branch (/_test/ route)", () => {
     }
   });
 
-  // Admin with both phone + telegram → both WA and TG eligible
-  it("admin with phone + telegram: escalated >= 1, tg_sent >= 1", async () => {
+  // Admin with both phone + telegram → TG removed in PR #194, WA only
+  it("admin with phone + telegram: escalated >= 1, tg_sent = 0", async () => {
     await patchAdmin({
       phone: "+15559876543",
       telegram_chat_id: "esc-both-chat-444",
@@ -472,7 +466,7 @@ describe("tg_notify Phase 6 — escalation TG branch (/_test/ route)", () => {
       const body = await res.json();
       expect(body.fired).toBe(true);
       expect(body.escalated).toBeGreaterThanOrEqual(1);
-      expect(body.tg_sent).toBeGreaterThanOrEqual(1);
+      expect(body.tg_sent).toBe(0);
     } finally {
       await deleteRequest(reqId);
       await patchAdmin({ phone: "", telegram_chat_id: "", notification_prefs: "" });
