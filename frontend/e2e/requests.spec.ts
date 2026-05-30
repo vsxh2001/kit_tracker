@@ -13,6 +13,7 @@
  *   - Admin can assign kit + entity then save assignment
  *   - Admin can fulfill an approved request (atomic: transaction created AND status → "fulfilled")
  *   - Owner (requester) can cancel their own open request
+ *   - Admin owner can cancel their own open request (BUG-6)
  *   - Non-owner viewer cannot cancel a request they don't own
  *   - Fulfilled/rejected/cancelled requests show no Admin actions card
  *   - Back button navigates to /requests
@@ -589,6 +590,54 @@ test.describe("Request cancellation by owner", () => {
     });
 
     await updateRequestStatus(freshReq.id, "cancelled");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Admin can cancel their own open request (BUG-6 fix)
+// ---------------------------------------------------------------------------
+
+test.describe("Request cancellation — admin owner @smoke", () => {
+  let requestId: string;
+  let adminUserId: string;
+
+  test.beforeAll(async () => {
+    adminUserId = await getUserIdByEmail(CREDENTIALS.admin.email);
+    const req = await createTestRequest({
+      requesterId: adminUserId,
+      notes: `${TS}-admin-cancel`,
+    });
+    requestId = req.id;
+  });
+
+  test.afterAll(async () => {
+    await updateRequestStatus(requestId, "cancelled").catch(() => {});
+  });
+
+  test("admin who created their own open request sees Cancel request button @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/requests/${requestId}`);
+    await expect(page.getByRole("heading", { name: "Request" })).toBeVisible({ timeout: 10_000 });
+
+    // Admin-owner must see Cancel request inside the Actions card
+    await expect(
+      page.getByRole("button", { name: /cancel request/i })
+    ).toBeVisible({ message: "Admin-owner should see Cancel request button in Actions card" });
+
+    await page.getByRole("button", { name: /cancel request/i }).click();
+
+    const confirmBtn = page.getByRole("alertdialog").getByRole("button", { name: /^cancel request$/i });
+    await confirmBtn.click();
+
+    await expect(
+      page.getByRole("button", { name: /cancel request/i })
+    ).not.toBeVisible({ timeout: 5_000 });
+
+    // Status badge updates to cancelled
+    await expect(page.locator("main")).toContainText(/cancelled/i, { timeout: 5_000 });
+
+    const req = await getRequest(requestId);
+    expect(req.status).toBe("cancelled");
   });
 });
 
