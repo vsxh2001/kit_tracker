@@ -250,4 +250,36 @@ describe("wa_approval_escalation_cron hook (/_test/wa-approval-escalation)", () 
       await patchAdmin2({ phone: "", notification_prefs: "" });
     }
   });
+
+  it("/_test/ writes send_whatsapp audit row with actor=admin.id (issue #180 regression)", async () => {
+    await patchAdmin2({ phone: "+15559876543" });
+
+    const id = await createOpenRequest();
+    try {
+      const res = await trigger(adminToken, { threshold_hours: "0" });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.escalated).toBeGreaterThanOrEqual(1);
+
+      const auditRes = await fetch(
+        `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(
+          `action="send_whatsapp" && actor="${admin2Id}"`
+        )}&sort=-created&perPage=50`,
+        { headers: { Authorization: suToken } }
+      );
+      expect(auditRes.status).toBe(200);
+      const rows = (await auditRes.json()).items;
+      // Prior describe-block tests may leave request_pending rows for the same
+      // actor; find the escalation row explicitly rather than relying on rows[0].
+      const escalationRow = rows.find((r) => {
+        try { return JSON.parse(r.changes).event === "request_escalation"; }
+        catch (_) { return false; }
+      });
+      expect(escalationRow, "send_whatsapp audit row with event=request_escalation must exist").toBeTruthy();
+      expect(escalationRow.actor).toBe(admin2Id);
+    } finally {
+      await deleteRequest(id);
+      await patchAdmin2({ phone: "" });
+    }
+  });
 });

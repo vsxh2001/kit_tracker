@@ -383,6 +383,7 @@ onRecordAfterUpdateRequest(function(e) {
           var waAuditRec = new Record(waAuditCol);
           waAuditRec.set("collection_name", "messages");
           waAuditRec.set("record_id", wamid);
+          waAuditRec.set("actor", requesterId);
           waAuditRec.set("action", "send_whatsapp");
           waAuditRec.set("changes", JSON.stringify({
             to: toPhone,
@@ -731,6 +732,7 @@ onRecordAfterCreateRequest(function(e) {
             var waAuditRec = new Record(waAuditCol);
             waAuditRec.set("collection_name", "messages");
             waAuditRec.set("record_id", wamid);
+            waAuditRec.set("actor", admin.id);
             waAuditRec.set("action", "send_whatsapp");
             waAuditRec.set("changes", JSON.stringify({
               to: toPhone,
@@ -1025,6 +1027,7 @@ onRecordAfterCreateRequest(function(e) {
           var waAuditRec = new Record(waAuditCol);
           waAuditRec.set("collection_name", "messages");
           waAuditRec.set("record_id", wamid);
+          waAuditRec.set("actor", requesterId);
           waAuditRec.set("action", "send_whatsapp");
           waAuditRec.set("changes", JSON.stringify({
             to: toPhone,

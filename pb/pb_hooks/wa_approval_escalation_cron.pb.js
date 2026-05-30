@@ -367,6 +367,7 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
               var waAuditRec = new Record(waAuditCol);
               waAuditRec.set("collection_name", "messages");
               waAuditRec.set("record_id", wamid);
+              waAuditRec.set("actor", admin.id);
               waAuditRec.set("action", "send_whatsapp");
               waAuditRec.set("changes", JSON.stringify({
                 to: toPhone,
@@ -684,7 +685,27 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
           }
         }
       } catch (_) { waPrefAllowed = true; }
-      if (waPrefAllowed && admin.getString("phone")) eligibleWa++;
+      if (waPrefAllowed && admin.getString("phone")) {
+        eligibleWa++;
+        try {
+          var waAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var waAuditRec = new Record(waAuditCol);
+          waAuditRec.set("collection_name", "messages");
+          waAuditRec.set("record_id", "test-dryrun");
+          waAuditRec.set("actor", admin.id);
+          waAuditRec.set("action", "send_whatsapp");
+          waAuditRec.set("changes", JSON.stringify({
+            to: admin.getString("phone"),
+            event: "request_escalation",
+            request_id: requestId,
+            short_id: shortId,
+            dryrun: true
+          }));
+          $app.dao().saveRecord(waAuditRec);
+        } catch (waAuditErr) {
+          console.log("[wa_escalation/_test] WA audit write failed for admin " + admin.id + ":", waAuditErr);
+        }
+      }
 
       // ── TG pref gate + send ──
       var tgChannelOk = false;
