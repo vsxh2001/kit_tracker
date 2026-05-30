@@ -8,5 +8,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     fileParallelism: false,
+    // Never collect test files from sibling git worktrees under .claude/worktrees/ —
+    // locally those hold stale copies of this same suite and would run N times over.
+    // CI checks out fresh (no worktrees), so this only matters for local runs.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/worktrees/**"],
   },
 });
