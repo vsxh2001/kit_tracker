@@ -1,13 +1,12 @@
 /// <reference path="../pb_data/types.d.ts" />
 // GET /api/tg/admin/status — Admin-only Telegram integration status endpoint.
 //
-// Returns bot info, webhook config, linked user count, and group chat presence.
+// Returns bot info, webhook config, and linked user count.
 //
 // Auth: admin only.
 //
 // Environment (Fly secrets):
 //   TELEGRAM_BOT_TOKEN      — BotFather token (e.g. 123456789:AAF...)
-//   TELEGRAM_GROUP_CHAT_ID  — Telegram group chat ID (negative integer)
 //
 // NO module-level vars — PB v0.22 Goja isolation.
 
@@ -25,7 +24,6 @@ routerAdd("GET", "/api/tg/admin/status", function(c) {
   // Read env at call time (no module-level vars — Goja isolation)
   // ===========================================================================
   var botToken     = $os.getenv("TELEGRAM_BOT_TOKEN")      || "";
-  var groupChatId  = $os.getenv("TELEGRAM_GROUP_CHAT_ID")  || "";
 
   // ===========================================================================
   // Not configured — skip silently
@@ -123,7 +121,6 @@ routerAdd("GET", "/api/tg/admin/status", function(c) {
     configured: true,
     bot: botData,
     webhook: webhookData,
-    linked_users_count: linkedUsersCount,
-    group_chat_id_set: groupChatId.length > 0
+    linked_users_count: linkedUsersCount
   });
 });

@@ -35,7 +35,6 @@ export interface TelegramStatusConfigured {
   bot: TelegramBot | null;
   webhook: TelegramWebhook | null;
   linked_users_count: number;
-  group_chat_id_set: boolean;
 }
 
 export interface TelegramStatusNotConfigured {
