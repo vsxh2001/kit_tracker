@@ -677,3 +677,66 @@ test.describe("P12: Serialized vs bulk product enforcement (serialized)", () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// P13: track_in_status flag round-trips via EditProductDialog
+// ---------------------------------------------------------------------------
+
+test.describe("P13: track_in_status flag round-trips @smoke", () => {
+  let p13ProdId: string;
+
+  test.beforeAll(async () => {
+    p13ProdId = (await createTestProduct({ name: `${TS}-TrackProd`, category: "Test" })).id;
+  });
+
+  test.afterAll(async () => {
+    if (p13ProdId) await deleteTestProduct(p13ProdId);
+  });
+
+  test("P13: admin toggles Track in kit status in EditProductDialog, flag persists on reload @smoke", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/products/${p13ProdId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+
+    // Open edit dialog
+    await page.getByRole("button", { name: /edit/i }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // "Track in kit status" checkbox must be unchecked by default
+    const trackCheckbox = dialog.getByLabel(/track in kit status/i);
+    await expect(trackCheckbox).not.toBeChecked({
+      message: "track_in_status must default to unchecked",
+    });
+
+    // Toggle it on
+    await trackCheckbox.check();
+    await expect(trackCheckbox).toBeChecked();
+
+    // Save
+    await dialog.getByRole("button", { name: /save/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 8000 });
+
+    // Reload page and re-open edit dialog — flag must still be checked
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 8000 });
+    await page.getByRole("button", { name: /edit/i }).click();
+    const dialog2 = page.getByRole("dialog");
+    await expect(dialog2).toBeVisible();
+    const trackCheckbox2 = dialog2.getByLabel(/track in kit status/i);
+    await expect(trackCheckbox2).toBeChecked({
+      message: "track_in_status must persist after save + reload",
+    });
+
+    // Verify products list shows Tracked badge for this product (desktop table)
+    await dialog2.getByRole("button", { name: /cancel/i }).click();
+    await page.goto("/products");
+    await waitForProductsPage(page);
+    // Scope to THIS product's row so a stale tracked product from a prior run can't false-pass
+    const trackRow = page.getByRole("row", { name: new RegExp(`${TS}-TrackProd`) });
+    await expect(trackRow).toBeVisible({ timeout: 8000 });
+    await expect(trackRow.getByText("Tracked")).toBeVisible({
+      message: "Products table must show Tracked badge for the product with track_in_status=true",
+    });
+  });
+});
