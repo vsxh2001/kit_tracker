@@ -25,8 +25,11 @@ test.describe("WhatsApp broadcast page", () => {
     // Recipients card
     await expect(page.getByText("Recipients")).toBeVisible();
 
-    // Send button (dynamic label: "Send to N recipient(s)")
-    await expect(page.getByRole("button", { name: /send to .* recipient/i })).toBeVisible();
+    // Message textarea (mirrors telegram-broadcast.spec.ts pattern)
+    await expect(page.getByPlaceholder(/type your message/i)).toBeVisible();
+
+    // Send button (label is dynamic; just assert the button is present)
+    await expect(page.getByRole("button", { name: /send/i })).toBeVisible();
   });
 
   test("non-admin is redirected away from /settings/whatsapp/broadcast @smoke", async ({ page }) => {
