@@ -187,6 +187,39 @@ describe("wa_approval_escalation_cron hook (/_test/wa-approval-escalation)", () 
     }
   });
 
+  it("escalation dry-run writes send_whatsapp audit row with actor=adminId", async () => {
+    await patchAdmin2({ phone: "+15551234567" });
+    const id = await createOpenRequest();
+    try {
+      const res = await trigger(adminToken, { threshold_hours: "0" });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.fired).toBe(true);
+      expect(body.escalated).toBeGreaterThanOrEqual(1);
+      expect(body.wa_sent).toBeGreaterThanOrEqual(1);
+
+      const auditRes = await fetch(
+        `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(
+          `action="send_whatsapp" && actor="${admin2Id}"`
+        )}`,
+        { headers: { Authorization: suToken } }
+      );
+      expect(auditRes.status).toBe(200);
+      const auditBody = await auditRes.json();
+      expect(
+        auditBody.items.length,
+        "send_whatsapp audit row must exist with actor=admin2Id"
+      ).toBeGreaterThanOrEqual(1);
+      const row = auditBody.items[0];
+      expect(row.actor).toBe(admin2Id);
+      const changes = JSON.parse(row.changes);
+      expect(changes.event).toBe("request_escalation");
+    } finally {
+      await deleteRequest(id);
+      await patchAdmin2({ phone: "" });
+    }
+  }, 30_000);
+
   it("deduplicates: second trigger for same request returns already_escalated=1", async () => {
     await patchAdmin2({ phone: "+15551234567" });
     const id = await createOpenRequest();

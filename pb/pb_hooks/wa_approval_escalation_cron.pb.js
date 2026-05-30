@@ -367,6 +367,7 @@ cronAdd("wa_approval_escalation", "*/5 * * * *", function() {
               var waAuditRec = new Record(waAuditCol);
               waAuditRec.set("collection_name", "messages");
               waAuditRec.set("record_id", wamid);
+              waAuditRec.set("actor", admin.id);
               waAuditRec.set("action", "send_whatsapp");
               waAuditRec.set("changes", JSON.stringify({
                 to: toPhone,
@@ -529,7 +530,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
   }
 
   if (!openRequests || openRequests.length === 0) {
-    return c.json(200, { fired: true, skipped: "no_pending_requests", open_requests: 0, admin_phones: 0, escalated: 0, already_escalated: 0, tg_sent: 0 });
+    return c.json(200, { fired: true, skipped: "no_pending_requests", open_requests: 0, admin_phones: 0, escalated: 0, already_escalated: 0, tg_sent: 0, wa_sent: 0 });
   }
 
   // Broadened admin query: include admins with phone OR telegram_chat_id
@@ -545,12 +546,13 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
 
   var adminCount = admins ? admins.length : 0;
   if (adminCount === 0) {
-    return c.json(200, { fired: true, open_requests: openRequests.length, admin_phones: 0, escalated: 0, already_escalated: 0, tg_sent: 0 });
+    return c.json(200, { fired: true, open_requests: openRequests.length, admin_phones: 0, escalated: 0, already_escalated: 0, tg_sent: 0, wa_sent: 0 });
   }
 
   var escalatedCount = 0;
   var alreadyEscalatedCount = 0;
   var tgSentCount = 0;
+  var waSentCount = 0;
 
   // Inline Telegram send (cannot call _sendTelegramEscalation from routerAdd — Goja isolation)
   function inlineSendTelegram(chatId, text) {
@@ -684,7 +686,28 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
           }
         }
       } catch (_) { waPrefAllowed = true; }
-      if (waPrefAllowed && admin.getString("phone")) eligibleWa++;
+      if (waPrefAllowed && admin.getString("phone")) {
+        eligibleWa++;
+        try {
+          var waAuditCol = $app.dao().findCollectionByNameOrId("audit_log");
+          var waAuditRec = new Record(waAuditCol);
+          waAuditRec.set("collection_name", "messages");
+          waAuditRec.set("record_id", "test-dryrun");
+          waAuditRec.set("actor", admin.id);
+          waAuditRec.set("action", "send_whatsapp");
+          waAuditRec.set("changes", JSON.stringify({
+            to: admin.getString("phone"),
+            event: "request_escalation",
+            request_id: requestId,
+            success: false,
+            dryrun: true
+          }));
+          $app.dao().saveRecord(waAuditRec);
+          waSentCount++;
+        } catch (waAuditErr) {
+          console.log("[wa_escalation/_test] wa audit write failed for admin " + admin.id + ":", waAuditErr);
+        }
+      }
 
       // ── TG pref gate + send ──
       var tgChannelOk = false;
@@ -757,6 +780,7 @@ routerAdd("POST", "/_test/wa-approval-escalation", function(c) {
     admin_phones: adminCount,
     escalated: escalatedCount,
     already_escalated: alreadyEscalatedCount,
-    tg_sent: tgSentCount
+    tg_sent: tgSentCount,
+    wa_sent: waSentCount
   });
 });
