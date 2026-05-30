@@ -272,3 +272,150 @@ describe("wa_meta_auto_notify hook", () => {
     expect(tx2Res.status, "second transaction").toBe(200);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Audit actor regression tests (issue #180).
+// Run with fake WA creds so hooks reach the audit-write code path.
+// The $http.send call fails (fake creds/network), but the audit write is in
+// its own try/catch after the HTTP block and always fires.
+// ---------------------------------------------------------------------------
+const TS2 = `wanotify-actor-${Date.now()}`;
+
+describe("wa_meta_auto_notify — send_whatsapp audit actor (issue #180 regression)", () => {
+  let baseUrl, suToken, adminId, adminToken;
+  let requesterId, entityId, kitId;
+
+  beforeAll(async () => {
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "test_phone_id";
+    process.env.WHATSAPP_TOKEN = "test_token";
+
+    const pb = await startPb();
+    baseUrl = pb.baseUrl;
+    suToken = pb.suToken;
+
+    const adminRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent('email="admin@hook-test.local"')}`,
+      { headers: { Authorization: suToken } }
+    );
+    adminId = (await adminRes.json()).items[0]?.id;
+    expect(adminId, "seeded admin must exist").toBeTruthy();
+    adminToken = await authUser(baseUrl, "admin@hook-test.local", "Adminpass1!");
+
+    const rRes = await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: `${TS2}-req@wa.local`,
+        password: "Testpass1!",
+        passwordConfirm: "Testpass1!",
+        name: "ActorTestReq",
+        role: "user",
+        phone: "+972501111111",
+      }),
+    });
+    expect(rRes.status, "create requester").toBe(200);
+    requesterId = (await rRes.json()).id;
+
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: `${TS2}-KIT`, is_active: true }),
+    });
+    expect(kitRes.status, "create kit").toBe(200);
+    kitId = (await kitRes.json()).id;
+
+    const entRes = await fetch(`${baseUrl}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${TS2}-Ent`, category: "field", is_active: true }),
+    });
+    expect(entRes.status, "create entity").toBe(200);
+    entityId = (await entRes.json()).id;
+  }, 60_000);
+
+  afterAll(async () => {
+    await stopPb();
+    delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_TOKEN;
+  });
+
+  it("approved→fulfilled: send_whatsapp audit row has actor=requesterId", async () => {
+    const createRes = await fetch(`${baseUrl}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: requesterId,
+        date: new Date().toISOString().slice(0, 10),
+        delivery_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+        status: "open",
+        designated_kit: kitId,
+        target_entity: entityId,
+      }),
+    });
+    expect(createRes.status, "create request").toBe(200);
+    const req = await createRes.json();
+
+    await fetch(`${baseUrl}/api/collections/requests/records/${req.id}`, {
+      method: "PATCH",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved" }),
+    });
+
+    const fulfillRes = await fetch(`${baseUrl}/api/collections/requests/records/${req.id}`, {
+      method: "PATCH",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "fulfilled" }),
+    });
+    expect(fulfillRes.status, "approved→fulfilled").toBe(200);
+
+    const auditRes = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(
+        `action="send_whatsapp" && actor="${requesterId}"`
+      )}`,
+      { headers: { Authorization: suToken } }
+    );
+    expect(auditRes.status).toBe(200);
+    const rows = (await auditRes.json()).items;
+    expect(rows.length, "send_whatsapp audit row must exist with actor=requesterId").toBeGreaterThanOrEqual(1);
+    expect(rows[0].actor).toBe(requesterId);
+    expect(JSON.parse(rows[0].changes).event).toBe("request_fulfilled");
+  }, 30_000);
+
+  it("request_pending: send_whatsapp audit row has actor=adminId", async () => {
+    await fetch(`${baseUrl}/api/collections/users/records/${adminId}`, {
+      method: "PATCH",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: "+972502222222" }),
+    });
+
+    const createRes = await fetch(`${baseUrl}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: requesterId,
+        date: new Date().toISOString().slice(0, 10),
+        delivery_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+        status: "open",
+      }),
+    });
+    expect(createRes.status, "create request triggers request_pending hook").toBe(200);
+
+    const auditRes = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(
+        `action="send_whatsapp" && actor="${adminId}"`
+      )}`,
+      { headers: { Authorization: suToken } }
+    );
+    expect(auditRes.status).toBe(200);
+    const rows = (await auditRes.json()).items;
+    expect(rows.length, "send_whatsapp audit row must exist with actor=adminId").toBeGreaterThanOrEqual(1);
+    expect(rows[0].actor).toBe(adminId);
+    expect(JSON.parse(rows[0].changes).event).toBe("request_pending");
+
+    await fetch(`${baseUrl}/api/collections/users/records/${adminId}`, {
+      method: "PATCH",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: "" }),
+    });
+  }, 30_000);
+});

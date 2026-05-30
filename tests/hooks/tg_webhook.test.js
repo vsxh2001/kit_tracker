@@ -259,7 +259,7 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
   // ---------- arbitrary message → Phase 5 AI bot routing ----------
 
   it("arbitrary message (not /start) returns 200 no crash", async () => {
-    // Phase 5: chatId 333444555 has no linked user → "not linked" branch.
+    // chatId 333444555 has no linked user → "not linked" branch.
     const res = await postUpdate({
       message: { text: "hello bot", chat: { id: 333444555 } },
     });
@@ -267,14 +267,12 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     expect((await res.json()).ok).toBe(true);
   });
 
-  // Phase 5 routing tests.
+  // Command routing tests.
   //
   // NOTE: TELEGRAM_BOT_TOKEN is unset in the harness → sendTelegram() logs and
-  // skips actual sends. PB_AI_CHAT_URL defaults to 127.0.0.1:<random-port>/api/ai/chat
-  // which is unreachable (the harness PB instance doesn't run the AI handler).
-  // Tests verify identity/routing decisions and that failures degrade to 200 gracefully.
+  // skips actual sends. Tests verify identity/routing decisions only.
 
-  it("[Phase5] unlinked chatId plain text → 200, no crash (not-linked branch)", async () => {
+  it("unlinked chatId plain text → 200, no crash (not-linked branch)", async () => {
     // chatId 811111111 has no user with telegram_chat_id set → "isn't linked" reply
     const res = await postUpdate({
       message: { text: "where is kit 42", chat: { id: 811111111 } },
@@ -362,7 +360,7 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     });
   });
 
-  it("[Phase5] linked + approved user, plain text → 200 even though ai_chat self-call fails in harness", async () => {
+  it("linked + approved user, plain text (no slash) → 200, unknown-command branch", async () => {
     // Create a user with role=user and telegram_chat_id set
     const u4 = await fetch(`${baseUrl}/api/collections/users/records`, {
       method: "POST",
@@ -379,8 +377,7 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     const u4Data = await u4.json();
     expect(u4Data.id).toBeTruthy();
 
-    // ai_chat call will fail (harness PB has no Anthropic key / endpoint unreachable or
-    // returns non-200 without ANTHROPIC_API_KEY) — hook must degrade to 200 gracefully.
+    // P1: plain text (no leading /) → "Unknown command — try /help", still 200 ok.
     const res = await postUpdate({
       message: { text: "where is kit 1", chat: { id: 830000001 } },
     });
@@ -509,5 +506,205 @@ describe("tg_webhook hook — secret-token enforcement", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
+  });
+});
+
+// ===========================================================================
+// P1 command dispatch
+//
+// Seeds: one admin user (linked), one kit at an entity, one product with
+// track_in_status=true, one component of that product in the kit.
+// TELEGRAM_BOT_TOKEN unset → sendTelegram() skips actual sends — tests assert
+// only routing (status 200, ok:true) and visible side-effects.
+// ===========================================================================
+
+describe("tg_webhook P1 — command dispatch", () => {
+  let pb3, baseUrl3, suToken3;
+  const CMD_CHAT_ID = "900000001";
+  let cmdUserId, kitId, entityId, prodId, compId;
+
+  function postCmd(text) {
+    return fetch(`${baseUrl3}/api/tg/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { text, chat: { id: Number(CMD_CHAT_ID) } } }),
+    });
+  }
+
+  beforeAll(async () => {
+    pb3 = await startPb();
+    baseUrl3 = pb3.baseUrl;
+    suToken3 = pb3.suToken;
+
+    // Linked admin user
+    const u = await fetch(`${baseUrl3}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "cmd-user@tg-p1-test.local",
+        password: "Cmdpass1!",
+        passwordConfirm: "Cmdpass1!",
+        role: "admin",
+        name: "P1 CMD User",
+        telegram_chat_id: CMD_CHAT_ID,
+      }),
+    });
+    cmdUserId = (await u.json()).id;
+    expect(cmdUserId).toBeTruthy();
+
+    // Entity
+    const e = await fetch(`${baseUrl3}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "P1 Warehouse", type: "warehouse", is_active: true }),
+    });
+    entityId = (await e.json()).id;
+
+    // Kit
+    const k = await fetch(`${baseUrl3}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: "P1-KIT-001", is_active: true, notes: "p1 test kit" }),
+    });
+    kitId = (await k.json()).id;
+
+    // Transaction: kit → entity
+    const now = new Date().toISOString().replace("T", " ").replace("Z", "") + "Z";
+    await fetch(`${baseUrl3}/api/collections/transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ kit: kitId, to_entity: entityId, timestamp: now, created_by: cmdUserId }),
+    });
+
+    // Product with track_in_status=true
+    const p = await fetch(`${baseUrl3}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "P1 Test Mat", is_active: true, is_serialized: false, track_in_status: true }),
+    });
+    prodId = (await p.json()).id;
+
+    // Component of that product
+    const comp = await fetch(`${baseUrl3}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ product: prodId, quantity: 2, is_active: true }),
+    });
+    compId = (await comp.json()).id;
+
+    // Component_transaction: component → kit
+    await fetch(`${baseUrl3}/api/collections/component_transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ component: compId, to_kit: kitId, quantity: 2, timestamp: now }),
+    });
+  }, 60000);
+
+  afterAll(stopPb);
+
+  it("/help → 200 ok", async () => {
+    const res = await postCmd("/help");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/me → 200 ok", async () => {
+    const res = await postCmd("/me");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/kits → 200 ok (lists the seeded kit)", async () => {
+    const res = await postCmd("/kits");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/kit P1-KIT-001 → 200 ok (tracked product present)", async () => {
+    const res = await postCmd("/kit P1-KIT-001");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/kit P1-KIT-001 all → 200 ok (full contents)", async () => {
+    const res = await postCmd("/kit P1-KIT-001 all");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/kit NOSUCHKIT → 200 ok (not-found branch)", async () => {
+    const res = await postCmd("/kit NOSUCHKIT");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/kit (no serial) → 200 ok (usage hint)", async () => {
+    const res = await postCmd("/kit");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/requests → 200 ok (no open requests → empty message)", async () => {
+    const res = await postCmd("/requests");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/requests → 200 ok (with one open request)", async () => {
+    // Seed an open request
+    const today = new Date().toISOString().slice(0, 10);
+    const req = await fetch(`${baseUrl3}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: cmdUserId,
+        designated_kit: kitId,
+        status: "open",
+        date: today,
+        delivery_date: today,
+      }),
+    });
+    const reqData = await req.json();
+    expect(reqData.id).toBeTruthy();
+
+    const res = await postCmd("/requests");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    // Cleanup
+    await fetch(`${baseUrl3}/api/collections/requests/records/${reqData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken3 },
+    });
+  });
+
+  it("/find P1-KIT → 200 ok (matches seeded kit)", async () => {
+    const res = await postCmd("/find P1-KIT");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/find Warehouse → 200 ok (matches seeded entity)", async () => {
+    const res = await postCmd("/find Warehouse");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/find (no text) → 200 ok (usage hint)", async () => {
+    const res = await postCmd("/find");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("unknown slash command → 200 ok", async () => {
+    const res = await postCmd("/unknowncmd");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("plain text (no slash) from linked user → 200 ok (unknown-command branch)", async () => {
+    const res = await postCmd("hello");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
   });
 });
