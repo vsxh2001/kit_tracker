@@ -264,15 +264,19 @@ describe("wa_approval_escalation_cron hook (/_test/wa-approval-escalation)", () 
       const auditRes = await fetch(
         `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(
           `action="send_whatsapp" && actor="${admin2Id}"`
-        )}`,
+        )}&sort=-created&perPage=50`,
         { headers: { Authorization: suToken } }
       );
       expect(auditRes.status).toBe(200);
       const rows = (await auditRes.json()).items;
-      expect(rows.length, "send_whatsapp audit row must exist with actor set").toBeGreaterThanOrEqual(1);
-      expect(rows[0].actor).toBe(admin2Id);
-      const changes = JSON.parse(rows[0].changes);
-      expect(changes.event).toBe("request_escalation");
+      // Prior describe-block tests may leave request_pending rows for the same
+      // actor; find the escalation row explicitly rather than relying on rows[0].
+      const escalationRow = rows.find((r) => {
+        try { return JSON.parse(r.changes).event === "request_escalation"; }
+        catch (_) { return false; }
+      });
+      expect(escalationRow, "send_whatsapp audit row with event=request_escalation must exist").toBeTruthy();
+      expect(escalationRow.actor).toBe(admin2Id);
     } finally {
       await deleteRequest(id);
       await patchAdmin2({ phone: "" });
