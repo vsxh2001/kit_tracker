@@ -12,7 +12,7 @@
 //   /move <kit> <entity>         — admin/technician only
 //   /approve <handle> [notes]    — admin/technician only
 //   /reject  <handle> [notes]    — admin/technician only
-//   /request <kit> <entity> [YYYY-MM-DD]  — any approved role
+//   /request <kit> <entity> [YYYY-MM-DD]  — admin/technician/user only (viewer excluded)
 //
 // Unknown command / non-slash text → "Unknown command — try /help".
 //
@@ -57,6 +57,15 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
     var result = la.length ^ lb.length;
     for (var i = 0; i < maxLen; i++) result |= (la[i] || 0) ^ (lb[i] || 0);
     return result === 0;
+  }
+
+  // escapeHtml — escape &/</>  for Telegram parse_mode:HTML.
+  // All dynamic values interpolated into reply strings must be wrapped with this.
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   // sendTelegram — copied verbatim from tg_send.pb.js / tg_group_digest.pb.js.
@@ -111,6 +120,14 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         console.log("[tg_webhook] sendTelegram HTTP error: " + e);
       }
     }
+  }
+
+  // reply — send text to the current chatId and return a JSON response body.
+  // The reply text is included in the response for testability (Telegram ignores it).
+  // Use this instead of the sendTelegram(chatId,X); return c.json(200,{ok:true}); pair.
+  function reply(text) {
+    sendTelegram(chatId, text);
+    return c.json(200, { ok: true, reply: text });
   }
 
   // getKitHolder: return current holder name from latest transaction, or "(no transactions)".
@@ -447,8 +464,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         lines.push("/approve &lt;handle&gt; [notes] — approve request");
         lines.push("/reject &lt;handle&gt; [notes] — reject request");
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/me": {
@@ -456,13 +472,12 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       var email = tgUser.getString("email") || "";
       var lines = [
         "<b>Your account</b>",
-        "Name: " + (name || "(none)"),
-        "Email: " + email,
-        "Role: " + tgRole,
-        "Chat ID: " + chatId,
+        "Name: " + escapeHtml(name || "(none)"),
+        "Email: " + escapeHtml(email),
+        "Role: " + escapeHtml(tgRole),
+        "Chat ID: " + escapeHtml(chatId),
       ];
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/kits": {
@@ -474,8 +489,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         console.log("[tg_webhook] /kits query error: " + e);
       }
       if (!kits.length) {
-        sendTelegram(chatId, "No active kits found.");
-        break;
+        return reply("No active kits found.");
       }
       var truncated = kits.length > MAX_KITS;
       var showing = truncated ? kits.slice(0, MAX_KITS) : kits;
@@ -484,20 +498,18 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       for (var ki = 0; ki < showing.length; ki++) {
         var k = showing[ki];
         var holder = getKitHolder(dao, k.id);
-        lines.push("• " + k.getString("serial") + " — " + holder);
+        lines.push("• " + escapeHtml(k.getString("serial")) + " — " + escapeHtml(holder));
       }
       if (truncated) {
         lines.push("… showing " + MAX_KITS + ". Use /kit &lt;serial&gt; for details.");
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/kit": {
       var serial = parts[1] || "";
       if (!serial) {
-        sendTelegram(chatId, "Usage: /kit &lt;serial&gt;  or  /kit &lt;serial&gt; all");
-        break;
+        return reply("Usage: /kit &lt;serial&gt;  or  /kit &lt;serial&gt; all");
       }
       var showAll = (parts[2] || "").toLowerCase() === "all";
 
@@ -513,8 +525,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         );
       } catch (e) {}
       if (!kitArr.length) {
-        sendTelegram(chatId, "Kit not found: " + serial);
-        break;
+        return reply("Kit not found: " + escapeHtml(serial));
       }
       var kit = kitArr[0];
 
@@ -543,10 +554,10 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         byProduct[cpPid].push(cp);
       }
 
-      var lines = ["<b>Kit " + kit.getString("serial") + "</b>"];
-      lines.push("Holder: " + holder);
-      if (lastMoveDate) lines.push("Last move: " + lastMoveDate);
-      if (kitNotes) lines.push("Notes: " + kitNotes);
+      var lines = ["<b>Kit " + escapeHtml(kit.getString("serial")) + "</b>"];
+      lines.push("Holder: " + escapeHtml(holder));
+      if (lastMoveDate) lines.push("Last move: " + escapeHtml(lastMoveDate));
+      if (kitNotes) lines.push("Notes: " + escapeHtml(kitNotes));
 
       // Tracked section
       lines.push("");
@@ -558,13 +569,13 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           var tp = trackedProds[ti];
           var tpComps = byProduct[tp.id] || [];
           if (tpComps.length === 0) {
-            lines.push("  • " + tp.getString("name") + " ✗ missing");
+            lines.push("  • " + escapeHtml(tp.getString("name")) + " ✗ missing");
           } else {
             var qty = 0;
             for (var qi = 0; qi < tpComps.length; qi++) {
               qty += (tpComps[qi].getInt("quantity") || 1);
             }
-            lines.push("  • " + tp.getString("name") + " ✓ \xd7" + qty);
+            lines.push("  • " + escapeHtml(tp.getString("name")) + " ✓ \xd7" + qty);
           }
         }
       }
@@ -591,20 +602,19 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
             var isSerialized = prod && prod.getBool("is_serialized");
             var compSerial = comp2.getString("serial") || "";
             if (isSerialized && compSerial) {
-              lines.push("  • " + pname + " \xb7SN" + compSerial);
+              lines.push("  • " + escapeHtml(pname) + " \xb7SN" + escapeHtml(compSerial));
             } else {
               var qty2 = comp2.getInt("quantity") || 1;
-              lines.push("  • " + pname + " \xd7" + qty2);
+              lines.push("  • " + escapeHtml(pname) + " \xd7" + qty2);
             }
           }
         }
-        lines.push("(/kit " + serial + " for tracked summary)");
+        lines.push("(/kit " + escapeHtml(serial) + " for tracked summary)");
       } else {
-        lines.push("(/kit " + serial + " all for full contents)");
+        lines.push("(/kit " + escapeHtml(serial) + " all for full contents)");
       }
 
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/requests": {
@@ -613,8 +623,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         reqs = dao.findRecordsByFilter("requests", "status = 'open'", "-created", 20, 0);
       } catch (e) {}
       if (!reqs.length) {
-        sendTelegram(chatId, "No open requests.");
-        break;
+        return reply("No open requests.");
       }
       var lines = ["<b>Open requests (" + reqs.length + ")</b>"];
       for (var ri = 0; ri < reqs.length; ri++) {
@@ -638,17 +647,15 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         }
         var delivDate = (req.getString("delivery_date") || req.getString("date") || "").slice(0, 10);
         var kitLabel = reqKitSerial || "(any kit)";
-        lines.push("[" + handle + "] " + reqName + " → " + kitLabel + (delivDate ? " by " + delivDate : ""));
+        lines.push("[" + escapeHtml(handle) + "] " + escapeHtml(reqName) + " → " + escapeHtml(kitLabel) + (delivDate ? " by " + escapeHtml(delivDate) : ""));
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/find": {
       var query = parts.slice(1).join(" ");
       if (!query) {
-        sendTelegram(chatId, "Usage: /find &lt;text&gt;");
-        break;
+        return reply("Usage: /find &lt;text&gt;");
       }
 
       var matchedKits = [];
@@ -675,7 +682,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         );
       } catch (e) {}
 
-      var lines = ["<b>Search: " + query + "</b>"];
+      var lines = ["<b>Search: " + escapeHtml(query) + "</b>"];
       if (!matchedKits.length && !matchedEntities.length) {
         lines.push("No results found.");
       } else {
@@ -684,7 +691,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           for (var mki = 0; mki < matchedKits.length; mki++) {
             var mk = matchedKits[mki];
             var mkNotes = mk.getString("notes") || "";
-            lines.push("  • " + mk.getString("serial") + (mkNotes ? " — " + mkNotes : ""));
+            lines.push("  • " + escapeHtml(mk.getString("serial")) + (mkNotes ? " — " + escapeHtml(mkNotes) : ""));
           }
         }
         if (matchedEntities.length) {
@@ -692,12 +699,11 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           for (var mei = 0; mei < matchedEntities.length; mei++) {
             var me = matchedEntities[mei];
             var meType = me.getString("type") || "";
-            lines.push("  • " + me.getString("name") + (meType ? " (" + meType + ")" : ""));
+            lines.push("  • " + escapeHtml(me.getString("name")) + (meType ? " (" + escapeHtml(meType) + ")" : ""));
           }
         }
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     // -----------------------------------------------------------------------
@@ -706,14 +712,12 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
 
     case "/move": {
       if (tgRole !== "admin" && tgRole !== "technician") {
-        sendTelegram(chatId, "Permission denied. /move requires admin or technician role.");
-        break;
+        return reply("Permission denied. /move requires admin or technician role.");
       }
       var mvSerial = parts[1] || "";
       var mvEntityRaw = parts.slice(2).join(" ");
       if (!mvSerial || !mvEntityRaw) {
-        sendTelegram(chatId, "Usage: /move &lt;kit-serial&gt; &lt;entity-name&gt;");
-        break;
+        return reply("Usage: /move &lt;kit-serial&gt; &lt;entity-name&gt;");
       }
 
       // Resolve kit (exact serial, active)
@@ -722,8 +726,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         mvKitArr = dao.findRecordsByFilter("kits", "serial = {:s} && is_active = true", "", 1, 0, { s: mvSerial });
       } catch (e) {}
       if (!mvKitArr.length) {
-        sendTelegram(chatId, "Kit not found: " + mvSerial);
-        break;
+        return reply("Kit not found: " + escapeHtml(mvSerial));
       }
       var mvKit = mvKitArr[0];
 
@@ -739,12 +742,10 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         }
       }
       if (!mvEntityMatches.length) {
-        sendTelegram(chatId, "Entity not found: " + mvEntityRaw);
-        break;
+        return reply("Entity not found: " + escapeHtml(mvEntityRaw));
       }
       if (mvEntityMatches.length > 1) {
-        sendTelegram(chatId, "Ambiguous entity name: " + mvEntityRaw + ". Contact admin.");
-        break;
+        return reply("Ambiguous entity name: " + escapeHtml(mvEntityRaw) + ". Contact admin.");
       }
       var mvEntity = mvEntityMatches[0];
 
@@ -768,8 +769,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         dao.saveRecord(mvTxRec);
       } catch (e) {
         console.log("[tg_webhook] /move saveRecord error: " + e);
-        sendTelegram(chatId, "Error creating transaction. Please try again.");
-        break;
+        return reply("Error creating transaction. Please try again.");
       }
 
       // Audit log (actor required — do not swallow)
@@ -786,20 +786,17 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         console.log("[tg_webhook] /move audit error: " + auditE);
       }
 
-      sendTelegram(chatId, "Moved " + mvSerial + " → " + mvEntity.getString("name"));
-      break;
+      return reply("Moved " + escapeHtml(mvSerial) + " → " + escapeHtml(mvEntity.getString("name")));
     }
 
     case "/approve":
     case "/reject": {
       if (tgRole !== "admin" && tgRole !== "technician") {
-        sendTelegram(chatId, "Permission denied. /" + cmd.slice(1) + " requires admin or technician role.");
-        break;
+        return reply("Permission denied. /" + cmd.slice(1) + " requires admin or technician role.");
       }
       var dcHandle = parts[1] || "";
       if (!dcHandle) {
-        sendTelegram(chatId, "Usage: /" + cmd.slice(1) + " &lt;handle&gt; [notes]");
-        break;
+        return reply("Usage: /" + cmd.slice(1) + " &lt;handle&gt; [notes]");
       }
       var dcNotes = parts.slice(2).join(" ");
 
@@ -813,12 +810,10 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         if (dcOpenReqs[dci].id.slice(-6) === dcHandle) dcMatching.push(dcOpenReqs[dci]);
       }
       if (!dcMatching.length) {
-        sendTelegram(chatId, "No open request found with handle: " + dcHandle);
-        break;
+        return reply("No open request found with handle: " + escapeHtml(dcHandle));
       }
       if (dcMatching.length > 1) {
-        sendTelegram(chatId, "Ambiguous handle (multiple open requests match). Contact admin.");
-        break;
+        return reply("Ambiguous handle (multiple open requests match). Contact admin.");
       }
       var dcReq = dcMatching[0];
       var dcNewStatus = (cmd === "/approve") ? "approved" : "rejected";
@@ -828,8 +823,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         dao.saveRecord(dcReq);
       } catch (e) {
         console.log("[tg_webhook] /" + cmd.slice(1) + " saveRecord error: " + e);
-        sendTelegram(chatId, "Error updating request. Please try again.");
-        break;
+        return reply("Error updating request. Please try again.");
       }
 
       // Audit log (actor required)
@@ -847,12 +841,16 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       }
 
       var dcVerb = (cmd === "/approve") ? "Approved" : "Rejected";
-      sendTelegram(chatId, dcVerb + " request [" + dcHandle + "]");
-      break;
+      return reply(dcVerb + " request [" + escapeHtml(dcHandle) + "]");
     }
 
     case "/request": {
-      // Any approved role (non-empty, non-denied) — already checked above.
+      // SECURITY: viewer role must not create requests — PB createRule excludes viewer,
+      // but dao.saveRecord() bypasses collection rules. Gate explicitly here.
+      if (tgRole !== "admin" && tgRole !== "technician" && tgRole !== "user") {
+        return reply("Permission denied — /request requires a requester role.");
+      }
+
       var rqKit = parts[1] || "";
       // Remaining args: entity name, with optional YYYY-MM-DD at the end.
       var rqRemainder = parts.slice(2);
@@ -868,8 +866,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         }
       }
       if (!rqKit || !rqEntityRaw) {
-        sendTelegram(chatId, "Usage: /request &lt;kit-serial&gt; &lt;entity-name&gt; [YYYY-MM-DD]");
-        break;
+        return reply("Usage: /request &lt;kit-serial&gt; &lt;entity-name&gt; [YYYY-MM-DD]");
       }
       if (!rqDate) rqDate = new Date().toISOString().slice(0, 10);
 
@@ -879,8 +876,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         rqKitArr = dao.findRecordsByFilter("kits", "serial = {:s} && is_active = true", "", 1, 0, { s: rqKit });
       } catch (e) {}
       if (!rqKitArr.length) {
-        sendTelegram(chatId, "Kit not found: " + rqKit);
-        break;
+        return reply("Kit not found: " + escapeHtml(rqKit));
       }
       var rqKitRec = rqKitArr[0];
 
@@ -896,12 +892,10 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         }
       }
       if (!rqEntityMatches.length) {
-        sendTelegram(chatId, "Entity not found: " + rqEntityRaw);
-        break;
+        return reply("Entity not found: " + escapeHtml(rqEntityRaw));
       }
       if (rqEntityMatches.length > 1) {
-        sendTelegram(chatId, "Ambiguous entity name: " + rqEntityRaw + ". Contact admin.");
-        break;
+        return reply("Ambiguous entity name: " + escapeHtml(rqEntityRaw) + ". Contact admin.");
       }
       var rqEntityRec = rqEntityMatches[0];
 
@@ -919,8 +913,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         dao.saveRecord(rqRec);
       } catch (e) {
         console.log("[tg_webhook] /request saveRecord error: " + e);
-        sendTelegram(chatId, "Error creating request. Please try again.");
-        break;
+        return reply("Error creating request. Please try again.");
       }
 
       // Audit log (actor required)
@@ -937,13 +930,11 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         console.log("[tg_webhook] /request audit error: " + auditE);
       }
 
-      sendTelegram(chatId, "Requested kit " + rqKit + " → " + rqEntityRec.getString("name") + " by " + rqDate);
-      break;
+      return reply("Requested kit " + escapeHtml(rqKit) + " → " + escapeHtml(rqEntityRec.getString("name")) + " by " + escapeHtml(rqDate));
     }
 
     default: {
-      sendTelegram(chatId, "Unknown command — try /help");
-      break;
+      return reply("Unknown command — try /help");
     }
   }
 

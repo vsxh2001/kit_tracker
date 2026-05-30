@@ -852,19 +852,23 @@ describe("tg_webhook P2 — write commands", () => {
     expect((await res.json()).ok).toBe(true);
   });
 
-  it("/move — kit not found → 200 ok, error reply", async () => {
+  it("/move — kit not found → 200 ok, reply contains error text", async () => {
     const res = await postAs(CHAT_ADMIN, "/move NOSUCHKIT P2 Entity Beta");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("Kit not found");
   });
 
-  it("/move — entity not found → 200 ok, error reply", async () => {
+  it("/move — entity not found → 200 ok, reply contains error text", async () => {
     const res = await postAs(CHAT_ADMIN, "/move P2-KIT-001 No Such Entity");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("Entity not found");
   });
 
-  it("/move — admin happy path → creates transaction + audit row with actor set", async () => {
+  it("/move — admin happy path → creates transaction + audit row with actor set + reply has kit+entity", async () => {
     const txBefore = await fetch(
       `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
       { headers: { Authorization: suToken4 } }
@@ -873,7 +877,11 @@ describe("tg_webhook P2 — write commands", () => {
 
     const res = await postAs(CHAT_ADMIN, "/move P2-KIT-001 P2 Entity Beta");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const moveBody = await res.json();
+    expect(moveBody.ok).toBe(true);
+    expect(moveBody.reply).toContain("Moved");
+    expect(moveBody.reply).toContain("P2-KIT-001");
+    expect(moveBody.reply).toContain("P2 Entity Beta");
 
     const txAfter = await fetch(
       `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
@@ -921,10 +929,12 @@ describe("tg_webhook P2 — write commands", () => {
     expect((await res.json()).ok).toBe(true);
   });
 
-  it("/approve — handle not found → 200 ok, error reply", async () => {
+  it("/approve — handle not found → 200 ok, reply contains error text", async () => {
     const res = await postAs(CHAT_ADMIN, "/approve zzzzzz");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("No open request found with handle");
   });
 
   it("/approve — user role → permission denied, request status unchanged", async () => {
@@ -964,7 +974,10 @@ describe("tg_webhook P2 — write commands", () => {
 
     const res = await postAs(CHAT_ADMIN, `/approve ${handle} Looks good!`);
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const approveBody = await res.json();
+    expect(approveBody.ok).toBe(true);
+    expect(approveBody.reply).toContain("Approved");
+    expect(approveBody.reply).toContain(handle);
 
     const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
       headers: { Authorization: suToken4 },
@@ -1057,10 +1070,14 @@ describe("tg_webhook P2 — write commands", () => {
     expect((await res.json()).ok).toBe(true);
   });
 
-  it("/request — admin happy path (no date) → open request created + audit row actor set", async () => {
+  it("/request — admin happy path (no date) → open request created + reply has kit+entity + audit row actor set", async () => {
     const res = await postAs(CHAT_ADMIN, "/request P2-KIT-001 P2 Entity Beta");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const reqBody = await res.json();
+    expect(reqBody.ok).toBe(true);
+    expect(reqBody.reply).toContain("Requested");
+    expect(reqBody.reply).toContain("P2-KIT-001");
+    expect(reqBody.reply).toContain("P2 Entity Beta");
 
     const listRes = await fetch(
       `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(`designated_kit="${kitId4}"&&requester="${adminId4}"&&status="open"`)}&sort=-created`,
@@ -1104,5 +1121,180 @@ describe("tg_webhook P2 — write commands", () => {
     const listData = await listRes.json();
     expect(listData.totalItems).toBeGreaterThan(0);
     expect(listData.items[0].delivery_date.startsWith("2026-12-31")).toBe(true);
+  });
+
+  // ---------- /request — viewer role security gate (Bug 1 regression test) ----------
+
+  it("/request — viewer role → permission denied, NO new request row created", async () => {
+    const CHAT_VIEWER = "940000099";
+
+    // Seed a viewer user linked to CHAT_VIEWER
+    const uv = await fetch(`${baseUrl4}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "p2-viewer@tg-p2-test.local",
+        password: "P2viewerpass1!",
+        passwordConfirm: "P2viewerpass1!",
+        role: "viewer",
+        name: "P2 Viewer",
+        telegram_chat_id: CHAT_VIEWER,
+      }),
+    });
+    const uvData = await uv.json();
+    expect(uvData.id).toBeTruthy();
+
+    // Count requests before attempt
+    const beforeRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(`requester="${uvData.id}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const beforeCount = (await beforeRes.json()).totalItems;
+
+    // Viewer sends /request — must be denied
+    const res = await fetch(`${baseUrl4}/api/tg/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { text: "/request P2-KIT-001 P2 Entity Alpha", chat: { id: Number(CHAT_VIEWER) } } }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    // Must reply with permission denied — not a successful request
+    expect(body.reply).toContain("Permission denied");
+
+    // Assert NO new request row was created for this viewer
+    const afterRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(`requester="${uvData.id}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterCount = (await afterRes.json()).totalItems;
+    expect(afterCount).toBe(beforeCount); // no new row
+
+    // Cleanup
+    await fetch(`${baseUrl4}/api/collections/users/records/${uvData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken4 },
+    });
+  });
+});
+
+// ===========================================================================
+// HTML-escape regression tests (Bug 2)
+//
+// Verifies that dynamic values containing &, <, > are properly escaped in
+// all command replies. Telegram parse_mode:HTML rejects unescaped chars and
+// silently drops the whole reply — these tests catch any regression.
+//
+// Seeds: admin user, entity named "R&D <test>", kit with notes "A < B & C > D".
+// ===========================================================================
+
+describe("tg_webhook — HTML-escape regression", () => {
+  let pb5, baseUrl5, suToken5;
+  const ESCAPE_CHAT = "950000001";
+  let escapeUserId, escapeKitId, escapeEntityId, escapeKitSerial;
+
+  function postCmd5(text) {
+    return fetch(`${baseUrl5}/api/tg/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { text, chat: { id: Number(ESCAPE_CHAT) } } }),
+    });
+  }
+
+  beforeAll(async () => {
+    pb5 = await startPb();
+    baseUrl5 = pb5.baseUrl;
+    suToken5 = pb5.suToken;
+
+    // Linked admin user
+    const u = await fetch(`${baseUrl5}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken5, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "escape-user@tg-escape-test.local",
+        password: "Escapepass1!",
+        passwordConfirm: "Escapepass1!",
+        role: "admin",
+        name: "Escape & Test <User>",
+        telegram_chat_id: ESCAPE_CHAT,
+      }),
+    });
+    const uData = await u.json();
+    escapeUserId = uData.id;
+    expect(escapeUserId).toBeTruthy();
+
+    // Entity with & and <> in name (the core escape test entity)
+    const e = await fetch(`${baseUrl5}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken5, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "R&D <test>", category: "field", is_active: true }),
+    });
+    escapeEntityId = (await e.json()).id;
+    expect(escapeEntityId).toBeTruthy();
+
+    // Kit with & and <> in notes
+    escapeKitSerial = "ESC-KIT-001";
+    const k = await fetch(`${baseUrl5}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken5, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: escapeKitSerial, is_active: true, notes: "A < B & C > D" }),
+    });
+    escapeKitId = (await k.json()).id;
+    expect(escapeKitId).toBeTruthy();
+
+    // Transaction: kit → entity so /kit shows a holder
+    const now = new Date().toISOString().replace("T", " ").replace("Z", "") + "Z";
+    await fetch(`${baseUrl5}/api/collections/transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken5, "Content-Type": "application/json" },
+      body: JSON.stringify({ kit: escapeKitId, to_entity: escapeEntityId, timestamp: now, created_by: escapeUserId }),
+    });
+  }, 60000);
+
+  afterAll(stopPb);
+
+  it("/find R&D → reply contains escaped &amp; and &lt; (not raw chars)", async () => {
+    const res = await postCmd5("/find R&D");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toBeDefined();
+    // The entity name "R&D <test>" must be escaped in the reply
+    expect(body.reply).toContain("R&amp;D");
+    expect(body.reply).toContain("&lt;test&gt;");
+    // Must NOT contain raw unescaped chars in the entity name portion
+    // (the search header "Search: R&D" also gets escaped)
+    expect(body.reply).not.toMatch(/R&D(?!;)/); // raw & not followed by entity ref
+  });
+
+  it("/kit ESC-KIT-001 → reply has escaped notes (A &lt; B &amp; C &gt; D)", async () => {
+    const res = await postCmd5("/kit ESC-KIT-001");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toBeDefined();
+    expect(body.reply).toContain("&lt;");
+    expect(body.reply).toContain("&amp;");
+    expect(body.reply).toContain("&gt;");
+  });
+
+  it("/kit ESC-KIT-001 → reply has escaped holder (entity named R&D <test>)", async () => {
+    const res = await postCmd5("/kit ESC-KIT-001");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reply).toContain("R&amp;D");
+    expect(body.reply).toContain("&lt;test&gt;");
+  });
+
+  it("/me → reply has escaped name containing & and < >", async () => {
+    const res = await postCmd5("/me");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toBeDefined();
+    // Name "Escape & Test <User>" must be escaped
+    expect(body.reply).toContain("Escape &amp; Test");
+    expect(body.reply).toContain("&lt;User&gt;");
   });
 });
