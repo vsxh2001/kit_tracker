@@ -52,25 +52,3 @@ export async function getTelegramStatus(): Promise<TelegramStatus> {
   return res as TelegramStatus;
 }
 
-export type TelegramRecipientFilter =
-  | { type: "role"; value: string }
-  | { type: "chat_ids"; value: string[] };
-
-export interface TelegramBroadcastResult {
-  total: number;
-  sent: number;
-  failed: number;
-}
-
-export async function broadcastTelegram(
-  recipientFilter: TelegramRecipientFilter,
-  text: string
-): Promise<TelegramBroadcastResult> {
-  const res = await pb.send("/api/tg/broadcast", {
-    method: "POST",
-    requestKey: "tg-broadcast",
-    body: JSON.stringify({ recipientFilter, text }),
-    headers: { "Content-Type": "application/json" },
-  });
-  return res as TelegramBroadcastResult;
-}
