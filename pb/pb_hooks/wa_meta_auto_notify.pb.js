@@ -13,79 +13,11 @@
 // PB v0.22 Goja isolation: ALL logic inlined per callback. No cross-callback scope.
 // Best-effort: failed sends log to audit_log but never block the underlying save.
 
-// ---------------------------------------------------------------------------
-// notificationAllowed(user, channel, event) — inline pref gate.
-// Empty/missing prefs → full opt-in (preserves existing behavior).
-// channel: "whatsapp" | "email"
-// event: "request_fulfilled" | "kit_moved" | "maintenance_digest" | "overdue_return"
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// _isInQuietHours(user) — returns true if current time is in quiet hours for user.
-// Reads prefs.quiet_hours: { enabled, start "HH:MM", end "HH:MM", timezone }
-// ---------------------------------------------------------------------------
-function _isInQuietHours(user) {
-  var raw = user.getString("notification_prefs") || "";
-  if (!raw || !raw.trim()) return false;
-  try {
-    var prefs = JSON.parse(raw);
-    if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
-    var tz = prefs.quiet_hours.timezone || "UTC";
-    var start = prefs.quiet_hours.start || "22:00";
-    var end = prefs.quiet_hours.end || "08:00";
-
-    // Get current local HH:MM in user's timezone
-    var nowHHMM = (function(tz) {
-      try {
-        var fmt = new Intl.DateTimeFormat("en-US", {
-          timeZone: tz,
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false
-        });
-        var parts = fmt.formatToParts(new Date());
-        var h = parts.find(function(p) { return p.type === "hour"; }).value;
-        var m = parts.find(function(p) { return p.type === "minute"; }).value;
-        return h + ":" + m;
-      } catch (_) {
-        var d = new Date();
-        return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
-      }
-    })(tz);
-
-    // Compare HH:MM strings lexicographically (works for 00:00–23:59)
-    if (start <= end) {
-      // Normal range e.g. 08:00–22:00
-      return nowHHMM >= start && nowHHMM < end;
-    } else {
-      // Cross-midnight range e.g. 22:00–08:00
-      return nowHHMM >= start || nowHHMM < end;
-    }
-  } catch (_) {
-    return false; // malformed → don't suppress
-  }
-}
-
-function _waNotifAllowed(user, channel, event) {
-  var raw = user.getString("notification_prefs") || "";
-  if (!raw || !raw.trim()) return true; // no prefs set → opt-in for all
-  try {
-    var prefs = JSON.parse(raw);
-    // channels check
-    var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
-    var chanOk = false;
-    for (var ci = 0; ci < channels.length; ci++) {
-      if (channels[ci] === channel) { chanOk = true; break; }
-    }
-    if (!chanOk) return false;
-    // event check
-    var events = (prefs && prefs.events) ? prefs.events : {};
-    if (typeof events[event] === "boolean") return events[event];
-    return true; // event not specified → opt-in
-  } catch (_) {
-    return true; // malformed JSON → opt-in
-  }
-}
+// Notification gating helpers (_waNotifAllowed, _isInQuietHours) are inlined
+// at the top of each callback's try block — PB v0.22 Goja isolation means
+// file-scope function declarations are NOT visible inside hook callbacks.
+// Do NOT add file-scope helpers expecting cross-callback reuse; they will
+// silently throw ReferenceError inside the callback's try/catch.
 
 // ---------------------------------------------------------------------------
 // Request fulfilled — approved → fulfilled transition notifies requester
@@ -93,6 +25,50 @@ function _waNotifAllowed(user, channel, event) {
 onRecordAfterUpdateRequest(function(e) {
   // Must run in try/catch — failure must NOT block the update response.
   try {
+    // PB v0.22 Goja isolation: file-scope helpers are not visible inside
+    // hook callbacks. Inline _waNotifAllowed and _isInQuietHours here.
+    function _isInQuietHours(user) {
+      var raw = user.getString("notification_prefs") || "";
+      if (!raw || !raw.trim()) return false;
+      try {
+        var prefs = JSON.parse(raw);
+        if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+        var tz = prefs.quiet_hours.timezone || "UTC";
+        var start = prefs.quiet_hours.start || "22:00";
+        var end = prefs.quiet_hours.end || "08:00";
+        var nowHHMM = (function(tz) {
+          try {
+            var fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+            var parts = fmt.formatToParts(new Date());
+            var h = parts.find(function(p) { return p.type === "hour"; }).value;
+            var m = parts.find(function(p) { return p.type === "minute"; }).value;
+            return h + ":" + m;
+          } catch (_) {
+            var d = new Date();
+            return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+          }
+        })(tz);
+        if (start <= end) return nowHHMM >= start && nowHHMM < end;
+        return nowHHMM >= start || nowHHMM < end;
+      } catch (_) { return false; }
+    }
+    function _waNotifAllowed(user, channel, event) {
+      var raw = user.getString("notification_prefs") || "";
+      if (!raw || !raw.trim()) return true;
+      try {
+        var prefs = JSON.parse(raw);
+        var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+        var chanOk = false;
+        for (var ci = 0; ci < channels.length; ci++) {
+          if (channels[ci] === channel) { chanOk = true; break; }
+        }
+        if (!chanOk) return false;
+        var events = (prefs && prefs.events) ? prefs.events : {};
+        if (typeof events[event] === "boolean") return events[event];
+        return true;
+      } catch (_) { return true; }
+    }
+
     var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
     var token = $os.getenv("WHATSAPP_TOKEN") || "";
     if (!phoneNumberId || !token) return; // no creds — skip silently
@@ -243,6 +219,49 @@ onRecordAfterUpdateRequest(function(e) {
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
   try {
+    // PB v0.22 Goja isolation: inline helpers (see request_fulfilled callback).
+    function _isInQuietHours(user) {
+      var raw = user.getString("notification_prefs") || "";
+      if (!raw || !raw.trim()) return false;
+      try {
+        var prefs = JSON.parse(raw);
+        if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+        var tz = prefs.quiet_hours.timezone || "UTC";
+        var start = prefs.quiet_hours.start || "22:00";
+        var end = prefs.quiet_hours.end || "08:00";
+        var nowHHMM = (function(tz) {
+          try {
+            var fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+            var parts = fmt.formatToParts(new Date());
+            var h = parts.find(function(p) { return p.type === "hour"; }).value;
+            var m = parts.find(function(p) { return p.type === "minute"; }).value;
+            return h + ":" + m;
+          } catch (_) {
+            var d = new Date();
+            return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+          }
+        })(tz);
+        if (start <= end) return nowHHMM >= start && nowHHMM < end;
+        return nowHHMM >= start || nowHHMM < end;
+      } catch (_) { return false; }
+    }
+    function _waNotifAllowed(user, channel, event) {
+      var raw = user.getString("notification_prefs") || "";
+      if (!raw || !raw.trim()) return true;
+      try {
+        var prefs = JSON.parse(raw);
+        var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+        var chanOk = false;
+        for (var ci = 0; ci < channels.length; ci++) {
+          if (channels[ci] === channel) { chanOk = true; break; }
+        }
+        if (!chanOk) return false;
+        var events = (prefs && prefs.events) ? prefs.events : {};
+        if (typeof events[event] === "boolean") return events[event];
+        return true;
+      } catch (_) { return true; }
+    }
+
     var phoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID") || "";
     var token = $os.getenv("WHATSAPP_TOKEN") || "";
     if (!phoneNumberId || !token) return; // no creds — skip silently
@@ -454,6 +473,49 @@ onRecordAfterCreateRequest(function(e) {
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
   try {
+    // PB v0.22 Goja isolation: inline helpers (see request_fulfilled callback).
+    function _isInQuietHours(user) {
+      var raw = user.getString("notification_prefs") || "";
+      if (!raw || !raw.trim()) return false;
+      try {
+        var prefs = JSON.parse(raw);
+        if (!prefs || !prefs.quiet_hours || !prefs.quiet_hours.enabled) return false;
+        var tz = prefs.quiet_hours.timezone || "UTC";
+        var start = prefs.quiet_hours.start || "22:00";
+        var end = prefs.quiet_hours.end || "08:00";
+        var nowHHMM = (function(tz) {
+          try {
+            var fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+            var parts = fmt.formatToParts(new Date());
+            var h = parts.find(function(p) { return p.type === "hour"; }).value;
+            var m = parts.find(function(p) { return p.type === "minute"; }).value;
+            return h + ":" + m;
+          } catch (_) {
+            var d = new Date();
+            return ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2);
+          }
+        })(tz);
+        if (start <= end) return nowHHMM >= start && nowHHMM < end;
+        return nowHHMM >= start || nowHHMM < end;
+      } catch (_) { return false; }
+    }
+    function _waNotifAllowed(user, channel, event) {
+      var raw = user.getString("notification_prefs") || "";
+      if (!raw || !raw.trim()) return true;
+      try {
+        var prefs = JSON.parse(raw);
+        var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+        var chanOk = false;
+        for (var ci = 0; ci < channels.length; ci++) {
+          if (channels[ci] === channel) { chanOk = true; break; }
+        }
+        if (!chanOk) return false;
+        var events = (prefs && prefs.events) ? prefs.events : {};
+        if (typeof events[event] === "boolean") return events[event];
+        return true;
+      } catch (_) { return true; }
+    }
+
     // Opt-in guard
     var notifyMoves = $os.getenv("WHATSAPP_NOTIFY_MOVES") || "";
     if (notifyMoves !== "1") return;
