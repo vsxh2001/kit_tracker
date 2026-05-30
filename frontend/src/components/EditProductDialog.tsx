@@ -30,6 +30,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [url, setUrl] = useState(product.url ?? "");
   const [specs, setSpecs] = useState(product.specs ?? "");
   const [isSerialized, setIsSerialized] = useState(product.is_serialized ?? true);
+  const [trackInStatus, setTrackInStatus] = useState(product.track_in_status ?? false);
   const [activeComponentCount, setActiveComponentCount] = useState(0);
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
@@ -46,6 +47,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         setUrl(product.url ?? "");
         setSpecs(product.specs ?? "");
         setIsSerialized(product.is_serialized ?? true);
+        setTrackInStatus(product.track_in_status ?? false);
         setActiveComponentCount(0);
         setError("");
         setSpecsError("");
@@ -94,6 +96,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         url: url.trim() || "",
         specs: specs.trim() || "",
         is_serialized: isSerialized,
+        track_in_status: trackInStatus,
       });
       toast({ title: "Product updated", description: name.trim(), variant: "success" });
       onSuccess();
@@ -193,6 +196,19 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
               Cannot change — {activeComponentCount} active component{activeComponentCount !== 1 ? "s" : ""} exist{activeComponentCount === 1 ? "s" : ""}.
             </p>
           )}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="edit-prod-track-in-status"
+              checked={trackInStatus}
+              onChange={(e) => setTrackInStatus(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <div>
+              <Label htmlFor="edit-prod-track-in-status">Track in kit status</Label>
+              <p className="text-xs text-muted-foreground">Show this product&apos;s presence in /kit status</p>
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="edit-prod-specs">Specs (JSON)</Label>
             <Textarea
