@@ -552,11 +552,11 @@ describe("tg_webhook P1 — command dispatch", () => {
     cmdUserId = (await u.json()).id;
     expect(cmdUserId).toBeTruthy();
 
-    // Entity
+    // Entity (category required since migration 1778970000)
     const e = await fetch(`${baseUrl3}/api/collections/entities/records`, {
       method: "POST",
       headers: { Authorization: suToken3, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "P1 Warehouse", type: "warehouse", is_active: true }),
+      body: JSON.stringify({ name: "P1 Warehouse", category: "storage", is_active: true }),
     });
     entityId = (await e.json()).id;
 
@@ -592,65 +592,97 @@ describe("tg_webhook P1 — command dispatch", () => {
     });
     compId = (await comp.json()).id;
 
-    // Component_transaction: component → kit
+    // Component_transaction: component → kit (created_by required by schema)
     await fetch(`${baseUrl3}/api/collections/component_transactions/records`, {
       method: "POST",
       headers: { Authorization: suToken3, "Content-Type": "application/json" },
-      body: JSON.stringify({ component: compId, to_kit: kitId, quantity: 2, timestamp: now }),
+      body: JSON.stringify({ component: compId, to_kit: kitId, quantity: 2, timestamp: now, created_by: cmdUserId }),
     });
   }, 60000);
 
   afterAll(stopPb);
 
-  it("/help → 200 ok", async () => {
+  it("/help → 200 ok, reply lists commands", async () => {
     const res = await postCmd("/help");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("/kit");
+    expect(body.reply).toContain("/requests");
+    expect(body.reply).toContain("/find");
+    expect(body.reply).toContain("/me");
   });
 
-  it("/me → 200 ok", async () => {
+  it("/me → 200 ok, reply contains user role", async () => {
     const res = await postCmd("/me");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("admin");
   });
 
-  it("/kits → 200 ok (lists the seeded kit)", async () => {
+  it("/kits → 200 ok, reply lists the seeded kit serial", async () => {
     const res = await postCmd("/kits");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("P1-KIT-001");
   });
 
-  it("/kit P1-KIT-001 → 200 ok (tracked product present)", async () => {
+  it("/kit P1-KIT-001 → tracked product present: reply contains product name and ✓", async () => {
     const res = await postCmd("/kit P1-KIT-001");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("P1 Test Mat");
+    expect(body.reply).toContain("✓");
   });
 
-  it("/kit P1-KIT-001 all → 200 ok (full contents)", async () => {
+  it("/kit P1-KIT-001 → tracked product present: reply does NOT show ✗ for the present product", async () => {
+    const res = await postCmd("/kit P1-KIT-001");
+    const body = await res.json();
+    // The product IS present, so its line should show ✓ not ✗
+    const lines = body.reply.split("\n");
+    const matLine = lines.find((l) => l.includes("P1 Test Mat"));
+    expect(matLine).toBeTruthy();
+    expect(matLine).toContain("✓");
+    expect(matLine).not.toContain("✗");
+  });
+
+  it("/kit P1-KIT-001 all → 200 ok, full contents contains the component product name", async () => {
     const res = await postCmd("/kit P1-KIT-001 all");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("P1 Test Mat");
+    expect(body.reply).toContain("Contents:");
   });
 
-  it("/kit NOSUCHKIT → 200 ok (not-found branch)", async () => {
+  it("/kit NOSUCHKIT → 200 ok, not-found reply", async () => {
     const res = await postCmd("/kit NOSUCHKIT");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("not found");
   });
 
-  it("/kit (no serial) → 200 ok (usage hint)", async () => {
+  it("/kit (no serial) → 200 ok, usage hint", async () => {
     const res = await postCmd("/kit");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("Usage");
   });
 
-  it("/requests → 200 ok (no open requests → empty message)", async () => {
+  it("/requests → 200 ok, empty message when no open requests", async () => {
     const res = await postCmd("/requests");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("No open");
   });
 
-  it("/requests → 200 ok (with one open request)", async () => {
+  it("/requests → 200 ok, reply contains 6-char id handle when open request exists", async () => {
     // Seed an open request
     const today = new Date().toISOString().slice(0, 10);
     const req = await fetch(`${baseUrl3}/api/collections/requests/records`, {
@@ -669,7 +701,11 @@ describe("tg_webhook P1 — command dispatch", () => {
 
     const res = await postCmd("/requests");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    // 6-char id handle appears in the reply
+    const handle = reqData.id.slice(-6);
+    expect(body.reply).toContain(handle);
 
     // Cleanup
     await fetch(`${baseUrl3}/api/collections/requests/records/${reqData.id}`, {
@@ -678,33 +714,109 @@ describe("tg_webhook P1 — command dispatch", () => {
     });
   });
 
-  it("/find P1-KIT → 200 ok (matches seeded kit)", async () => {
+  it("/find P1-KIT → 200 ok, reply lists the matching kit", async () => {
     const res = await postCmd("/find P1-KIT");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("P1-KIT-001");
   });
 
-  it("/find Warehouse → 200 ok (matches seeded entity)", async () => {
+  it("/find NOMATCH-XYZ-ZZZZ → 200 ok, no-results reply", async () => {
+    const res = await postCmd("/find NOMATCH-XYZ-ZZZZ");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("No results");
+  });
+
+  it("/find Warehouse → 200 ok, reply lists the matching entity", async () => {
     const res = await postCmd("/find Warehouse");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("P1 Warehouse");
   });
 
-  it("/find (no text) → 200 ok (usage hint)", async () => {
+  it("/find (no text) → 200 ok, usage hint", async () => {
     const res = await postCmd("/find");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("Usage");
   });
 
-  it("unknown slash command → 200 ok", async () => {
+  it("unknown slash command → 200 ok, hint reply", async () => {
     const res = await postCmd("/unknowncmd");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("/help");
   });
 
-  it("plain text (no slash) from linked user → 200 ok (unknown-command branch)", async () => {
+  it("plain text (no slash) from linked user → 200 ok, unknown-command reply", async () => {
     const res = await postCmd("hello");
     expect(res.status).toBe(200);
-    expect((await res.json()).ok).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("/help");
+  });
+
+  // ---------- HTML-escape regression ----------
+  // This test would have caught the parse_mode:"HTML" bug:
+  // an entity named "R&D <test>" would cause Telegram to return 400 Bad Request,
+  // silently dropping the reply. After the fix, dynamic values are escaped and
+  // the reply contains "&amp;" / "&lt;" instead of raw "&" / "<".
+
+  it("[HTML-escape] /find with special-chars entity → reply present and contains escaped HTML", async () => {
+    // Seed an entity with &, < and > in its name (category required by schema)
+    const eHtml = await fetch(`${baseUrl3}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "R&D <test>", category: "field", is_active: true }),
+    });
+    const eData = await eHtml.json();
+    expect(eData.id).toBeTruthy();
+
+    const res = await postCmd("/find R&D");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // reply must be present (not dropped)
+    expect(body.reply).toBeTruthy();
+    // dynamic name must be escaped — raw & and < must NOT appear unescaped
+    expect(body.reply).toContain("R&amp;D");
+    expect(body.reply).toContain("&lt;test&gt;");
+
+    // Cleanup
+    await fetch(`${baseUrl3}/api/collections/entities/records/${eData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken3 },
+    });
+  });
+
+  it("[HTML-escape] /kit with & in kit notes → reply present and notes are escaped", async () => {
+    // Seed a kit with & and < in notes
+    const kHtml = await fetch(`${baseUrl3}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken3, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: "P1-HTML-KIT", is_active: true, notes: "A < B & C > D" }),
+    });
+    const kData = await kHtml.json();
+    expect(kData.id).toBeTruthy();
+
+    const res = await postCmd("/kit P1-HTML-KIT");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // reply must be present (not dropped)
+    expect(body.reply).toBeTruthy();
+    expect(body.reply).toContain("&lt;");
+    expect(body.reply).toContain("&amp;");
+    expect(body.reply).toContain("&gt;");
+
+    // Cleanup
+    await fetch(`${baseUrl3}/api/collections/kits/records/${kData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken3 },
+    });
   });
 });

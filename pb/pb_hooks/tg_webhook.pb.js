@@ -210,6 +210,23 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
     return inKit;
   }
 
+  // HTML-escape dynamic values before interpolating into parse_mode:"HTML" replies.
+  // Must be inside the callback (Goja isolation — no file-scope helpers).
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // reply: send a Telegram message AND include the reply text in the JSON response
+  // so hook tests can assert the actual text (TELEGRAM_BOT_TOKEN unset → sendTelegram
+  // is a no-op in CI, but reply is still returned). chatId must be in scope.
+  function reply(text) {
+    sendTelegram(chatId, text);
+    return c.json(200, { ok: true, reply: text });
+  }
+
   // ===========================================================================
   // Secret-token verification (mirrors wa_meta_webhook.pb.js pattern)
   // ===========================================================================
@@ -393,22 +410,19 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
 
   if (!tgUsers || tgUsers.length === 0) {
     console.log("[tg_webhook] no user linked for chatId=" + chatId);
-    sendTelegram(chatId, "Your Telegram isn't linked. Open kit-tracker → Profile → Link Telegram to connect.");
-    return c.json(200, { ok: true });
+    return reply("Your Telegram isn't linked. Open kit-tracker → Profile → Link Telegram to connect.");
   }
 
   if (tgUsers.length > 1) {
     console.log("[tg_webhook] ambiguous: " + tgUsers.length + " users share chatId=" + chatId);
-    sendTelegram(chatId, "Multiple accounts are linked to this Telegram. Contact an admin.");
-    return c.json(200, { ok: true });
+    return reply("Multiple accounts are linked to this Telegram. Contact an admin.");
   }
 
   var tgUser = tgUsers[0];
   var tgRole = tgUser.getString("role");
   if (!tgRole || tgRole === "denied") {
     console.log("[tg_webhook] user=" + tgUser.id + " role=" + tgRole + " — awaiting approval");
-    sendTelegram(chatId, "Your account is awaiting approval — an admin needs to set your role.");
-    return c.json(200, { ok: true });
+    return reply("Your account is awaiting approval — an admin needs to set your role.");
   }
 
   // Parse command: first token (lowercase). parts = all whitespace-split tokens.
@@ -417,8 +431,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
 
   // Non-slash text is not a command.
   if (!cmd.startsWith("/")) {
-    sendTelegram(chatId, "Unknown command — try /help");
-    return c.json(200, { ok: true });
+    return reply("Unknown command — try /help");
   }
 
   switch (cmd) {
@@ -434,8 +447,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         "/requests — open requests",
         "/find &lt;text&gt; — search kits &amp; entities",
       ];
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/me": {
@@ -443,13 +455,12 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       var email = tgUser.getString("email") || "";
       var lines = [
         "<b>Your account</b>",
-        "Name: " + (name || "(none)"),
-        "Email: " + email,
-        "Role: " + tgRole,
-        "Chat ID: " + chatId,
+        "Name: " + (name ? escapeHtml(name) : "(none)"),
+        "Email: " + escapeHtml(email),
+        "Role: " + escapeHtml(tgRole),
+        "Chat ID: " + escapeHtml(chatId),
       ];
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/kits": {
@@ -461,8 +472,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         console.log("[tg_webhook] /kits query error: " + e);
       }
       if (!kits.length) {
-        sendTelegram(chatId, "No active kits found.");
-        break;
+        return reply("No active kits found.");
       }
       var truncated = kits.length > MAX_KITS;
       var showing = truncated ? kits.slice(0, MAX_KITS) : kits;
@@ -471,20 +481,18 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       for (var ki = 0; ki < showing.length; ki++) {
         var k = showing[ki];
         var holder = getKitHolder(dao, k.id);
-        lines.push("• " + k.getString("serial") + " — " + holder);
+        lines.push("• " + escapeHtml(k.getString("serial")) + " — " + escapeHtml(holder));
       }
       if (truncated) {
         lines.push("… showing " + MAX_KITS + ". Use /kit &lt;serial&gt; for details.");
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/kit": {
       var serial = parts[1] || "";
       if (!serial) {
-        sendTelegram(chatId, "Usage: /kit &lt;serial&gt;  or  /kit &lt;serial&gt; all");
-        break;
+        return reply("Usage: /kit &lt;serial&gt;  or  /kit &lt;serial&gt; all");
       }
       var showAll = (parts[2] || "").toLowerCase() === "all";
 
@@ -500,8 +508,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         );
       } catch (e) {}
       if (!kitArr.length) {
-        sendTelegram(chatId, "Kit not found: " + serial);
-        break;
+        return reply("Kit not found: " + escapeHtml(serial));
       }
       var kit = kitArr[0];
 
@@ -530,10 +537,10 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         byProduct[cpPid].push(cp);
       }
 
-      var lines = ["<b>Kit " + kit.getString("serial") + "</b>"];
-      lines.push("Holder: " + holder);
+      var lines = ["<b>Kit " + escapeHtml(kit.getString("serial")) + "</b>"];
+      lines.push("Holder: " + escapeHtml(holder));
       if (lastMoveDate) lines.push("Last move: " + lastMoveDate);
-      if (kitNotes) lines.push("Notes: " + kitNotes);
+      if (kitNotes) lines.push("Notes: " + escapeHtml(kitNotes));
 
       // Tracked section
       lines.push("");
@@ -545,13 +552,13 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           var tp = trackedProds[ti];
           var tpComps = byProduct[tp.id] || [];
           if (tpComps.length === 0) {
-            lines.push("  • " + tp.getString("name") + " ✗ missing");
+            lines.push("  • " + escapeHtml(tp.getString("name")) + " ✗ missing");
           } else {
             var qty = 0;
             for (var qi = 0; qi < tpComps.length; qi++) {
               qty += (tpComps[qi].getInt("quantity") || 1);
             }
-            lines.push("  • " + tp.getString("name") + " ✓ \xd7" + qty);
+            lines.push("  • " + escapeHtml(tp.getString("name")) + " ✓ \xd7" + qty);
           }
         }
       }
@@ -578,20 +585,19 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
             var isSerialized = prod && prod.getBool("is_serialized");
             var compSerial = comp2.getString("serial") || "";
             if (isSerialized && compSerial) {
-              lines.push("  • " + pname + " \xb7SN" + compSerial);
+              lines.push("  • " + escapeHtml(pname) + " \xb7SN" + escapeHtml(compSerial));
             } else {
               var qty2 = comp2.getInt("quantity") || 1;
-              lines.push("  • " + pname + " \xd7" + qty2);
+              lines.push("  • " + escapeHtml(pname) + " \xd7" + qty2);
             }
           }
         }
-        lines.push("(/kit " + serial + " for tracked summary)");
+        lines.push("(/kit " + escapeHtml(serial) + " for tracked summary)");
       } else {
-        lines.push("(/kit " + serial + " all for full contents)");
+        lines.push("(/kit " + escapeHtml(serial) + " all for full contents)");
       }
 
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/requests": {
@@ -600,8 +606,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         reqs = dao.findRecordsByFilter("requests", "status = 'open'", "-created", 20, 0);
       } catch (e) {}
       if (!reqs.length) {
-        sendTelegram(chatId, "No open requests.");
-        break;
+        return reply("No open requests.");
       }
       var lines = ["<b>Open requests (" + reqs.length + ")</b>"];
       for (var ri = 0; ri < reqs.length; ri++) {
@@ -624,18 +629,16 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           } catch (e) {}
         }
         var delivDate = (req.getString("delivery_date") || req.getString("date") || "").slice(0, 10);
-        var kitLabel = reqKitSerial || "(any kit)";
-        lines.push("[" + handle + "] " + reqName + " → " + kitLabel + (delivDate ? " by " + delivDate : ""));
+        var kitLabel = reqKitSerial ? escapeHtml(reqKitSerial) : "(any kit)";
+        lines.push("[" + escapeHtml(handle) + "] " + escapeHtml(reqName) + " → " + kitLabel + (delivDate ? " by " + escapeHtml(delivDate) : ""));
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     case "/find": {
       var query = parts.slice(1).join(" ");
       if (!query) {
-        sendTelegram(chatId, "Usage: /find &lt;text&gt;");
-        break;
+        return reply("Usage: /find &lt;text&gt;");
       }
 
       var matchedKits = [];
@@ -662,7 +665,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         );
       } catch (e) {}
 
-      var lines = ["<b>Search: " + query + "</b>"];
+      var lines = ["<b>Search: " + escapeHtml(query) + "</b>"];
       if (!matchedKits.length && !matchedEntities.length) {
         lines.push("No results found.");
       } else {
@@ -671,7 +674,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           for (var mki = 0; mki < matchedKits.length; mki++) {
             var mk = matchedKits[mki];
             var mkNotes = mk.getString("notes") || "";
-            lines.push("  • " + mk.getString("serial") + (mkNotes ? " — " + mkNotes : ""));
+            lines.push("  • " + escapeHtml(mk.getString("serial")) + (mkNotes ? " — " + escapeHtml(mkNotes) : ""));
           }
         }
         if (matchedEntities.length) {
@@ -679,17 +682,15 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
           for (var mei = 0; mei < matchedEntities.length; mei++) {
             var me = matchedEntities[mei];
             var meType = me.getString("type") || "";
-            lines.push("  • " + me.getString("name") + (meType ? " (" + meType + ")" : ""));
+            lines.push("  • " + escapeHtml(me.getString("name")) + (meType ? " (" + escapeHtml(meType) + ")" : ""));
           }
         }
       }
-      sendTelegram(chatId, lines.join("\n"));
-      break;
+      return reply(lines.join("\n"));
     }
 
     default: {
-      sendTelegram(chatId, "Unknown command — try /help");
-      break;
+      return reply("Unknown command — try /help");
     }
   }
 

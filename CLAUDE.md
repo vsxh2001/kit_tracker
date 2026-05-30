@@ -415,10 +415,18 @@ flyctl secrets set -a kit-tracker \
 
 ### Telegram inbound bot
 
-Phase 5 routes non-`/start` messages from linked, approved Telegram users to the AI assistant. Identical engine to WhatsApp (`ai_chat.pb.js`). The hook mints a short-lived PB auth token for the user, POSTs `{ message, sessionId }` to `/api/ai/chat`, and sends the `reply` field back via `sendTelegram`.
+P1 (slash-command redesign) replaces the Phase 5 AI assistant with a deterministic slash-command router. Non-`/start` messages from linked, approved users are dispatched to built-in read commands. `PB_AI_CHAT_URL` is **no longer read** by `tg_webhook.pb.js`.
 
-**Env var:**
-- `PB_AI_CHAT_URL` — optional; defaults to `http://127.0.0.1:8090/api/ai/chat`. Override in multi-process or custom-port deployments.
+**Commands:**
+- `/help` — list commands
+- `/me` — account info (name, email, role, chat ID)
+- `/kits` — active kits with current holders
+- `/kit <serial>` — kit details + tracked product status
+- `/kit <serial> all` — kit details + full contents
+- `/requests` — open requests
+- `/find <text>` — search kits and entities by name/serial
+
+Unknown commands and plain (non-slash) text → "Unknown command — try /help".
 
 **Webhook registration (operator step):**
 
