@@ -556,7 +556,7 @@ describe("tg_webhook P1 — command dispatch", () => {
     const e = await fetch(`${baseUrl3}/api/collections/entities/records`, {
       method: "POST",
       headers: { Authorization: suToken3, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "P1 Warehouse", type: "warehouse", is_active: true }),
+      body: JSON.stringify({ name: "P1 Warehouse", category: "storage", is_active: true }),
     });
     entityId = (await e.json()).id;
 
@@ -706,5 +706,403 @@ describe("tg_webhook P1 — command dispatch", () => {
     const res = await postCmd("hello");
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
+  });
+});
+
+// ===========================================================================
+// P2 — gated write commands
+//
+// Separate PB instance (pb4). Seeds:
+//   - admin user (CHAT_ADMIN) + technician user (CHAT_TECH) + user-role user (CHAT_USER)
+//   - two entities (P2 Entity Alpha, P2 Entity Beta)
+//   - one kit (P2-KIT-001) transacted to Entity Alpha
+//
+// Tests: role-gate rejection, happy-path mutation + DB assertion, audit row
+// actor set (the "swallow-trap" check), missing-args usage hints, not-found.
+// ===========================================================================
+
+describe("tg_webhook P2 — write commands", () => {
+  let pb4, baseUrl4, suToken4;
+  const CHAT_ADMIN = "940000001";
+  const CHAT_TECH  = "940000002";
+  const CHAT_USER  = "940000003";
+  let adminId4, techId4, userId4;
+  let kitId4, entityAId4, entityBId4;
+
+  function postAs(chatId, text) {
+    return fetch(`${baseUrl4}/api/tg/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { text, chat: { id: Number(chatId) } } }),
+    });
+  }
+
+  async function getAuditRows(recordId, action) {
+    const filter = encodeURIComponent(`record_id="${recordId}"&&action="${action}"`);
+    const res = await fetch(
+      `${baseUrl4}/api/collections/audit_log/records?filter=${filter}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const data = await res.json();
+    return data.items || [];
+  }
+
+  beforeAll(async () => {
+    pb4 = await startPb();
+    baseUrl4 = pb4.baseUrl;
+    suToken4 = pb4.suToken;
+
+    const ua = await fetch(`${baseUrl4}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "p2-admin@tg-p2-test.local",
+        password: "P2adminpass1!",
+        passwordConfirm: "P2adminpass1!",
+        role: "admin",
+        name: "P2 Admin",
+        telegram_chat_id: CHAT_ADMIN,
+      }),
+    });
+    adminId4 = (await ua.json()).id;
+    expect(adminId4).toBeTruthy();
+
+    const ut = await fetch(`${baseUrl4}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "p2-tech@tg-p2-test.local",
+        password: "P2techpass1!",
+        passwordConfirm: "P2techpass1!",
+        role: "technician",
+        name: "P2 Technician",
+        telegram_chat_id: CHAT_TECH,
+      }),
+    });
+    techId4 = (await ut.json()).id;
+    expect(techId4).toBeTruthy();
+
+    const uu = await fetch(`${baseUrl4}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "p2-user@tg-p2-test.local",
+        password: "P2userpass1!",
+        passwordConfirm: "P2userpass1!",
+        role: "user",
+        name: "P2 Regular User",
+        telegram_chat_id: CHAT_USER,
+      }),
+    });
+    userId4 = (await uu.json()).id;
+    expect(userId4).toBeTruthy();
+
+    const ea = await fetch(`${baseUrl4}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "P2 Entity Alpha", category: "storage", is_active: true }),
+    });
+    entityAId4 = (await ea.json()).id;
+    expect(entityAId4).toBeTruthy();
+
+    const eb = await fetch(`${baseUrl4}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "P2 Entity Beta", category: "field", is_active: true }),
+    });
+    entityBId4 = (await eb.json()).id;
+    expect(entityBId4).toBeTruthy();
+
+    const k = await fetch(`${baseUrl4}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: "P2-KIT-001", is_active: true }),
+    });
+    kitId4 = (await k.json()).id;
+    expect(kitId4).toBeTruthy();
+
+    // Initial transaction: kit → Entity Alpha
+    const now = new Date().toISOString().replace("T", " ").replace("Z", "") + "Z";
+    await fetch(`${baseUrl4}/api/collections/transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ kit: kitId4, to_entity: entityAId4, timestamp: now, created_by: adminId4 }),
+    });
+  }, 60000);
+
+  afterAll(stopPb);
+
+  // ---------- /move — role gate ----------
+
+  it("/move — user role → permission denied, no new transaction", async () => {
+    const res = await postAs(CHAT_USER, "/move P2-KIT-001 P2 Entity Beta");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+    const txRes = await fetch(
+      `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const txData = await txRes.json();
+    expect(txData.totalItems).toBe(1);
+  });
+
+  it("/move — missing entity arg → usage hint (200 ok)", async () => {
+    const res = await postAs(CHAT_ADMIN, "/move P2-KIT-001");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/move — kit not found → 200 ok, error reply", async () => {
+    const res = await postAs(CHAT_ADMIN, "/move NOSUCHKIT P2 Entity Beta");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/move — entity not found → 200 ok, error reply", async () => {
+    const res = await postAs(CHAT_ADMIN, "/move P2-KIT-001 No Such Entity");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/move — admin happy path → creates transaction + audit row with actor set", async () => {
+    const txBefore = await fetch(
+      `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const beforeCount = (await txBefore.json()).totalItems;
+
+    const res = await postAs(CHAT_ADMIN, "/move P2-KIT-001 P2 Entity Beta");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const txAfter = await fetch(
+      `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterData = await txAfter.json();
+    expect(afterData.totalItems).toBe(beforeCount + 1);
+    const newest = afterData.items[0];
+    expect(newest.to_entity).toBe(entityBId4);
+
+    // Audit row: actor = adminId4, via = tg-command
+    const auditRows = await getAuditRows(newest.id, "create");
+    expect(auditRows.length).toBeGreaterThan(0);
+    expect(auditRows[0].actor).toBe(adminId4);
+    const changes = JSON.parse(auditRows[0].changes);
+    expect(changes.via).toBe("tg-command");
+  });
+
+  it("/move — technician happy path → creates transaction + audit row with tech actor", async () => {
+    // Kit is now at Entity Beta; move back to Alpha
+    const res = await postAs(CHAT_TECH, "/move P2-KIT-001 P2 Entity Alpha");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const txAfter = await fetch(
+      `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterData = await txAfter.json();
+    const newest = afterData.items[0];
+    expect(newest.to_entity).toBe(entityAId4);
+
+    const auditRows = await getAuditRows(newest.id, "create");
+    expect(auditRows.length).toBeGreaterThan(0);
+    expect(auditRows[0].actor).toBe(techId4);
+    const changes = JSON.parse(auditRows[0].changes);
+    expect(changes.via).toBe("tg-command");
+  });
+
+  // ---------- /approve — role gate + happy path ----------
+
+  it("/approve — missing handle → usage hint (200 ok)", async () => {
+    const res = await postAs(CHAT_ADMIN, "/approve");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/approve — handle not found → 200 ok, error reply", async () => {
+    const res = await postAs(CHAT_ADMIN, "/approve zzzzzz");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/approve — user role → permission denied, request status unchanged", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: userId4, designated_kit: kitId4, target_entity: entityBId4, status: "open", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const res = await postAs(CHAT_USER, `/approve ${handle}`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      headers: { Authorization: suToken4 },
+    });
+    expect((await check.json()).status).toBe("open");
+
+    await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken4 },
+    });
+  });
+
+  it("/approve — admin happy path → status=approved, audit row with actor set", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: userId4, designated_kit: kitId4, target_entity: entityBId4, status: "open", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const res = await postAs(CHAT_ADMIN, `/approve ${handle} Looks good!`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      headers: { Authorization: suToken4 },
+    });
+    const checkData = await check.json();
+    expect(checkData.status).toBe("approved");
+    expect(checkData.decision_notes).toBe("Looks good!");
+
+    const auditRows = await getAuditRows(rqData.id, "update");
+    expect(auditRows.length).toBeGreaterThan(0);
+    expect(auditRows[0].actor).toBe(adminId4);
+    const changes = JSON.parse(auditRows[0].changes);
+    expect(changes.via).toBe("tg-command");
+    expect(changes.status).toBe("approved");
+  });
+
+  // ---------- /reject — role gate + happy path ----------
+
+  it("/reject — user role → permission denied, request status unchanged", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: adminId4, designated_kit: kitId4, target_entity: entityBId4, status: "open", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const res = await postAs(CHAT_USER, `/reject ${handle}`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      headers: { Authorization: suToken4 },
+    });
+    expect((await check.json()).status).toBe("open");
+
+    await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken4 },
+    });
+  });
+
+  it("/reject — technician happy path → status=rejected, audit row with tech actor", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: adminId4, designated_kit: kitId4, target_entity: entityBId4, status: "open", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const res = await postAs(CHAT_TECH, `/reject ${handle} Not available`);
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      headers: { Authorization: suToken4 },
+    });
+    const checkData = await check.json();
+    expect(checkData.status).toBe("rejected");
+    expect(checkData.decision_notes).toBe("Not available");
+
+    const auditRows = await getAuditRows(rqData.id, "update");
+    expect(auditRows.length).toBeGreaterThan(0);
+    expect(auditRows[0].actor).toBe(techId4);
+    const changes = JSON.parse(auditRows[0].changes);
+    expect(changes.via).toBe("tg-command");
+    expect(changes.status).toBe("rejected");
+  });
+
+  // ---------- /request ----------
+
+  it("/request — missing entity arg → usage hint (200 ok)", async () => {
+    const res = await postAs(CHAT_ADMIN, "/request P2-KIT-001");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/request — kit not found → 200 ok, error reply", async () => {
+    const res = await postAs(CHAT_ADMIN, "/request NOSUCHKIT P2 Entity Alpha");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/request — entity not found → 200 ok, error reply", async () => {
+    const res = await postAs(CHAT_ADMIN, "/request P2-KIT-001 No Such Entity");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  it("/request — admin happy path (no date) → open request created + audit row actor set", async () => {
+    const res = await postAs(CHAT_ADMIN, "/request P2-KIT-001 P2 Entity Beta");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const listRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(`designated_kit="${kitId4}"&&requester="${adminId4}"&&status="open"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const listData = await listRes.json();
+    expect(listData.totalItems).toBeGreaterThan(0);
+    const newest = listData.items[0];
+    expect(newest.target_entity).toBe(entityBId4);
+
+    const auditRows = await getAuditRows(newest.id, "create");
+    expect(auditRows.length).toBeGreaterThan(0);
+    expect(auditRows[0].actor).toBe(adminId4);
+    const changes = JSON.parse(auditRows[0].changes);
+    expect(changes.via).toBe("tg-command");
+  });
+
+  it("/request — user role can create a request (any approved role)", async () => {
+    const res = await postAs(CHAT_USER, "/request P2-KIT-001 P2 Entity Alpha");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const listRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(`requester="${userId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const listData = await listRes.json();
+    expect(listData.totalItems).toBeGreaterThan(0);
+    expect(listData.items[0].requester).toBe(userId4);
+  });
+
+  it("/request — explicit date → delivery_date stored correctly", async () => {
+    const res = await postAs(CHAT_TECH, "/request P2-KIT-001 P2 Entity Beta 2026-12-31");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+
+    const listRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(`requester="${techId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const listData = await listRes.json();
+    expect(listData.totalItems).toBeGreaterThan(0);
+    expect(listData.items[0].delivery_date.startsWith("2026-12-31")).toBe(true);
   });
 });

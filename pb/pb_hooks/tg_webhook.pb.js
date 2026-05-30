@@ -8,7 +8,12 @@
 // Read commands (P1):
 //   /help, /me, /kits, /kit <serial> [all], /requests, /find <text>
 //
-// Write commands (/move, /approve, /reject, /request) are P2 — not yet implemented.
+// Write commands (P2, role-gated, audit-logged):
+//   /move <kit> <entity>         — admin/technician only
+//   /approve <handle> [notes]    — admin/technician only
+//   /reject  <handle> [notes]    — admin/technician only
+//   /request <kit> <entity> [YYYY-MM-DD]  — any approved role
+//
 // Unknown command / non-slash text → "Unknown command — try /help".
 //
 // SECURITY (high-risk — read before changing):
@@ -433,7 +438,15 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         "/kit &lt;serial&gt; all — full kit contents",
         "/requests — open requests",
         "/find &lt;text&gt; — search kits &amp; entities",
+        "/request &lt;kit&gt; &lt;entity&gt; [YYYY-MM-DD] — open a request",
       ];
+      if (tgRole === "admin" || tgRole === "technician") {
+        lines.push("");
+        lines.push("<b>Write (admin/technician only)</b>");
+        lines.push("/move &lt;kit&gt; &lt;entity&gt; — move kit to entity");
+        lines.push("/approve &lt;handle&gt; [notes] — approve request");
+        lines.push("/reject &lt;handle&gt; [notes] — reject request");
+      }
       sendTelegram(chatId, lines.join("\n"));
       break;
     }
@@ -684,6 +697,247 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         }
       }
       sendTelegram(chatId, lines.join("\n"));
+      break;
+    }
+
+    // -----------------------------------------------------------------------
+    // P2 — gated write commands
+    // -----------------------------------------------------------------------
+
+    case "/move": {
+      if (tgRole !== "admin" && tgRole !== "technician") {
+        sendTelegram(chatId, "Permission denied. /move requires admin or technician role.");
+        break;
+      }
+      var mvSerial = parts[1] || "";
+      var mvEntityRaw = parts.slice(2).join(" ");
+      if (!mvSerial || !mvEntityRaw) {
+        sendTelegram(chatId, "Usage: /move &lt;kit-serial&gt; &lt;entity-name&gt;");
+        break;
+      }
+
+      // Resolve kit (exact serial, active)
+      var mvKitArr = [];
+      try {
+        mvKitArr = dao.findRecordsByFilter("kits", "serial = {:s} && is_active = true", "", 1, 0, { s: mvSerial });
+      } catch (e) {}
+      if (!mvKitArr.length) {
+        sendTelegram(chatId, "Kit not found: " + mvSerial);
+        break;
+      }
+      var mvKit = mvKitArr[0];
+
+      // Resolve entity (case-insensitive exact name, active; no fuzzy)
+      var mvEntityCands = [];
+      try {
+        mvEntityCands = dao.findRecordsByFilter("entities", "is_active = true && name ~ {:n}", "", 100, 0, { n: mvEntityRaw });
+      } catch (e) {}
+      var mvEntityMatches = [];
+      for (var mvi = 0; mvi < mvEntityCands.length; mvi++) {
+        if (mvEntityCands[mvi].getString("name").toLowerCase() === mvEntityRaw.toLowerCase()) {
+          mvEntityMatches.push(mvEntityCands[mvi]);
+        }
+      }
+      if (!mvEntityMatches.length) {
+        sendTelegram(chatId, "Entity not found: " + mvEntityRaw);
+        break;
+      }
+      if (mvEntityMatches.length > 1) {
+        sendTelegram(chatId, "Ambiguous entity name: " + mvEntityRaw + ". Contact admin.");
+        break;
+      }
+      var mvEntity = mvEntityMatches[0];
+
+      // Derive from_entity from kit's latest transaction
+      var mvFromId = "";
+      try {
+        var mvLastTxArr = dao.findRecordsByFilter("transactions", "kit = {:kid}", "-timestamp,-created", 1, 0, { kid: mvKit.id });
+        if (mvLastTxArr && mvLastTxArr.length) mvFromId = mvLastTxArr[0].getString("to_entity") || "";
+      } catch (e) {}
+
+      // Create transaction
+      var mvNow = new Date().toISOString().replace("T", " ").replace("Z", "") + "Z";
+      var mvTxCol = dao.findCollectionByNameOrId("transactions");
+      var mvTxRec = new Record(mvTxCol);
+      mvTxRec.set("kit", mvKit.id);
+      if (mvFromId) mvTxRec.set("from_entity", mvFromId);
+      mvTxRec.set("to_entity", mvEntity.id);
+      mvTxRec.set("timestamp", mvNow);
+      mvTxRec.set("created_by", tgUser.id);
+      try {
+        dao.saveRecord(mvTxRec);
+      } catch (e) {
+        console.log("[tg_webhook] /move saveRecord error: " + e);
+        sendTelegram(chatId, "Error creating transaction. Please try again.");
+        break;
+      }
+
+      // Audit log (actor required — do not swallow)
+      try {
+        var mvAuditCol = dao.findCollectionByNameOrId("audit_log");
+        var mvAuditRec = new Record(mvAuditCol);
+        mvAuditRec.set("collection_name", "transactions");
+        mvAuditRec.set("record_id", mvTxRec.id);
+        mvAuditRec.set("actor", tgUser.id);
+        mvAuditRec.set("action", "create");
+        mvAuditRec.set("changes", JSON.stringify({ via: "tg-command", kit: mvSerial, to_entity: mvEntity.getString("name") }));
+        dao.saveRecord(mvAuditRec);
+      } catch (auditE) {
+        console.log("[tg_webhook] /move audit error: " + auditE);
+      }
+
+      sendTelegram(chatId, "Moved " + mvSerial + " → " + mvEntity.getString("name"));
+      break;
+    }
+
+    case "/approve":
+    case "/reject": {
+      if (tgRole !== "admin" && tgRole !== "technician") {
+        sendTelegram(chatId, "Permission denied. /" + cmd.slice(1) + " requires admin or technician role.");
+        break;
+      }
+      var dcHandle = parts[1] || "";
+      if (!dcHandle) {
+        sendTelegram(chatId, "Usage: /" + cmd.slice(1) + " &lt;handle&gt; [notes]");
+        break;
+      }
+      var dcNotes = parts.slice(2).join(" ");
+
+      // Find open requests; match by last-6-char ID suffix
+      var dcOpenReqs = [];
+      try {
+        dcOpenReqs = dao.findRecordsByFilter("requests", "status = 'open'", "-created", 200, 0);
+      } catch (e) {}
+      var dcMatching = [];
+      for (var dci = 0; dci < dcOpenReqs.length; dci++) {
+        if (dcOpenReqs[dci].id.slice(-6) === dcHandle) dcMatching.push(dcOpenReqs[dci]);
+      }
+      if (!dcMatching.length) {
+        sendTelegram(chatId, "No open request found with handle: " + dcHandle);
+        break;
+      }
+      if (dcMatching.length > 1) {
+        sendTelegram(chatId, "Ambiguous handle (multiple open requests match). Contact admin.");
+        break;
+      }
+      var dcReq = dcMatching[0];
+      var dcNewStatus = (cmd === "/approve") ? "approved" : "rejected";
+      dcReq.set("status", dcNewStatus);
+      if (dcNotes) dcReq.set("decision_notes", dcNotes);
+      try {
+        dao.saveRecord(dcReq);
+      } catch (e) {
+        console.log("[tg_webhook] /" + cmd.slice(1) + " saveRecord error: " + e);
+        sendTelegram(chatId, "Error updating request. Please try again.");
+        break;
+      }
+
+      // Audit log (actor required)
+      try {
+        var dcAuditCol = dao.findCollectionByNameOrId("audit_log");
+        var dcAuditRec = new Record(dcAuditCol);
+        dcAuditRec.set("collection_name", "requests");
+        dcAuditRec.set("record_id", dcReq.id);
+        dcAuditRec.set("actor", tgUser.id);
+        dcAuditRec.set("action", "update");
+        dcAuditRec.set("changes", JSON.stringify({ via: "tg-command", status: dcNewStatus }));
+        dao.saveRecord(dcAuditRec);
+      } catch (auditE) {
+        console.log("[tg_webhook] /" + cmd.slice(1) + " audit error: " + auditE);
+      }
+
+      var dcVerb = (cmd === "/approve") ? "Approved" : "Rejected";
+      sendTelegram(chatId, dcVerb + " request [" + dcHandle + "]");
+      break;
+    }
+
+    case "/request": {
+      // Any approved role (non-empty, non-denied) — already checked above.
+      var rqKit = parts[1] || "";
+      // Remaining args: entity name, with optional YYYY-MM-DD at the end.
+      var rqRemainder = parts.slice(2);
+      var rqDate = "";
+      var rqEntityRaw = "";
+      if (rqRemainder.length > 0) {
+        var rqLast = rqRemainder[rqRemainder.length - 1];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rqLast)) {
+          rqDate = rqLast;
+          rqEntityRaw = rqRemainder.slice(0, -1).join(" ");
+        } else {
+          rqEntityRaw = rqRemainder.join(" ");
+        }
+      }
+      if (!rqKit || !rqEntityRaw) {
+        sendTelegram(chatId, "Usage: /request &lt;kit-serial&gt; &lt;entity-name&gt; [YYYY-MM-DD]");
+        break;
+      }
+      if (!rqDate) rqDate = new Date().toISOString().slice(0, 10);
+
+      // Resolve kit
+      var rqKitArr = [];
+      try {
+        rqKitArr = dao.findRecordsByFilter("kits", "serial = {:s} && is_active = true", "", 1, 0, { s: rqKit });
+      } catch (e) {}
+      if (!rqKitArr.length) {
+        sendTelegram(chatId, "Kit not found: " + rqKit);
+        break;
+      }
+      var rqKitRec = rqKitArr[0];
+
+      // Resolve entity (case-insensitive exact name)
+      var rqEntityCands = [];
+      try {
+        rqEntityCands = dao.findRecordsByFilter("entities", "is_active = true && name ~ {:n}", "", 100, 0, { n: rqEntityRaw });
+      } catch (e) {}
+      var rqEntityMatches = [];
+      for (var rqi = 0; rqi < rqEntityCands.length; rqi++) {
+        if (rqEntityCands[rqi].getString("name").toLowerCase() === rqEntityRaw.toLowerCase()) {
+          rqEntityMatches.push(rqEntityCands[rqi]);
+        }
+      }
+      if (!rqEntityMatches.length) {
+        sendTelegram(chatId, "Entity not found: " + rqEntityRaw);
+        break;
+      }
+      if (rqEntityMatches.length > 1) {
+        sendTelegram(chatId, "Ambiguous entity name: " + rqEntityRaw + ". Contact admin.");
+        break;
+      }
+      var rqEntityRec = rqEntityMatches[0];
+
+      // Create request
+      var rqToday = new Date().toISOString().slice(0, 10);
+      var rqCol = dao.findCollectionByNameOrId("requests");
+      var rqRec = new Record(rqCol);
+      rqRec.set("requester", tgUser.id);
+      rqRec.set("date", rqToday);
+      rqRec.set("delivery_date", rqDate);
+      rqRec.set("status", "open");
+      rqRec.set("designated_kit", rqKitRec.id);
+      rqRec.set("target_entity", rqEntityRec.id);
+      try {
+        dao.saveRecord(rqRec);
+      } catch (e) {
+        console.log("[tg_webhook] /request saveRecord error: " + e);
+        sendTelegram(chatId, "Error creating request. Please try again.");
+        break;
+      }
+
+      // Audit log (actor required)
+      try {
+        var rqAuditCol = dao.findCollectionByNameOrId("audit_log");
+        var rqAuditRec = new Record(rqAuditCol);
+        rqAuditRec.set("collection_name", "requests");
+        rqAuditRec.set("record_id", rqRec.id);
+        rqAuditRec.set("actor", tgUser.id);
+        rqAuditRec.set("action", "create");
+        rqAuditRec.set("changes", JSON.stringify({ via: "tg-command", kit: rqKit, entity: rqEntityRec.getString("name") }));
+        dao.saveRecord(rqAuditRec);
+      } catch (auditE) {
+        console.log("[tg_webhook] /request audit error: " + auditE);
+      }
+
+      sendTelegram(chatId, "Requested kit " + rqKit + " → " + rqEntityRec.getString("name") + " by " + rqDate);
       break;
     }
 
