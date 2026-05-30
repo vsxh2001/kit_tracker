@@ -154,39 +154,6 @@ export function TelegramSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Group digest */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Group Digest</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-56" />
-            </div>
-          ) : !configured ? (
-            <p className="text-sm text-muted-foreground">Configure TELEGRAM_BOT_TOKEN to see group digest status.</p>
-          ) : (
-            <div className="flex items-center gap-2 text-sm">
-              {configured.group_chat_id_set ? (
-                <>
-                  <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                  <span>Group chat configured — daily digest active</span>
-                </>
-              ) : (
-                <>
-                  <X className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground">
-                    TELEGRAM_GROUP_CHAT_ID not set — group digest disabled
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {!loading && !status && (
         <div className="flex justify-center">
           <button

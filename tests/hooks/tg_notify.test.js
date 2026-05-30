@@ -366,33 +366,6 @@ describe("tg_notify Phase 6 — escalation TG branch (/_test/ route)", () => {
     });
   }
 
-  // P1 regression guard: telegram-only admin (no phone) gets audit row from /_test/ route
-  it("telegram-only admin (no phone): /_test/ route writes send_telegram audit row with outcome=skipped_no_token", async () => {
-    await patchAdmin({
-      phone: "",
-      telegram_chat_id: "esc-tgonly-chat-777",
-      notification_prefs: JSON.stringify({
-        channels: ["telegram"],
-        events: { request_escalation: true },
-      }),
-    });
-    const reqId = await createOpenRequest();
-    try {
-      const before = await countAuditRows(baseUrl, suToken, "send_telegram", "request_escalation");
-
-      const res = await trigger({ threshold_hours: "0" });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.fired).toBe(true);
-
-      // TG branch was removed in PR #194 — tg_sent is always 0 (kept in API response for backwards compat)
-      expect(body.tg_sent).toBe(0);
-    } finally {
-      await deleteRequest(reqId);
-      await patchAdmin({ phone: "", telegram_chat_id: "", notification_prefs: "" });
-    }
-  });
-
   // Negative: wa-only admin with telegram_chat_id → no send_telegram row from escalation
   it("wa-only admin with telegram_chat_id: escalation writes no send_telegram row", async () => {
     await patchAdmin({
