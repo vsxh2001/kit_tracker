@@ -266,14 +266,16 @@ export function Layout() {
         </div>
         <p className="text-xs text-slate-400 truncate">{user?.email}</p>
       </div>
-      <button
-        onClick={() => setOnboardingOpen(true)}
-        aria-label="Open help tour"
-        className="flex items-center gap-2.5 px-3 py-2 w-full rounded-md text-sm text-slate-500 hover:bg-slate-800 hover:text-slate-100 transition-colors"
-      >
-        <CircleHelp className="h-5 w-5" />
-        Help
-      </button>
+      {hasRole && (
+        <button
+          onClick={() => setOnboardingOpen(true)}
+          aria-label="Open help tour"
+          className="flex items-center gap-2.5 px-3 py-2 w-full rounded-md text-sm text-slate-500 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+        >
+          <CircleHelp className="h-5 w-5" />
+          Help
+        </button>
+      )}
       <button
         onClick={handleLogout}
         className="flex items-center gap-2.5 px-3 py-2 w-full rounded-md text-sm text-slate-500 hover:bg-slate-800 hover:text-slate-100 transition-colors"

@@ -61,11 +61,11 @@ function buildSlides(role: UserRole | undefined | ""): Slide[] {
     {
       icon: <FileText className="h-10 w-10 text-indigo-400" />,
       title: "Requests",
-      body: role === "viewer"
-        ? "Users can request kits for a specific entity and delivery date. Admins approve or reject, and fulfillment creates a move automatically."
+      body: canWrite
+        ? "Manage the full request lifecycle: approve or reject incoming requests, then fulfill approved ones to create a kit move in one action."
         : role === "user"
           ? "Need a kit? Submit a request with a target entity and delivery date. An admin will approve it, and fulfillment moves the kit to you."
-          : "Manage the full request lifecycle: approve or reject incoming requests, then fulfill approved ones to create a kit move in one action.",
+          : "Users can request kits for a specific entity and delivery date. Admins approve or reject, and fulfillment creates a move automatically.",
     },
     {
       icon: <Cpu className="h-10 w-10 text-indigo-400" />,
