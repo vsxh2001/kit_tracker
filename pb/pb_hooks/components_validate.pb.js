@@ -7,7 +7,7 @@
 //   - Non-admin field guard (only quantity may change for non-admins) is
 //     enforced at REST layer via onRecordBeforeUpdateRequest (needs HTTP
 //     context for caller role). The model-event hook covers structural
-//     invariants reachable via dao.save() (ai_chat / ai_mcp path).
+//     invariants reachable via dao.save() (ai_mcp path).
 //
 // component_transactions rules:
 //   - Exactly one of to_kit / to_entity must be set (XOR).
@@ -18,7 +18,7 @@
 //   - Source kit (if any) must be active.
 //
 // Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
-// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// calls from ai_mcp.pb.js are also covered.
 
 // ---- components: before create ----
 onModelBeforeCreate((e) => {
@@ -61,8 +61,8 @@ onModelBeforeUpdate((e) => {
 
   // NOTE: Non-admin field guard (protecting serial, notes, is_active, is_bulk)
   // is NOT enforced here — no HTTP context at model layer. That check remains
-  // on the REST onRecordBeforeUpdateRequest path (see below). The ai_mcp / ai_chat
-  // handlers enforce caller role before calling dao.save().
+  // on the REST onRecordBeforeUpdateRequest path (see below). The ai_mcp
+  // handler enforces caller role before calling dao.save().
 }, "components");
 
 // ---- components: non-admin field guard (REST-only, needs HTTP context) ----

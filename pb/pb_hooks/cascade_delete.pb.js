@@ -564,7 +564,7 @@ routerAdd("POST", "/api/admin/cascade-delete", function(c) {
     predictedCounts = { transactions: 1 };
   }
 
-  // ---- read via tag (set by ai_chat/ai_mcp; falls back to "web") ----
+  // ---- read via tag (set by ai_mcp; falls back to "web") ----
   var auditVia = "web";
   try { var _av = c.get("audit_via"); if (_av) auditVia = String(_av); } catch(_) {}
 

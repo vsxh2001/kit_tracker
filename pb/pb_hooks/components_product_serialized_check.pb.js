@@ -12,7 +12,7 @@
 //   - quantity must be >= 1
 //
 // This hook fires on model events so that dao.save() calls from
-// ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// ai_mcp.pb.js are also covered.
 //
 // NOTE: Logic is inlined in each callback — Goja (PB's JS runtime) does not
 // share module-level function scope inside onModel* callbacks. A helper

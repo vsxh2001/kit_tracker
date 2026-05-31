@@ -3,7 +3,7 @@
 // exactly one of (kit, component) — never both, never neither.
 //
 // Uses onModelBeforeCreate/onModelBeforeUpdate (not onRecordBefore*Request)
-// so that dao.save() calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// so that dao.save() calls from ai_mcp.pb.js are also covered.
 
 onModelBeforeCreate(function(e) {
   var kit = e.model.getString("kit");

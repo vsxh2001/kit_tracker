@@ -6,7 +6,7 @@
 //   2. assigned user has role = "admin" or "technician"
 //
 // Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
-// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// calls from ai_mcp.pb.js are also covered.
 //
 // NOTE: $app is a Goja global and is NOT accessible inside named helper functions
 // in PB v0.22 — the runtime isolates globals to the top-level script scope.
