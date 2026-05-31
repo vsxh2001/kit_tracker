@@ -198,13 +198,13 @@ Look for `[tg_webhook]` lines — each inbound Telegram command logs intent + re
 
 `https://kit-tracker-<pilot-name>.fly.dev/_/` — log in with superuser credentials.
 
-- **audit_log** collection — every write action; filter `changes ~ "tg-command"` in the PB admin UI to isolate Telegram-originated moves (Telegram-originated changes are stored with `changes.via = "tg-command"` — the web `/audit` Source dropdown currently lists `web`, `wa-bot`, `ai-agent`, `mcp` only; Telegram filtering will land in a follow-up).
+- **audit_log** collection — every write action; filter `changes ~ "tg-command"` in the PB admin UI to isolate Telegram-originated moves (Telegram-originated changes are stored with `changes.via = "tg-command"`; the web `/audit` Source dropdown now includes `tg-command` (Telegram) and `tg-link` (Telegram link) entries for direct filtering).
 - **transactions** collection — full move history.
 - **users** collection — check/fix `telegram_chat_id` if a tech can't connect.
 
 ### Web audit log
 
-`https://kit-tracker-<pilot-name>.fly.dev/audit` — exportable to CSV. Note: the Source dropdown currently lists `web`, `wa-bot`, `ai-agent`, `mcp` only — there is no `tg-command` filter option yet. To isolate Telegram-initiated moves, use the PB admin UI (`/_/` → audit_log → filter `changes ~ "tg-command"`) until the web UI is updated.
+`https://kit-tracker-<pilot-name>.fly.dev/audit` — exportable to CSV. The Source dropdown includes `web`, `wa-bot`, `ai-agent`, `mcp`, `tg-command` (Telegram), and `tg-link` (Telegram link). Use the Source filter to isolate Telegram-initiated moves directly from the web UI.
 
 ### Daily check (manual, while ops hardening is deferred)
 

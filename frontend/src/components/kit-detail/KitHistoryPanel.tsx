@@ -5,11 +5,13 @@ import { formatDate } from "../../lib/utils";
 import type { AuditVia, Transaction } from "../../types";
 
 const VIA_BADGE: Record<AuditVia, { label: string; className: string }> = {
-  "wa-bot":      { label: "WhatsApp", className: "bg-green-100 text-green-800" },
-  "wa-meta-bot": { label: "WhatsApp", className: "bg-green-100 text-green-800" },
-  "ai-agent":    { label: "AI chat",  className: "bg-purple-100 text-purple-800" },
-  mcp:           { label: "MCP",      className: "bg-blue-100 text-blue-800" },
-  web:           { label: "Web",      className: "bg-slate-100 text-slate-600" },
+  "wa-bot":      { label: "WhatsApp",      className: "bg-green-100 text-green-800" },
+  "wa-meta-bot": { label: "WhatsApp",      className: "bg-green-100 text-green-800" },
+  "ai-agent":    { label: "AI chat",       className: "bg-purple-100 text-purple-800" },
+  mcp:           { label: "MCP",           className: "bg-blue-100 text-blue-800" },
+  web:           { label: "Web",           className: "bg-slate-100 text-slate-600" },
+  "tg-command":  { label: "Telegram",      className: "bg-sky-100 text-sky-800" },
+  "tg-link":     { label: "Telegram link", className: "bg-sky-100 text-sky-800" },
 };
 
 function OriginBadge({ via }: { via: string }) {
