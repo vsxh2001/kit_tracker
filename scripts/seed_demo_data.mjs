@@ -425,7 +425,6 @@ async function seed() {
   );
   console.log(`  Layout: 5 at Warehouse | 4 at Alpha | 3 at Bravo | 3 at Charlie | 3 mid-return | 2 retired`);
   console.log(`\nDEMO-Warehouse entity ID: ${warehouseId}`);
-  console.log(`Set DEFAULT_WAREHOUSE_ENTITY_ID=${warehouseId} in Fly secrets for RETURN shortcut.`);
 }
 
 seed().catch((e) => {
