@@ -1,146 +1,171 @@
-# WhatsApp Kit Tracker — Onboarding (Field Tech)
+# Kit Tracker — Onboarding (Field Tech)
 
 ## What this does
 
-You move kits by sending a WhatsApp message. The system logs every move. Your admin sees it on the web.
+You move kits and check inventory by sending slash commands to the Kit Tracker Telegram bot.
+The system logs every move with a full audit trail. Your admin sees it on the web.
 
 ---
 
-## 1. Join the sandbox
+## 1. Get access
 
-The pilot runs on the Twilio sandbox number: **+1 415 523 8886**
+Your admin creates your user account and sets your role. You will receive an email with login
+instructions (or your admin sets your password manually via the admin panel).
 
-Open WhatsApp and send this message to that number:
+You cannot use the bot until your account has an approved role. If you send a command and receive:
 
-```
-join <code>
-```
+> Your account is awaiting approval — an admin needs to set your role.
 
-Your admin will share the exact code with you. After about 10 seconds you will receive:
-
-> Twilio Sandbox: You are all set and can start sending messages.
-
-**Important:** The sandbox connection expires after 3 days of inactivity. If the bot goes silent, send the join code again to reconnect.
+Contact your admin and confirm they have set your role to `technician` or `user`.
 
 ---
 
-## 2. Link your phone
+## 2. Link your Telegram account
 
-Tell your admin your WhatsApp number in full international format (e.g. +972-50-123-4567). They must link it to your user account before the bot will accept your messages.
+1. Open the web app and log in.
+2. Click **Profile** in the sidebar.
+3. Click **Link Telegram**.
+4. A one-time code is minted (valid for 10 minutes). Click the **deep link** to open the bot in
+   Telegram, or copy the code and send `/start <code>` directly in the bot chat.
+5. The bot replies: "Linked!"
 
-Until that link is set up, any message you send will receive:
-
-> Your account isn't approved for WhatsApp access yet.
-
-Once the admin confirms your number is linked, you are ready to go.
+Your Telegram account is now bound to your Kit Tracker user. The link persists — you do not
+need to repeat this step unless you switch Telegram accounts.
 
 ---
 
 ## 3. Move a kit
 
-Send this message to log a kit transfer:
+Send this command to the bot:
 
 ```
-move <KIT-SERIAL> to <ENTITY-NAME>
-```
-
-Example:
-
-```
-move ACME-CAM-007 to ACME-LAB
-```
-
-The bot replies with a confirmation summary showing what will happen. Reply `YES` within 30 seconds to confirm the move. The bot will respond:
-
-> Done — moved ACME-CAM-007 to ACME-LAB.
-
-If you reply anything other than `YES`, or wait longer than 30 seconds, the move is cancelled. Nothing is logged. Re-send the original message to try again.
-
----
-
-## 4. Return a kit to the warehouse
-
-Send:
-
-```
-return <KIT-SERIAL>
+/move <KIT-SERIAL> <ENTITY-NAME>
 ```
 
 Example:
 
 ```
-return ACME-CAM-007
+/move ACME-CAM-007 ACME-LAB
 ```
 
-The bot moves the kit back to the default warehouse (configured by your admin). The same YES confirm flow applies.
+The bot executes the move immediately and replies with a confirmation. No `YES` prompt — the
+command is the confirmation. If you move to the wrong entity, log a corrective move or contact
+your admin.
 
-Other phrasings that work the same way:
+> `/move` requires `admin` or `technician` role.
+
+---
+
+## 4. Check a kit
+
+Get current holder and tracked contents:
 
 ```
-send back ACME-CAM-007
-ACME-CAM-007 is back
+/kit ACME-CAM-007
+```
+
+Full contents (all components):
+
+```
+/kit ACME-CAM-007 all
 ```
 
 ---
 
-## 5. Ask a question
+## 5. List kits
 
-Read-only queries do not require confirmation. The bot replies immediately.
+```
+/kits
+```
 
-Get current location: `where is ACME-CAM-007?`
-
-List all open requests: `what open requests are there?`
-
-Get the last 5 moves for a kit: `kit ACME-CAM-007 history`
+Returns up to 20 active kits with their current holders.
 
 ---
 
-## 6. Undo a move
+## 6. Search
 
-After a move or return is confirmed, your admin has a 60-second window to undo it via the web app's chat sidebar. WhatsApp does not yet support `UNDO` replies directly.
+```
+/find lab
+```
 
-If you need to undo a move, contact your admin immediately with the kit serial and destination. They can reverse it within 60 seconds of the original move.
-
----
-
-## 7. Cheat-sheet
-
-| You send | Bot does |
-|---|---|
-| `move KIT-X to LAB-Y` | Confirm prompt, then moves on YES |
-| `return KIT-X` | Confirm prompt, then returns to warehouse on YES |
-| `send back KIT-X` | Same as `return KIT-X` |
-| `KIT-X is back` | Same as `return KIT-X` |
-| `where is KIT-X?` | Replies with current location (no confirm needed) |
-| `what open requests are there?` | Replies with list of pending requests |
-| `kit KIT-X history` | Replies with last 5 moves for the kit |
-| `YES` (within 30s of a confirm prompt) | Executes the pending operation |
-| Any other reply after a confirm prompt | Cancels the pending operation |
+Searches kit serials and entity names for the given text.
 
 ---
 
-## 8. FAQ
+## 7. Open a request
 
-**I sent a move and got no confirm prompt.**
-The bot only confirms write operations. If your message did not match the pattern, the system may have interpreted it as a question. Re-try using the exact format: `move <serial> to <entity>`.
+Request that a kit be moved to your site (routed to admin/technician for approval):
 
-**I missed the 30-second window.**
-The pending operation was automatically cancelled. Re-send the original message to start again.
+```
+/request <KIT-SERIAL> <ENTITY-NAME> [YYYY-MM-DD]
+```
+
+Example (with optional target date):
+
+```
+/request ACME-CAM-007 ACME-LAB 2026-06-15
+```
+
+> `/request` requires `user` role or higher (viewer excluded).
+
+---
+
+## 8. Check open requests
+
+```
+/requests
+```
+
+Lists all open requests visible to your account.
+
+---
+
+## 9. Command reference
+
+| Command | What it does | Role required |
+|---|---|---|
+| `/help` | Show available commands | any approved |
+| `/me` | Your account info + role | any approved |
+| `/kits` | List active kits with holders (up to 20) | any approved |
+| `/kit <serial>` | Kit details + tracked products | any approved |
+| `/kit <serial> all` | Full kit contents | any approved |
+| `/find <text>` | Search kits and entities | any approved |
+| `/requests` | List open requests | any approved |
+| `/request <kit> <entity> [YYYY-MM-DD]` | Open a kit request | user+ |
+| `/move <kit> <entity>` | Move kit to entity (immediate) | admin/technician |
+| `/approve <handle> [notes]` | Approve a request | admin/technician |
+| `/reject <handle> [notes]` | Reject a request | admin/technician |
+
+> **`<handle>`** is the short 6-character request id shown at the end of each `/requests` line — e.g. `… kit ACME-001 → LAB-A · a1b2c3`. Use those 6 chars as the handle in `/approve` and `/reject`.
+
+---
+
+## 10. FAQ
+
+**I sent `/move` and got "not authorized".**
+Your role is `viewer` or `user`. Only `admin` and `technician` roles can move kits directly.
+Use `/request` to submit a move request for admin approval.
+
+**The bot says "Your Telegram isn't linked".**
+Complete the linking step: web app → Profile → Link Telegram → `/start <code>`.
+
+**I moved to the wrong entity.**
+Log a corrective move in the opposite direction: `/move <serial> <correct-entity>`. Transactions
+are append-only — no delete. Contact your admin if you need the record annotated.
+
+**The bot says "Kit not found".**
+Check the exact serial with `/kits` or `/find <text>`. Serials are case-sensitive.
 
 **The bot says "ambiguous — which X?"**
-You have two kits or entities with similar names in the system. Use the full kit serial or the exact entity name as configured in the system.
+Two kits or entities have similar names. Use the full exact serial or entity name.
 
-**The bot says I am not authorized.**
-Your phone number is not linked to a user account with `admin` or `technician` role. Contact your admin and give them your full WhatsApp number in international format.
-
-**The bot is silent.**
-The sandbox connection may have expired (it resets after 3 days without activity). Send the join code to +1 415 523 8886 again. If the bot is still silent after that, contact your admin.
-
-**I sent the wrong kit or destination.**
-Contact your admin immediately. They have a 60-second undo window in the web app. After 60 seconds, a corrective move will need to be logged manually.
+**I can't find the bot.**
+Ask your admin for the bot username (starts with `@`). Search for it in Telegram directly.
 
 ---
 
-## 9. Privacy
+## 11. Privacy
 
-Your WhatsApp phone number is stored on your user record in the system, and is used only to match your incoming messages to your account. Your message content is sent to the Anthropic Claude API for intent parsing — please read the privacy notice provided by your admin. Your data is not used for marketing.
+Your Telegram chat ID is stored on your user record and used only to route bot messages to your
+account. Message content is processed server-side to execute commands — no third-party AI API
+is called on the command path. Your data is not used for marketing.
