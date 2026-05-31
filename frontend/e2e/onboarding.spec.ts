@@ -17,13 +17,13 @@ const STORAGE_KEY = "kit_tracker_onboarding_v1";
 
 test.describe("Onboarding tour @smoke", () => {
   test.beforeEach(async ({ page }) => {
-    // Clear the onboarding flag so the modal will auto-open
+    // Ensure the onboarding flag is cleared so the modal will auto-open
     await page.goto("/login");
     await page.evaluate((key) => localStorage.removeItem(key), STORAGE_KEY);
   });
 
   test("welcome modal auto-appears on first login @smoke", async ({ page }) => {
-    await loginAs(page, "admin");
+    await loginAs(page, "admin", { keepOnboarding: true });
 
     // The modal should be visible immediately after login
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
@@ -31,7 +31,7 @@ test.describe("Onboarding tour @smoke", () => {
   });
 
   test("clicking Next advances the slide @smoke", async ({ page }) => {
-    await loginAs(page, "admin");
+    await loginAs(page, "admin", { keepOnboarding: true });
 
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Welcome to Kit Tracker")).toBeVisible();
@@ -44,7 +44,7 @@ test.describe("Onboarding tour @smoke", () => {
   });
 
   test("Skip button closes the modal @smoke", async ({ page }) => {
-    await loginAs(page, "admin");
+    await loginAs(page, "admin", { keepOnboarding: true });
 
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
 
@@ -53,7 +53,7 @@ test.describe("Onboarding tour @smoke", () => {
   });
 
   test("after closing, reload does NOT reopen modal @smoke", async ({ page }) => {
-    await loginAs(page, "admin");
+    await loginAs(page, "admin", { keepOnboarding: true });
 
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
     await page.getByRole("button", { name: "Skip" }).click();
@@ -68,7 +68,7 @@ test.describe("Onboarding tour @smoke", () => {
   });
 
   test("Help button reopens the modal @smoke", async ({ page }) => {
-    await loginAs(page, "admin");
+    await loginAs(page, "admin", { keepOnboarding: true });
 
     // Close the modal first
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
