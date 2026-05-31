@@ -59,7 +59,7 @@ onRecordAfterUpdateRequest(function(e) {
     if (!raw || !raw.trim()) return true;
     try {
       var prefs = JSON.parse(raw);
-      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["telegram", "email"];
       var chanOk = false;
       for (var ci = 0; ci < channels.length; ci++) {
         if (channels[ci] === channel) { chanOk = true; break; }
@@ -264,7 +264,7 @@ onRecordAfterCreateRequest(function(e) {
     if (!raw || !raw.trim()) return true;
     try {
       var prefs = JSON.parse(raw);
-      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["telegram", "email"];
       var chanOk = false;
       for (var ci = 0; ci < channels.length; ci++) {
         if (channels[ci] === channel) { chanOk = true; break; }
@@ -486,7 +486,7 @@ onRecordAfterCreateRequest(function(e) {
     if (!raw || !raw.trim()) return true;
     try {
       var prefs = JSON.parse(raw);
-      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["whatsapp", "email"];
+      var channels = (prefs && Array.isArray(prefs.channels)) ? prefs.channels : ["telegram", "email"];
       var chanOk = false;
       for (var ci = 0; ci < channels.length; ci++) {
         if (channels[ci] === channel) { chanOk = true; break; }
