@@ -288,64 +288,6 @@ flyctl secrets set -a kit-tracker \
 `SMTP_TLS` defaults to `true` (correct for port 587 STARTTLS). Set `SMTP_TLS=false` only for
 unauthenticated relay (e.g. MailHog on port 1025 in local dev).
 
-### WhatsApp Meta Cloud API setup
-
-Hook: `pb/pb_hooks/wa_meta_webhook.pb.js` (Phase 1 — side-by-side with Twilio).
-
-**Fly secrets required:**
-
-```bash
-flyctl secrets set -a kit-tracker \
-  WHATSAPP_VERIFY_TOKEN=<random-string>        \
-  WHATSAPP_PHONE_NUMBER_ID=1059995567204667    \
-  WHATSAPP_TOKEN=<bearer-token-from-meta>      \
-  WHATSAPP_WABA_ID=1012217101334902            \
-  WHATSAPP_APP_SECRET=<app-secret-from-meta>
-```
-
-- `WHATSAPP_VERIFY_TOKEN` — arbitrary random string; must match what you enter in the Meta
-  Developer Console webhook configuration. Generate with `openssl rand -hex 20`.
-- `WHATSAPP_PHONE_NUMBER_ID` — found in Meta Business Suite → WhatsApp → API Setup
-  (e.g. `1059995567204667`).
-- `WHATSAPP_TOKEN` — permanent system-user access token from Meta Business Suite.
-- `WHATSAPP_WABA_ID` — WhatsApp Business Account ID, found in Meta Business Suite → Business settings
-  (e.g. `1012217101334902`). Used by `/api/wa/admin/status` to list subscribed apps.
-- `WHATSAPP_APP_SECRET` — Meta App Secret for `X-Hub-Signature-256` POST verification.
-  Found in Meta Developer Console → App Settings → Basic → App Secret. Set in prod to
-  reject spoofed webhook POSTs. If not set, signature check is skipped with a warning.
-  For local dev without this secret, set `WA_SKIP_SIGNATURE_CHECK=1` in PocketBase env.
-
-**Admin settings page** (`/settings/whatsapp`):
-- Admin-only route — non-admins redirect to `/dashboard`.
-- Displays: phone number + quality rating, token type + expiry countdown, webhook URL + last inbound, WABA subscribed apps.
-- Hook: `pb/pb_hooks/wa_meta_status.pb.js` — endpoint `GET /api/wa/admin/status`.
-
-**Webhook URL** (register in Meta Developer Console → WhatsApp → Configuration):
-```
-https://kit-tracker.fly.dev/api/wa/meta/webhook
-```
-Subscribe to the `messages` field. Verification uses the GET handler that echoes `hub.challenge`.
-
-### Local webhook testing
-
-Replay a Meta-shaped POST against the webhook without needing a real WhatsApp message:
-
-```bash
-# Against local PB (default):
-bash scripts/wa-meta-replay.sh --body "where is kit 1"
-
-# Against prod:
-bash scripts/wa-meta-replay.sh --url https://kit-tracker.fly.dev/api/wa/meta/webhook --body "where is kit 1"
-```
-
-The script POSTs a Meta-spec-compliant payload. Hook logs (`fly logs`) will show `[wa_meta] inbound` etc, then the response (or token-expired errors). Faster iteration than waiting for real WhatsApp delivery.
-
-**Phases:**
-- Phase 1 (this PR): Meta path added side-by-side; Twilio (`wa_inbound.pb.js`) unchanged.
-- Phase 4: Twilio deprecated, `wa_inbound.pb.js` removed.
-
-Read tokens at runtime via `$os.getenv("WHATSAPP_*")` — never hardcoded.
-
 ### Telegram account linking
 
 Hook: `pb/pb_hooks/tg_link.pb.js` (mint) + `pb/pb_hooks/tg_webhook.pb.js` (redeem).
