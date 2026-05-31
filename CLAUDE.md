@@ -311,7 +311,7 @@ flyctl secrets set -a kit-tracker \
   - `/start <code>` → validates code (expiry + used check), sets `users.telegram_chat_id`, audit-logs with `via: "tg-link"`, replies "Linked!".
   - `/start` (no code) → replies hint to open the app.
   - Slash command (`/help`, `/me`, `/kits`, `/kit`, `/requests`, `/find`, `/move`, `/approve`, `/reject`, `/request`) from a linked+approved user → routed to the inlined handler; replies with the operation result.
-  - Non-`/start` text that is not a slash command → `Unknown command — try /help`. **No AI fallback** (the legacy `/api/ai/chat` proxy was removed in the Telegram slash-command bot rollout; the AI chat engine still serves the web sidebar + MCP + WhatsApp).
+  - Non-`/start` text that is not a slash command → `Unknown command — try /help`. **No AI fallback** — the bot is a deterministic slash-command router. The MCP server (`ai_mcp.pb.js`) is the only remaining AI tool surface.
   - Non-`/start` text, no linked user → "isn't linked" hint.
   - Non-`/start` text, role empty or `"denied"` → awaiting-approval reply.
   - Non-`/start` text, >1 user with same `telegram_chat_id` → ambiguous error, no action.
@@ -469,7 +469,7 @@ Protocol version: `2024-11-05`. Server: `kit-tracker-mcp v0.1.0`.
 Read tools (list_*, get_*, resolve_*) — any authenticated user.
 Write tools (create_*, move_*) — admin/technician only.
 
-### 27 tools (chat + MCP in sync)
+### 27 MCP tools
 
 Read (14): `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
 `list_components`, `resolve_kit`, `resolve_entity`, `resolve_product`,
@@ -481,9 +481,8 @@ Write (13): `create_entity`, `create_kit`, `move_kit`, `create_product`,
 `link_component_to_product`, `update_entity`, `update_kit`, `update_product`,
 `update_user_phone`, `update_user_telegram_chat_id`.
 
-`ai_chat.pb.js` writes get a 30s undo token in the response; MCP does not (issue
-a reverse op from the client). Both audit-log with `changes.via = "ai-agent"` or
-`"mcp"`.
+Writes audit-log with `changes.via = "mcp"`. Undo is not provided — issue a
+reverse op from the client.
 
 ### Claude Code / Desktop config
 
