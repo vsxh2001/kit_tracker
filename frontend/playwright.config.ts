@@ -14,6 +14,18 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    // Pre-set the first-login onboarding flag so the welcome-tour modal does
+    // not auto-open and overlay other specs' UI interactions. Onboarding-
+    // specific tests explicitly clear this key in their beforeEach.
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: baseURL,
+          localStorage: [{ name: "kit_tracker_onboarding_v1", value: "done" }],
+        },
+      ],
+    },
     launchOptions: {
       ...(process.env.CI ? {} : { executablePath: process.env.CHROMIUM_EXECUTABLE ?? "/usr/bin/google-chrome" }),
       args: ["--no-sandbox", "--disable-setuid-sandbox"],

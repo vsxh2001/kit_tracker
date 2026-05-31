@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, startTransition } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Send } from "lucide-react";
+import { LayoutDashboard, Package, Users, FileText, LogOut, Box, UserCog, Menu, X, Cpu, BarChart3, ScrollText, Wrench, Clock, User, Tag, Send, CircleHelp } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { logout } from "../services/auth";
 import { cn, formatTelHref } from "../lib/utils";
 import { getCurrentOnCallUsers } from "../services/oncall";
 import type { PBUser } from "../types";
 import { ChatSidebar } from "./ChatSidebar";
+import { OnboardingModal } from "./OnboardingModal";
+import { hasSeenOnboarding, markOnboardingDone } from "../lib/onboarding";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -26,6 +28,7 @@ export function Layout() {
   const drawerRef = useRef<HTMLElement>(null);
   const [onCallUsers, setOnCallUsers] = useState<PBUser[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   async function loadOnCall() {
     try {
@@ -41,6 +44,16 @@ export function Layout() {
     const interval = setInterval(() => startTransition(() => { loadOnCall(); }), 60_000);
     return () => clearInterval(interval);
   }, [hasRole, location.pathname]);
+
+  // Auto-open onboarding once on first login for approved users
+  useEffect(() => {
+    if (!user || !hasRole) return;
+    if (!hasSeenOnboarding()) {
+      markOnboardingDone(); // mark immediately so double-mount (StrictMode) doesn't double-open
+      startTransition(() => { setOnboardingOpen(true); });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, hasRole]);
 
   const initials = user?.name
     ? user.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
@@ -253,6 +266,16 @@ export function Layout() {
         </div>
         <p className="text-xs text-slate-400 truncate">{user?.email}</p>
       </div>
+      {hasRole && (
+        <button
+          onClick={() => setOnboardingOpen(true)}
+          aria-label="Open help tour"
+          className="flex items-center gap-2.5 px-3 py-2 w-full rounded-md text-sm text-slate-500 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+        >
+          <CircleHelp className="h-5 w-5" />
+          Help
+        </button>
+      )}
       <button
         onClick={handleLogout}
         className="flex items-center gap-2.5 px-3 py-2 w-full rounded-md text-sm text-slate-500 hover:bg-slate-800 hover:text-slate-100 transition-colors"
@@ -420,6 +443,9 @@ export function Layout() {
 
       {/* Command Chat Sidebar */}
       <ChatSidebar open={chatOpen} onClose={() => setChatOpen(false)} />
+
+      {/* Onboarding tour modal */}
+      <OnboardingModal open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
     </div>
   );
 }

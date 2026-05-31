@@ -12,11 +12,28 @@ const CREDENTIALS: Record<Role, { email: string; password: string }> = {
  * Log in via the UI login form and wait for navigation to /dashboard.
  * Uses the real login page — no storageState shortcut — so auth flow is
  * tested as part of the session setup.
+ *
+ * Suppresses the first-login onboarding modal by default so it does not
+ * overlay subsequent UI interactions. Pass `{ keepOnboarding: true }` from
+ * onboarding-specific specs that need the modal to auto-open.
  */
-export async function loginAs(page: Page, role: Role): Promise<void> {
+export async function loginAs(
+  page: Page,
+  role: Role,
+  opts?: { keepOnboarding?: boolean },
+): Promise<void> {
   const { email, password } = CREDENTIALS[role];
 
   await page.goto("/login");
+  if (!opts?.keepOnboarding) {
+    await page.evaluate(() => {
+      try {
+        localStorage.setItem("kit_tracker_onboarding_v1", "done");
+      } catch {
+        // ignore — storage quota or private mode
+      }
+    });
+  }
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
