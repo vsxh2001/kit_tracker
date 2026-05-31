@@ -506,23 +506,57 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       } catch (_) {}
 
+      // Active components — derived from component_transactions (components has no kit field)
       var components = [];
       try {
-        var rawComps = dao.findRecordsByFilter(
-          "components",
-          "kit = {:kitId} && is_active = true",
-          "serial",
-          50,
+        var incomingTx = dao.findRecordsByFilter(
+          "component_transactions",
+          "to_kit = {:kid}",
+          "-timestamp,-created",
+          500,
           0,
-          { kitId: kit.id }
+          { kid: kit.id }
         );
-        for (var ci = 0; ci < rawComps.length; ci++) {
-          var comp = rawComps[ci];
+        var seenComp = {};
+        var compIds = [];
+        for (var ci = 0; ci < incomingTx.length; ci++) {
+          var cid = incomingTx[ci].getString("component");
+          if (cid && !seenComp[cid]) {
+            seenComp[cid] = true;
+            compIds.push(cid);
+          }
+        }
+        for (var cj = 0; cj < compIds.length && components.length < 50; cj++) {
+          var compId = compIds[cj];
+          var comp;
+          try { comp = dao.findRecordById("components", compId); } catch (_) { continue; }
+          if (!comp.getBool("is_active")) continue;
+          var latestArr;
+          try {
+            latestArr = dao.findRecordsByFilter(
+              "component_transactions",
+              "component = {:cid}",
+              "-timestamp,-created",
+              1,
+              0,
+              { cid: compId }
+            );
+          } catch (_) { continue; }
+          if (!latestArr || !latestArr.length) continue;
+          if (latestArr[0].getString("to_kit") !== kit.id) continue;
+          var productId = safeStr(comp, "product");
+          var productName = "";
+          if (productId) {
+            try { productName = safeStr(dao.findRecordById("products", productId), "name"); } catch (_) {}
+          }
           components.push({
             id: comp.id,
             serial: safeStr(comp, "serial"),
-            type: safeStr(comp, "type"),
-            notes: safeStr(comp, "notes")
+            product_id: productId,
+            product_name: productName,
+            notes: safeStr(comp, "notes"),
+            is_bulk: comp.getBool("is_bulk"),
+            quantity: comp.getInt("quantity")
           });
         }
       } catch (_) {}

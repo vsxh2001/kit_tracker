@@ -277,4 +277,105 @@ describe("ai_mcp POST /api/mcp", () => {
     );
     expect((await txRes2.json()).items.length).toBe(1);
   });
+
+  it("get_kit active_components derives from component_transactions, not components.kit", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Fetch admin user id (component_transactions.created_by and
+    // transactions.created_by are required user relations — bogus ids are rejected
+    // by PB's relation validator).
+    const adminListRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent(`email="admin@hook-test.local"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const adminUserId = (await adminListRes.json()).items[0].id;
+
+    function ok(res, label) {
+      if (!res.ok) throw new Error(`${label} seed failed: ${res.status}`);
+      return res.json();
+    }
+
+    // Seed: entity
+    const entityId = (await ok(await fetch(`${baseUrl}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `MCP-GK-ENT-${suffix}`, category: "field", is_active: true }),
+    }), "entity")).id;
+
+    // Seed: kit
+    const kitId = (await ok(await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: `MCP-GK-KIT-${suffix}`, is_active: true }),
+    }), "kit")).id;
+
+    // Seed: serialized product — is_serialized=true required, else
+    // components_product_serialized_check.pb.js rejects a component with a serial.
+    const productId = (await ok(await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `MCP-GK-PROD-${suffix}`, is_active: true, is_serialized: true }),
+    }), "product")).id;
+
+    // Seed: component linked to product
+    const componentId = (await ok(await fetch(`${baseUrl}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: `MCP-GK-COMP-${suffix}`,
+        product: productId,
+        is_active: true,
+      }),
+    }), "component")).id;
+
+    // Seed: component_transactions row placing component into kit.
+    // quantity required >= 1 by components_validate.pb.js; created_by required.
+    const ctRes = await fetch(`${baseUrl}/api/collections/component_transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        component: componentId,
+        to_kit: kitId,
+        quantity: 1,
+        timestamp: new Date().toISOString(),
+        created_by: adminUserId,
+      }),
+    });
+    if (!ctRes.ok) throw new Error(`component_transactions seed failed: ${ctRes.status}`);
+
+    // Seed: transactions row so current_entity_id resolves. created_by required.
+    const txRes = await fetch(`${baseUrl}/api/collections/transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kit: kitId,
+        to_entity: entityId,
+        timestamp: new Date().toISOString(),
+        created_by: adminUserId,
+      }),
+    });
+    if (!txRes.ok) throw new Error(`transactions seed failed: ${txRes.status}`);
+
+    // Call get_kit via MCP
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0",
+      id: 99,
+      method: "tools/call",
+      params: { name: "get_kit", arguments: { id: kitId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const result = body.result;
+    expect(result.isError).not.toBe(true);
+
+    const payload = toolPayload(result);
+    expect(Array.isArray(payload.active_components)).toBe(true);
+    expect(payload.active_components).toHaveLength(1);
+
+    const ac = payload.active_components[0];
+    expect(ac.serial).toBe(`MCP-GK-COMP-${suffix}`);
+    expect(ac.product_id).toBe(productId);
+    expect(ac.product_name).toBe(`MCP-GK-PROD-${suffix}`);
+  });
 });
