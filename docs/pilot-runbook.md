@@ -13,8 +13,7 @@ Gather these before you start:
 |---|---|
 | **Fly.io account** | https://fly.io — free tier is fine for pilot |
 | **Fly CLI** | `brew install flyctl` or https://fly.io/docs/hands-on/install-flyctl/ |
-| **Twilio account** | https://console.twilio.com — free trial covers sandbox |
-| **Anthropic API key** | https://console.anthropic.com/settings/api-keys |
+| **Telegram bot token** | Create a bot via @BotFather in Telegram (`/newbot`) |
 | **Gmail App Password** (optional, for email notifications) | Google account → 2FA enabled → https://myaccount.google.com/apppasswords |
 | **Custom domain** (optional) | Any registrar — Fly handles TLS automatically |
 
@@ -44,24 +43,23 @@ Required secrets — set all before the first deploy:
 flyctl secrets set --app kit-tracker-<pilot-name> \
   PB_SUPERUSER_EMAIL=<admin-email> \
   PB_SUPERUSER_PASSWORD=<strong-password> \
-  ANTHROPIC_API_KEY=<key> \
-  TWILIO_ACCOUNT_SID=<from-twilio-console> \
-  TWILIO_AUTH_TOKEN=<from-twilio-console> \
-  TWILIO_BASIC_AUTH=<base64 of "SID:AUTH_TOKEN"> \
+  TELEGRAM_BOT_TOKEN=<from-botfather> \
+  TELEGRAM_BOT_SECRET=<openssl rand -hex 20> \
   DEFAULT_WAREHOUSE_ENTITY_ID=placeholder
 ```
 
 > `DEFAULT_WAREHOUSE_ENTITY_ID` must be set before the first deploy (placeholder is fine); update it with the real ID after seeding (step 4 or 5).
 
-To compute `TWILIO_BASIC_AUTH`:
+To generate `TELEGRAM_BOT_SECRET`:
 ```bash
-echo -n "<SID>:<AUTH_TOKEN>" | base64
+openssl rand -hex 20
 ```
 
 Optional secrets (add only if needed):
 
 | Secret | Description |
 |---|---|
+| `TELEGRAM_BOT_USERNAME` | Bot username without `@` — enables deep_link in link response |
 | `SMTP_HOST` | SMTP hostname, e.g. `smtp.gmail.com` |
 | `SMTP_PORT` | Usually `587` |
 | `SMTP_USERNAME` | SMTP login (Gmail address) |
@@ -103,22 +101,28 @@ Expected: `{"code":200,"message":"API is healthy."}` (or similar OK JSON).
 
 ---
 
-## 3. Configure Twilio sandbox webhook
+## 3. Configure Telegram webhook
 
-1. Go to [Twilio Console](https://console.twilio.com) → **Messaging** → **Try it out** → **Send a WhatsApp message**
-2. Follow the sandbox setup — you'll get a join code like `join <word-word>`
-3. Under **Sandbox settings**, set:
+### 3a. Register the webhook with Telegram
 
-   | Field | Value |
-   |---|---|
-   | **WHEN A MESSAGE COMES IN** | `https://kit-tracker-<pilot-name>.fly.dev/api/wa/webhook` |
-   | **Method** | `POST` |
+```bash
+curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+  -d "url=https://kit-tracker-<pilot-name>.fly.dev/api/tg/webhook" \
+  -d "secret_token=<TELEGRAM_BOT_SECRET>"
+```
 
-4. Save.
+Both values must match the Fly secrets set in step 2b.
 
-Share the sandbox join code with the pilot team privately (not in a shared channel — it authenticates all inbound messages). Direct techs to `docs/pilot-onboarding.md` section 1.
+### 3b. Register bot commands (slash-command menu)
 
-> The sandbox number is **+1 415 523 8886** (shared Twilio number). Sandbox connections expire after 3 days of inactivity — techs must re-send the join code to reconnect.
+Run once after deploy to populate the in-chat `/` command menu:
+
+```bash
+TELEGRAM_BOT_TOKEN=<token> bash scripts/tg-set-commands.sh
+```
+
+Share the bot username with the pilot team (e.g. `@kit_tracker_bot`). Direct techs to
+`docs/pilot-onboarding.md` section 2 for the linking flow.
 
 ---
 
@@ -174,8 +178,8 @@ flyctl secrets set --app kit-tracker-<pilot-name> DEFAULT_WAREHOUSE_ENTITY_ID=<w
 
 1. Go to **Users** page (admin only).
 2. Click **New user** — enter name, email, set role = `technician`.
-3. Set the user's WhatsApp number in the `phone` field — full international format, e.g. `+972501234567`. The bot uses this to match inbound messages to accounts.
-4. The user will receive an email to set a password (if SMTP is configured) or you set it manually via PB admin at `/_/`.
+3. The user will receive an email to set a password (if SMTP is configured) or you set it manually via PB admin at `/_/`.
+4. Direct the user to `docs/pilot-onboarding.md` — they link their Telegram account themselves via Profile → Link Telegram.
 
 ### 5c. Import kits
 
@@ -186,12 +190,13 @@ Go to **Kits** → **Import CSV** — upload your kit list. Required columns: `s
 ## 6. Onboard the pilot team
 
 1. Email or message each tech a link to `docs/pilot-onboarding.md` (or copy-paste its contents).
-2. Share the Twilio sandbox join code **privately** — one-on-one message, not a group chat.
+2. Share the bot username (e.g. `@kit_tracker_bot`) so techs can find it in Telegram.
 3. Schedule a 30-minute kickoff call:
-   - Walk through one `move` live (tech sends from their phone, bot confirms, admin sees it in web audit log).
-   - Walk through one `return` live.
-   - Show the admin the `/audit` page filtered by `via=wa-bot`.
-4. Confirm each tech's WhatsApp number is set on their user record before the call so they can participate.
+   - Walk through the Profile → Link Telegram flow live.
+   - Walk through one `/move` live (tech sends from their phone, bot confirms, admin sees it in web audit log).
+   - Walk through one `/kit` query live.
+   - Show the admin the PB panel `audit_log` collection filtered by `via=tg-command`.
+4. Confirm each tech has linked their Telegram account before the call so they can participate.
 
 ---
 
@@ -202,19 +207,19 @@ Go to **Kits** → **Import CSV** — upload your kit list. Required columns: `s
 flyctl logs -f --app kit-tracker-<pilot-name>
 ```
 
-Look for `[wa_inbound]` lines — each inbound WhatsApp message logs intent + result. Repeated errors (e.g. `[wa_inbound] ERROR`) warrant investigation.
+Look for `[tg_webhook]` lines — each inbound Telegram command logs intent + result. Repeated errors (e.g. `[tg_webhook] ERROR`) warrant investigation.
 
 ### PocketBase admin panel
 
 `https://kit-tracker-<pilot-name>.fly.dev/_/` — log in with superuser credentials.
 
-- **audit_log** collection — every write action; filter `changes.via = "wa-bot"` for WhatsApp-originated moves.
+- **audit_log** collection — every write action; filter `changes.via = "tg-command"` for Telegram-originated moves.
 - **transactions** collection — full move history.
-- **users** collection — check/fix phone numbers if a tech can't connect.
+- **users** collection — check/fix `telegram_chat_id` if a tech can't connect.
 
 ### Web audit log
 
-`https://kit-tracker-<pilot-name>.fly.dev/audit` — filter by **Source: wa-bot** to see all WhatsApp-initiated moves. Exportable to CSV.
+`https://kit-tracker-<pilot-name>.fly.dev/audit` — filter by **Source: tg-command** to see all Telegram-initiated moves. Exportable to CSV.
 
 ### Daily check (manual, while ops hardening is deferred)
 
@@ -230,8 +235,6 @@ These are accepted risks for the pilot period. Be transparent with the pilot tea
 
 | Limitation | Impact | Plan |
 |---|---|---|
-| **Twilio sandbox uses a shared number** — looks like a generic Twilio bot, not your brand | Low — team knows it's a pilot | Production number + template approval is post-commit work (~1-2 weeks) |
-| **Sandbox join-code expires after 3 days of inactivity** | Medium — techs may need to re-join | Document in onboarding (section 1); tech reconnects in <30 seconds |
 | **No automated daily backup** | Critical if data loss occurs | Run `bash scripts/backup-pb-data.sh` manually each day during pilot; add cron post-commit |
 | **No uptime monitoring or Sentry** | Low visibility into silent failures | Check logs daily; add UptimeRobot + Sentry post-commit |
 | **PB JS SDK pinned to `^0.21.x`** | Bumping can break OAuth | See `CLAUDE.md` "PocketBase SDK version" before any upgrade |
@@ -244,11 +247,9 @@ These are accepted risks for the pilot period. Be transparent with the pilot tea
 | Situation | Action |
 |---|---|
 | **Bug or outage** | Contact hadassi — include `flyctl logs` output and the time of the incident |
-| **WhatsApp sandbox expired** | Tech re-sends join code to +1 415 523 8886 — bot reconnects immediately |
-| **Tech can't connect (bot silent after join)** | Check their `phone` field in the Users page — must match exact WhatsApp number in `+<country><number>` format |
-| **Add a new tech mid-pilot** | Admin creates user via `/users` page; set role = `technician`; fill `phone` field; share join code privately |
+| **Tech can't connect (bot silent after linking)** | Check their `telegram_chat_id` field in the Users page via PB admin — must be non-empty; have them re-link via Profile → Link Telegram |
+| **Add a new tech mid-pilot** | Admin creates user via `/users` page; set role = `technician`; tech links Telegram via Profile → Link Telegram |
 | **Incorrect move logged (outside undo window)** | Log a corrective move in the opposite direction. Transactions are append-only — no delete. |
-| **AI hallucination — bot moved kit to wrong entity** | Same corrective-move path. Prevent recurrence: avoid entity names that differ only by a number. |
 
 ---
 
