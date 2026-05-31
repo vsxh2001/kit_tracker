@@ -71,7 +71,7 @@ export interface KitRequest {
 }
 
 export interface NotificationPrefs {
-  channels: ("whatsapp" | "email" | "telegram")[];
+  channels: ("email" | "telegram")[];
   events: {
     request_fulfilled: boolean;
     kit_moved: boolean;

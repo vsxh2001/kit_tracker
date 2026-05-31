@@ -10,7 +10,7 @@ import { TelegramLinkDialog } from "../components/TelegramLinkDialog";
 import type { NotificationPrefs } from "../types";
 
 const DEFAULT_PREFS: NotificationPrefs = {
-  channels: ["whatsapp", "email"],
+  channels: ["email"],
   events: {
     request_fulfilled: true,
     kit_moved: true,
@@ -80,7 +80,9 @@ export function ProfilePage() {
         try {
           const parsed = JSON.parse(u.notification_prefs) as NotificationPrefs;
           setNotifPrefs({
-            channels: Array.isArray(parsed.channels) ? parsed.channels : DEFAULT_PREFS.channels,
+            channels: Array.isArray(parsed.channels)
+              ? parsed.channels.filter((c): c is "email" | "telegram" => c === "email" || c === "telegram")
+              : DEFAULT_PREFS.channels,
             events: {
               request_fulfilled: typeof parsed.events?.request_fulfilled === "boolean" ? parsed.events.request_fulfilled : DEFAULT_PREFS.events.request_fulfilled,
               kit_moved: typeof parsed.events?.kit_moved === "boolean" ? parsed.events.kit_moved : DEFAULT_PREFS.events.kit_moved,
@@ -148,7 +150,7 @@ export function ProfilePage() {
     }
   }
 
-  function toggleChannel(ch: "whatsapp" | "email" | "telegram") {
+  function toggleChannel(ch: "email" | "telegram") {
     setNotifPrefs((prev) => {
       const has = prev.channels.includes(ch);
       return {
@@ -287,15 +289,6 @@ export function ProfilePage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifPrefs.channels.includes("whatsapp")}
-                    onChange={() => toggleChannel("whatsapp")}
-                    className="h-4 w-4"
-                  />
-                  <span className="text-sm">WhatsApp</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
                     checked={notifPrefs.channels.includes("email")}
                     onChange={() => toggleChannel("email")}
                     className="h-4 w-4"
@@ -377,8 +370,8 @@ export function ProfilePage() {
               </div>
             </div>
             <div className="space-y-2 border rounded-md p-3 bg-muted/30">
-              <Label className="text-sm font-medium">Quiet hours (WhatsApp)</Label>
-              <p className="text-xs text-muted-foreground">Suppress WhatsApp messages during these hours.</p>
+              <Label className="text-sm font-medium">Quiet hours</Label>
+              <p className="text-xs text-muted-foreground">Suppress notifications during these hours.</p>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
