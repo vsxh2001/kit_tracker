@@ -1,18 +1,15 @@
 import { useRef, useEffect } from "react";
-import { Bot } from "lucide-react";
+import { Terminal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { Message } from "../../types/ai";
 import { AssistantMessage } from "./AssistantMessage";
-import { ToolResultCard } from "./ToolResultCard";
-import { ClarificationCard } from "./ClarificationCard";
 
 interface MessageListProps {
   messages: Message[];
   loading: boolean;
-  onClarificationChoose: (id: string, label: string, field: string) => void;
 }
 
-export function MessageList({ messages, loading, onClarificationChoose }: MessageListProps) {
+export function MessageList({ messages, loading }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -23,7 +20,7 @@ export function MessageList({ messages, loading, onClarificationChoose }: Messag
     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
       {messages.length === 0 && !loading && (
         <p className="text-xs text-slate-500 text-center mt-8">
-          Ask anything about your kits, entities, or requests.
+          Type /help to see available commands.
         </p>
       )}
       {messages.map((m) => (
@@ -36,7 +33,7 @@ export function MessageList({ messages, loading, onClarificationChoose }: Messag
         >
           {m.role === "assistant" && (
             <div className="h-6 w-6 rounded-full bg-indigo-900/70 ring-1 ring-indigo-700/50 flex items-center justify-center shrink-0 mt-0.5">
-              <Bot className="h-3.5 w-3.5 text-indigo-300" />
+              <Terminal className="h-3.5 w-3.5 text-indigo-300" />
             </div>
           )}
           <div className="flex flex-col max-w-[80%] min-w-0">
@@ -54,25 +51,13 @@ export function MessageList({ messages, loading, onClarificationChoose }: Messag
                 m.content
               )}
             </div>
-            {m.role === "assistant" && m.tool_result && (
-              <ToolResultCard
-                toolResult={m.tool_result}
-                undoToken={m.undo_token}
-              />
-            )}
-            {m.role === "assistant" && m.clarification_needed && (
-              <ClarificationCard
-                clarification={m.clarification_needed}
-                onChoose={onClarificationChoose}
-              />
-            )}
           </div>
         </div>
       ))}
       {loading && (
         <div className="flex gap-2 justify-start">
           <div className="h-6 w-6 rounded-full bg-indigo-900/70 ring-1 ring-indigo-700/50 flex items-center justify-center shrink-0 mt-0.5">
-            <Bot className="h-3.5 w-3.5 text-indigo-300" />
+            <Terminal className="h-3.5 w-3.5 text-indigo-300" />
           </div>
           <div className="rounded-lg px-3 py-2 text-sm bg-slate-800 text-slate-400">
             <span className="animate-pulse">...</span>

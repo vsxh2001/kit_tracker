@@ -1,12 +1,12 @@
 import { pb } from "../../../lib/pocketbase";
-import { getLatestTransaction, parseTags, getKitHistory, getKitBySerial, listActiveKitSerials } from "../../../services/kits";
+import { getLatestTransaction, parseTags, getKitHistory, getKitBySerial, listActiveKitSerials, listKits } from "../../../services/kits";
 import { listEntities, findEntitiesByName } from "../../../services/entities";
 import { listProducts, listComponentsForProduct, findProductsByName } from "../../../services/products";
 import { listComponentsInKit, getLatestForComponent, listTransactionsForComponent } from "../../../services/componentTransactions";
-import { listRequests } from "../../../services/requests";
+import { listRequests, createRequest, updateRequestStatus } from "../../../services/requests";
 import { listAllActiveSchedules } from "../../../services/maintenance";
 import { getCurrentOnCallUsers } from "../../../services/oncall";
-import { listTransactionsByToEntity } from "../../../services/transactions";
+import { listTransactionsByToEntity, createTransaction } from "../../../services/transactions";
 import { getComponentBySerial } from "../../../services/components";
 import { formatDateOnly, maintenanceStatus } from "../../../lib/utils";
 import type { Kit, Entity, Component, Transaction } from "../../../types";
@@ -418,6 +418,253 @@ export async function handleHistory(args: string[]): Promise<SlashResult> {
   if (rest > 0) items.push(`- +${rest} more on /kits/${kit.id}`);
 
   return { ok: true, text: `**Timeline for kit \`${kit.serial}\`** (${allTx.length} moves):\n${items.join("\n")}` };
+}
+
+// ─── /find <text> ────────────────────────────────────────────────────────────
+
+export async function handleFind(args: string[]): Promise<SlashResult> {
+  const query = args.join(" ").trim().toLowerCase();
+  if (!query) return { ok: false, error: "Usage: `/find <text>`" };
+
+  const [kits, entities] = await Promise.all([
+    listKits(false).catch(() => [] as Kit[]),
+    listEntities(false).catch(() => [] as Entity[]),
+  ]);
+
+  const matchedKits = kits.filter((k: Kit) => {
+    return (
+      k.serial.toLowerCase().includes(query) ||
+      (k.notes ?? "").toLowerCase().includes(query)
+    );
+  });
+
+  const matchedEntities = entities.filter((e: Entity) =>
+    e.name.toLowerCase().includes(query)
+  );
+
+  if (matchedKits.length === 0 && matchedEntities.length === 0) {
+    return { ok: true, text: `No kits or entities match \`${query}\`.` };
+  }
+
+  const lines: string[] = [];
+  if (matchedKits.length > 0) {
+    lines.push(`**Kits** (${matchedKits.length}):`);
+    const shown = matchedKits.slice(0, 10);
+    const rest = matchedKits.length - shown.length;
+    shown.forEach((k: Kit) => lines.push(`- \`${k.serial}\`${k.notes ? ` — ${k.notes}` : ""}`));
+    if (rest > 0) lines.push(`- +${rest} more`);
+  }
+  if (matchedEntities.length > 0) {
+    lines.push(`**Entities** (${matchedEntities.length}):`);
+    const shown = matchedEntities.slice(0, 10);
+    const rest = matchedEntities.length - shown.length;
+    shown.forEach((e: Entity) => lines.push(`- ${e.name}`));
+    if (rest > 0) lines.push(`- +${rest} more`);
+  }
+
+  return { ok: true, text: lines.join("\n") };
+}
+
+// ─── /move <kit-serial> <entity-name> ────────────────────────────────────────
+
+export async function handleMove(args: string[]): Promise<SlashResult> {
+  const [serial, ...entityParts] = args;
+  const entityName = entityParts.join(" ").trim();
+
+  if (!serial || !entityName) {
+    return { ok: false, error: "Usage: `/move <kit-serial> <entity-name>`" };
+  }
+
+  let kit: Kit;
+  try {
+    kit = await pb.collection("kits").getFirstListItem<Kit>(
+      pb.filter("serial = {:serial} && is_active = true", { serial }),
+      { requestKey: `slash-move-kit-${serial}` }
+    );
+  } catch {
+    return { ok: false, error: `No active kit with serial '${serial}'.` };
+  }
+
+  let entities: Entity[];
+  try {
+    entities = await findEntitiesByName(entityName);
+  } catch {
+    return { ok: false, error: "Failed to search entities." };
+  }
+
+  if (entities.length === 0) return { ok: false, error: `No entity named '${entityName}'.` };
+
+  // Require an exact case-insensitive name match — no silent substring auto-apply on writes.
+  const exactMatch = entities.find((e) => e.name.toLowerCase() === entityName.toLowerCase());
+  if (!exactMatch) {
+    const suggestions = entities.slice(0, 3).map((e) => e.name).join(", ");
+    return {
+      ok: false,
+      error: `No entity named exactly "${entityName}". Did you mean: ${suggestions}? Use the exact name.`,
+    };
+  }
+  const entity = exactMatch;
+
+  const latest = await getLatestTransaction(kit.id).catch(() => null);
+  const fromEntityId = latest?.to_entity ?? undefined;
+
+  try {
+    await createTransaction({
+      kitId: kit.id,
+      fromEntityId,
+      toEntityId: entity.id,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Transaction failed.";
+    return { ok: false, error: `Move failed: ${msg}` };
+  }
+
+  return { ok: true, text: `Moved \`${kit.serial}\` → **${entity.name}**.` };
+}
+
+// ─── /request <kit-serial> <entity-name> [YYYY-MM-DD] ───────────────────────
+
+export async function handleRequest(args: string[]): Promise<SlashResult> {
+  if (args.length < 2) {
+    return { ok: false, error: "Usage: `/request <kit-serial> <entity-name> [YYYY-MM-DD]`" };
+  }
+
+  const serial = args[0];
+
+  // Last arg may be a date (YYYY-MM-DD); if so, entity name is middle args
+  const lastArg = args[args.length - 1];
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  let entityParts: string[];
+  let deliveryDate: string;
+
+  if (args.length >= 3 && dateRe.test(lastArg)) {
+    entityParts = args.slice(1, args.length - 1);
+    deliveryDate = lastArg;
+  } else {
+    entityParts = args.slice(1);
+    deliveryDate = new Date().toLocaleDateString("en-CA");
+  }
+
+  const entityName = entityParts.join(" ").trim();
+  if (!entityName) {
+    return { ok: false, error: "Usage: `/request <kit-serial> <entity-name> [YYYY-MM-DD]`" };
+  }
+
+  let kit: Kit;
+  try {
+    kit = await pb.collection("kits").getFirstListItem<Kit>(
+      pb.filter("serial = {:serial} && is_active = true", { serial }),
+      { requestKey: `slash-request-kit-${serial}` }
+    );
+  } catch {
+    return { ok: false, error: `No active kit with serial '${serial}'.` };
+  }
+
+  let entities: Entity[];
+  try {
+    entities = await findEntitiesByName(entityName);
+  } catch {
+    return { ok: false, error: "Failed to search entities." };
+  }
+
+  if (entities.length === 0) return { ok: false, error: `No entity named '${entityName}'.` };
+
+  // Require an exact case-insensitive name match — no silent substring auto-apply on writes.
+  const exactMatch = entities.find((e) => e.name.toLowerCase() === entityName.toLowerCase());
+  if (!exactMatch) {
+    const suggestions = entities.slice(0, 3).map((e) => e.name).join(", ");
+    return {
+      ok: false,
+      error: `No entity named exactly "${entityName}". Did you mean: ${suggestions}? Use the exact name.`,
+    };
+  }
+  const entity = exactMatch;
+
+  try {
+    const req = await createRequest({
+      designated_kit: kit.id,
+      target_entity: entity.id,
+      delivery_date: deliveryDate,
+    });
+    return {
+      ok: true,
+      text: `Request created (\`${req.id}\`) — kit \`${kit.serial}\` → **${entity.name}**, delivery ${deliveryDate}.`,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Request failed.";
+    return { ok: false, error: `Create request failed: ${msg}` };
+  }
+}
+
+// ─── /approve <handle> [notes] ───────────────────────────────────────────────
+
+export async function handleApprove(args: string[]): Promise<SlashResult> {
+  if (args.length === 0) {
+    return { ok: false, error: "Usage: `/approve <request-id> [notes]`" };
+  }
+
+  const handle = args[0];
+  const notes = args.slice(1).join(" ").trim() || undefined;
+
+  const resolved = await resolveRequestHandle(handle, "open");
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  const reqId = resolved.id;
+
+  try {
+    await updateRequestStatus(reqId, "approved", { decision_notes: notes });
+    return { ok: true, text: `Request \`${reqId}\` approved.${notes ? ` Notes: ${notes}` : ""}` };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed.";
+    return { ok: false, error: `Approve failed: ${msg}` };
+  }
+}
+
+// ─── /reject <handle> [notes] ────────────────────────────────────────────────
+
+export async function handleReject(args: string[]): Promise<SlashResult> {
+  if (args.length === 0) {
+    return { ok: false, error: "Usage: `/reject <request-id> [notes]`" };
+  }
+
+  const handle = args[0];
+  const notes = args.slice(1).join(" ").trim() || undefined;
+
+  const resolved = await resolveRequestHandle(handle, "open");
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  const reqId = resolved.id;
+
+  try {
+    await updateRequestStatus(reqId, "rejected", { decision_notes: notes });
+    return { ok: true, text: `Request \`${reqId}\` rejected.${notes ? ` Notes: ${notes}` : ""}` };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed.";
+    return { ok: false, error: `Reject failed: ${msg}` };
+  }
+}
+
+// ─── Request handle resolver ──────────────────────────────────────────────────
+// Accepts full ID or a suffix; resolves among open requests only.
+
+async function resolveRequestHandle(
+  handle: string,
+  statusFilter: "open"
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const requests = await listRequests(statusFilter).catch(() => []);
+  const lower = handle.toLowerCase();
+
+  // Exact match first
+  const exact = requests.find((r) => r.id === handle);
+  if (exact) return { ok: true, id: exact.id };
+
+  // Suffix match
+  const matches = requests.filter((r) => r.id.toLowerCase().endsWith(lower));
+  if (matches.length === 1) return { ok: true, id: matches[0].id };
+  if (matches.length > 1) {
+    const ids = matches.slice(0, 5).map((r) => r.id).join(", ");
+    return { ok: false, error: `Ambiguous suffix '${handle}' matches: ${ids}. Use more characters.` };
+  }
+
+  return { ok: false, error: `No open request found matching '${handle}'.` };
 }
 
 // ─── Field autocomplete resource fetchers ────────────────────────────────────

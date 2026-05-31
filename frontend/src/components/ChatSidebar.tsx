@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Bot } from "lucide-react";
+import { X, Terminal } from "lucide-react";
 import { cn } from "../lib/utils";
-import { toast } from "../components/ui/use-toast";
-import { sendChatMessage, AiRateLimitError, AiCostCapError } from "../services/ai";
 import type { Message } from "../types/ai";
 import { COMMANDS, isSlashCommand, parseCommand, execute, getArgResourceType } from "./chat/slash-commands";
 import { fetchKitSerials, fetchEntityNames, fetchProductNames } from "./chat/slash-commands/handlers";
@@ -23,7 +21,6 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [acIndex, setAcIndex] = useState(0);
   const [acDismissed, setAcDismissed] = useState(false);
   const [argSuggestions, setArgSuggestions] = useState<string[]>([]);
@@ -91,78 +88,33 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     setInput("");
     setLoading(true);
 
+    let replyContent: string;
+
     if (isSlashCommand(msg)) {
       const parsed = parseCommand(msg);
       if (parsed) {
         try {
           const result = await execute(parsed);
-          const assistantMsg: Message = {
-            id: genId(),
-            role: "assistant",
-            content: result.ok ? result.text : result.error,
-            ts: new Date().toISOString(),
-          };
-          setMessages((prev) => [...prev, assistantMsg]);
+          replyContent = result.ok ? result.text : result.error;
         } catch (err: unknown) {
-          const assistantMsg: Message = {
-            id: genId(),
-            role: "assistant",
-            content: err instanceof Error ? err.message : "Command failed.",
-            ts: new Date().toISOString(),
-          };
-          setMessages((prev) => [...prev, assistantMsg]);
-        } finally {
-          setLoading(false);
+          replyContent = err instanceof Error ? err.message : "Command failed.";
         }
-        return;
-      }
-    }
-
-    try {
-      const res = await sendChatMessage(msg, sessionId);
-      if (res.sessionId) setSessionId(res.sessionId);
-      const assistantMsg: Message = {
-        id: genId(),
-        role: "assistant",
-        content: res.reply,
-        ts: new Date().toISOString(),
-        tool_result: res.tool_result,
-        undo_token: res.undo_token,
-        clarification_needed: res.clarification_needed,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      if (res.tool_result && res.undo_token) {
-        toast({
-          title: res.tool_result.description,
-          description: "Action logged. Click Undo in the chat to reverse within 60s.",
-          variant: "success",
-        });
-      }
-    } catch (err: unknown) {
-      if (err instanceof AiRateLimitError) {
-        toast({
-          title: "Rate limit reached",
-          description: `Too many messages. Try again in ${err.retryAfterSeconds} seconds.`,
-          variant: "destructive",
-        });
-      } else if (err instanceof AiCostCapError) {
-        toast({
-          title: "Daily AI budget reached",
-          description: "The daily AI usage budget has been reached. Try again tomorrow.",
-          variant: "destructive",
-        });
       } else {
-        toast({
-          title: "Chat error",
-          description: err instanceof Error ? err.message : "Failed to send message.",
-          variant: "destructive",
-        });
+        replyContent = "Unknown command — type /help for the command list.";
       }
-    } finally {
-      setLoading(false);
+    } else {
+      replyContent = "Unknown command — type /help for the command list.";
     }
-  }, [loading, sessionId]);
+
+    const assistantMsg: Message = {
+      id: genId(),
+      role: "assistant",
+      content: replyContent,
+      ts: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, assistantMsg]);
+    setLoading(false);
+  }, [loading]);
 
   const handleSend = useCallback(async () => {
     await sendMessage(input.trim());
@@ -204,10 +156,6 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     }
   }
 
-  function handleClarificationChoose(id: string, label: string, field: string) {
-    sendMessage(`use ${id} (${label}) for ${field}`);
-  }
-
   return (
     <>
       {open && (
@@ -218,7 +166,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
         />
       )}
       <aside
-        aria-label="AI chat"
+        aria-label="Chat"
         aria-hidden={!open}
         className={cn(
           "fixed inset-y-0 right-0 z-50 flex flex-col w-full sm:w-[400px] bg-slate-900 border-l border-slate-800 shadow-2xl transition-transform duration-200",
@@ -228,15 +176,15 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-indigo-400 shrink-0" />
+            <Terminal className="h-5 w-5 text-indigo-400 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-white">Ask AI</p>
-              <p className="text-xs text-slate-400">Powered by Claude — verify critical data</p>
+              <p className="text-sm font-semibold text-white">Slash commands</p>
+              <p className="text-xs text-slate-400">Type /help to see available commands</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close AI chat"
+            aria-label="Close chat"
             className="text-slate-400 hover:text-slate-100 h-9 w-9 flex items-center justify-center rounded-md transition-colors"
           >
             <X className="h-5 w-5" />
@@ -246,7 +194,6 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
         <MessageList
           messages={messages}
           loading={loading}
-          onClarificationChoose={handleClarificationChoose}
         />
 
         <ChatInput

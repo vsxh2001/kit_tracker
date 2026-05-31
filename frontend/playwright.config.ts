@@ -15,7 +15,7 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     launchOptions: {
-      ...(process.env.CI ? {} : { executablePath: "/usr/bin/google-chrome" }),
+      ...(process.env.CI ? {} : { executablePath: process.env.CHROMIUM_EXECUTABLE ?? "/usr/bin/google-chrome" }),
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     },
   },
