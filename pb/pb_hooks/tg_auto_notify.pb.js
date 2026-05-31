@@ -383,8 +383,8 @@ onRecordAfterCreateRequest(function(e) {
       "Target: " + targetName + "\n" +
       "Delivery: " + deliveryDate + "\n\n" +
       "Reply with:\n" +
-      "- 'approve " + shortId + "' to approve\n" +
-      "- 'reject " + shortId + "' to reject";
+      "- /approve " + shortId + "\n" +
+      "- /reject " + shortId;
 
     // Find all admins with telegram_chat_id set
     var admins = [];
