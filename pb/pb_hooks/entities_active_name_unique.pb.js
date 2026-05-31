@@ -4,7 +4,7 @@
 // and with one active entity.
 //
 // Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
-// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// calls from ai_mcp.pb.js are also covered.
 
 onModelBeforeCreate((e) => {
   if (!e.model.getBool("is_active")) return;

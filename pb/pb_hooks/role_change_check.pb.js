@@ -6,7 +6,7 @@
 // because it requires HTTP context ($apis.requestInfo) to identify the caller's role.
 // There is no HTTP context at the onModelBefore* layer (dao.save() path).
 //
-// The ai_chat / ai_mcp write handlers enforce their own role gate before calling
+// The ai_mcp write handlers enforce their own role gate before calling
 // dao.save(), so the dao.save() path is covered at the handler level.
 // last_admin_check.pb.js covers the structural invariant (last admin cannot be
 // demoted/deleted) at the model level, regardless of caller.

@@ -2,7 +2,7 @@
 // Prevent demotion or deletion of the last admin user.
 //
 // Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
-// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// calls from ai_mcp.pb.js are also covered.
 
 onModelBeforeUpdate((e) => {
   // e.model holds the new (pending) state.

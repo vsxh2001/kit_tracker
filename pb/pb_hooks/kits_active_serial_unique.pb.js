@@ -8,7 +8,7 @@
 // serial with each other and with one active kit.
 //
 // Ported from onRecordBefore*Request to onModelBefore* so that dao.save()
-// calls from ai_chat.pb.js / ai_mcp.pb.js are also covered.
+// calls from ai_mcp.pb.js are also covered.
 //
 // All logic inlined inside each callback — PB v0.22 Goja runs each hook
 // invocation in an isolated runtime; module-level function declarations
