@@ -307,22 +307,38 @@ flyctl secrets set -a kit-tracker \
 
 `POST /api/tg/link/code` — any authenticated user mints a one-time link code (128-bit entropy, 10-min TTL). Response: `{ code, expires_at, instructions, deep_link? }`. Invalidates prior unused codes for that user. Use the code with the bot via `/start <code>`.
 
-`POST /api/tg/webhook` — Telegram inbound webhook (Phase 5: linking + AI bot).
+`POST /api/tg/webhook` — Telegram inbound webhook (linking + slash-command bot per `docs/superpowers/specs/2026-05-30-telegram-slash-command-bot-design.md`).
   - `/start <code>` → validates code (expiry + used check), sets `users.telegram_chat_id`, audit-logs with `via: "tg-link"`, replies "Linked!".
   - `/start` (no code) → replies hint to open the app.
-  - Non-`/start` text with linked+approved user → answered by AI assistant via `/api/ai/chat` (same engine as WhatsApp bot). Session keyed by `"tg:<chatId>"`.
+  - Slash command (`/help`, `/me`, `/kits`, `/kit`, `/requests`, `/find`, `/move`, `/approve`, `/reject`, `/request`) from a linked+approved user → routed to the inlined handler; replies with the operation result.
+  - Non-`/start` text that is not a slash command → `Unknown command — try /help`. **No AI fallback** (the legacy `/api/ai/chat` proxy was removed in the Telegram slash-command bot rollout; the AI chat engine still serves the web sidebar + MCP + WhatsApp).
   - Non-`/start` text, no linked user → "isn't linked" hint.
   - Non-`/start` text, role empty or `"denied"` → awaiting-approval reply.
   - Non-`/start` text, >1 user with same `telegram_chat_id` → ambiguous error, no action.
   - Missing message/text → 200 no-op.
   - Bad secret token → 401 (when `TELEGRAM_BOT_SECRET` is set).
 
-### Telegram inbound bot
+### Telegram inbound bot — slash commands
 
-Phase 5 routes non-`/start` messages from linked, approved Telegram users to the AI assistant. Identical engine to WhatsApp (`ai_chat.pb.js`). The hook mints a short-lived PB auth token for the user, POSTs `{ message, sessionId }` to `/api/ai/chat`, and sends the `reply` field back via `sendTelegram`.
+`tg_webhook.pb.js` is the single command router. PB v0.22 Goja isolation: every helper is defined inside the `routerAdd` callback (no file-scope helpers, no cross-file import; queries are reimplemented inline).
 
-**Env var:**
-- `PB_AI_CHAT_URL` — optional; defaults to `http://127.0.0.1:8090/api/ai/chat`. Override in multi-process or custom-port deployments.
+| Command | Args | Behaviour | Min role |
+|---|---|---|---|
+| `/help` | — | role-aware command list | linked |
+| `/me` | — | name · email · role · linked chat id | linked |
+| `/kits` | — | active kits + current holder | approved |
+| `/kit <serial>` | serial | holder · notes · last move · tracked products (products with `track_in_status=true`) | approved |
+| `/kit <serial> all` | serial + `all` | as above + full contents list | approved |
+| `/requests` | — | open requests with short handle (last 6 chars of id) | approved |
+| `/find <text>` | text | fuzzy match active kits + entities | approved |
+| `/request <kit> <entity> [YYYY-MM-DD]` | serial, entity, opt date | open a request | approved (user+) |
+| `/move <kit> <entity>` | serial, entity name | append a kit transaction → entity | admin/technician |
+| `/approve <handle> [notes]` | handle | set request `status=approved` | admin/technician |
+| `/reject <handle> [notes]` | handle | set request `status=rejected` | admin/technician |
+
+Writes execute immediately (no inline-keyboard confirmation) via `$app.dao()` inside the hook. Each write writes an `audit_log` row with `changes.via = "tg-command"` and `actor = user.id`. Resolution rules: kit by exact `serial` (active); entity by exact `name` (active, case-insensitive); ambiguous/none → clear error, no mutation. Fuzzy resolution is `/find` only.
+
+**Populating the Telegram command menu:** run `bash scripts/tg-set-commands.sh` (reads `TELEGRAM_BOT_TOKEN` from env) once after deploy so the in-chat `/` menu lists the supported commands.
 
 **Webhook registration (operator step):**
 
