@@ -307,7 +307,7 @@ routerAdd("POST", "/api/mcp", function(c) {
       },
       {
         name: "update_user_phone",
-        description: "Set the phone number for a user (E.164 format). Used to bind a WhatsApp account to a user record. Admin can update any user; non-admin can only update self. Undo not available via MCP — issue a reverse update_user_phone. Only admin/technician+ can call this.",
+        description: "Set the phone number for a user (E.164 format). Admin can update any user; non-admin can only update self. Undo not available via MCP — issue a reverse update_user_phone. Only admin/technician+ can call this.",
         inputSchema: {
           type: "object",
           properties: {
