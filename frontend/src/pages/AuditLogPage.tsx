@@ -35,6 +35,8 @@ const VIA_LABELS: Record<AuditVia, string> = {
   "wa-meta-bot": "WhatsApp (Meta)",
   "ai-agent": "AI chat",
   mcp: "MCP",
+  "tg-command": "Telegram",
+  "tg-link": "Telegram link",
 };
 
 function viaLabel(via: string | undefined): string {
@@ -252,6 +254,8 @@ export function AuditLogPage() {
               <SelectItem value="wa-bot">WhatsApp</SelectItem>
               <SelectItem value="ai-agent">AI chat</SelectItem>
               <SelectItem value="mcp">MCP</SelectItem>
+              <SelectItem value="tg-command">Telegram</SelectItem>
+              <SelectItem value="tg-link">Telegram link</SelectItem>
             </SelectContent>
           </Select>
         </div>
