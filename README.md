@@ -1,29 +1,25 @@
 # Kit Tracker
 
-A WhatsApp-driven kit tracker for field-service and IT ops teams. Technicians log moves from their phone; admins audit on the web. Self-hostable on a single $5/mo Fly machine.
-
-![WhatsApp move flow](docs/screenshots/wa-move.png)
+A Telegram-driven kit tracker for field-service and IT ops teams. Technicians log moves with slash commands from their phone; admins audit on the web. Self-hostable on a single $5/mo Fly machine.
 
 ## How it works
 
-1. **Technician on phone** sends `move <KIT-SERIAL> to <ENTITY>` over WhatsApp. Bot confirms in plain text. Tech replies `YES`. Move logged with full audit trail.
-2. **Admin on web** sees the move in the kit timeline with a WhatsApp origin badge, filters audit log by source, exports CSV per kit.
-3. **Append-only history.** Every move is a transaction row — no edits, no deletes. Admins have a hard-delete-with-cascade tool for genuine corrections (audit row written before).
-
-![Web timeline](docs/screenshots/web-timeline.png)
+1. **Technician on phone** sends `/move <KIT-SERIAL> <ENTITY>` to the Telegram bot. The bot resolves both records, appends a transaction immediately, and replies with the new holder. Role-gated to admin/technician.
+2. **Read commands** — `/kits`, `/kit <serial>` (kit details + tracked products), `/find <text>` fuzzy search, `/requests` — available to any approved user.
+3. **Request flow** — `/request <kit> <entity> [YYYY-MM-DD]` opens a request; admins/technicians clear it with `/approve <handle>` or `/reject <handle>`.
+4. **Admin on web** sees every move in the kit timeline with a `tg-command` origin badge, filters audit log by source, exports CSV per kit.
+5. **Append-only history.** Every move is a transaction row — no edits, no deletes. Admins have a hard-delete-with-cascade tool for genuine corrections (audit row written before).
 
 ## Stack
 
 - **Backend:** PocketBase v0.22 (Go + SQLite + Goja JS hooks) on Fly.io
 - **Frontend:** React 18 + Vite + Tailwind + Radix UI
-- **WhatsApp:** Twilio sandbox (production migration documented in `docs/pilot-runbook.md`)
-- **AI:** Anthropic Claude Haiku 4.5 for intent + tool routing (in-app chat sidebar + MCP server)
-
-![Admin audit filter](docs/screenshots/audit-filter.png)
+- **Telegram:** Telegram Bot API webhook (`/api/tg/webhook`) — deterministic slash-command router, no AI in the chat path
+- **AI / MCP:** Anthropic Claude Haiku 4.5 powers the in-app web chat sidebar and the MCP server at `/api/mcp` for external clients (Claude Desktop, Claude Code)
 
 ## Quick start (pilot deployment)
 
-See `docs/pilot-runbook.md` for the full Fly deployment + Twilio sandbox + onboarding flow.
+See `CLAUDE.md` (Deployment section) for the full Fly deployment + Telegram bot setup + Google OAuth flow.
 
 For local development, see the "Quick Start (dev)" section below.
 
