@@ -80,7 +80,9 @@ export function ProfilePage() {
         try {
           const parsed = JSON.parse(u.notification_prefs) as NotificationPrefs;
           setNotifPrefs({
-            channels: Array.isArray(parsed.channels) ? parsed.channels : DEFAULT_PREFS.channels,
+            channels: Array.isArray(parsed.channels)
+              ? parsed.channels.filter((c): c is "email" | "telegram" => c === "email" || c === "telegram")
+              : DEFAULT_PREFS.channels,
             events: {
               request_fulfilled: typeof parsed.events?.request_fulfilled === "boolean" ? parsed.events.request_fulfilled : DEFAULT_PREFS.events.request_fulfilled,
               kit_moved: typeof parsed.events?.kit_moved === "boolean" ? parsed.events.kit_moved : DEFAULT_PREFS.events.kit_moved,
