@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
-// POST /api/mcp — Phase 5: MCP server (Streamable HTTP transport, JSON-RPC 2.0)
+// POST /api/mcp — MCP server (Streamable HTTP transport, JSON-RPC 2.0)
 //
-// Exposes the same 11 tools as ai_chat.pb.js via the Model Context Protocol so
-// any MCP client (Claude Code, Claude Desktop, Cursor, VS Code) can call them
+// Exposes 27 kit-tracker tools (14 read, 13 write) via the Model Context Protocol
+// so any MCP client (Claude Code, Claude Desktop, Cursor, VS Code) can call them
 // directly without going through Anthropic.
 //
 // Transport: Streamable HTTP (single POST endpoint, JSON-RPC over HTTP body).
@@ -30,7 +30,7 @@
 
 routerAdd("POST", "/api/mcp", function(c) {
 
-  // ===== tool layer (inlined; mirrors ai_chat.pb.js — keep in sync structurally) =====
+  // ===== tool layer (inlined; PB v0.22 Goja isolation — see header comment) =====
   function getMcpTools() {
     var definitions = [
       {

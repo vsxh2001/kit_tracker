@@ -8,7 +8,7 @@
 // T6: via tag detection is inlined in each callback (not extracted to a helper)
 // because Goja isolates top-level scope per onRecord* registration — a function
 // declared at module level is not visible inside the callbacks.
-// Each callback reads e.httpContext.get("audit_via") set by ai_chat/ai_mcp/wa_inbound;
+// Each callback reads e.httpContext.get("audit_via") set by ai_mcp / tg_webhook;
 // falls back to "web" for direct REST calls from the browser/frontend.
 
 // kits — create
