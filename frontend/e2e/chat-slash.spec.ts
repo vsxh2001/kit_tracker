@@ -36,7 +36,7 @@ test.describe("Chat slash-command sidebar @smoke", () => {
     await loginAs(page, "admin");
     await page.getByRole("button", { name: /open commands/i }).click();
     await expect(page.getByRole("complementary", { name: /chat/i })).toBeVisible();
-    await expect(page.getByText(/type \/help/i)).toBeVisible();
+    await expect(page.getByText(/type \/help/i).first()).toBeVisible();
   });
 
   test("/kits renders a result @smoke", async ({ page }) => {
@@ -44,7 +44,7 @@ test.describe("Chat slash-command sidebar @smoke", () => {
     await page.getByRole("button", { name: /open commands/i }).click();
 
     const input = page.getByRole("textbox", { name: /chat message input/i });
-    await input.fill("/kits");
+    await input.fill("/kits ");
     await input.press("Enter");
 
     // Should show either a kit list or "No active kits found."
