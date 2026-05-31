@@ -15,15 +15,22 @@ import {
   handleMe,
   handleToday,
   handleHistory,
+  handleFind,
+  handleMove,
+  handleRequest,
+  handleApprove,
+  handleReject,
 } from "./slash-commands/handlers";
 
 export type SlashResult =
   | { ok: true; text: string }
   | { ok: false; error: string };
 
-export const COMMANDS: Array<{ name: string; usage: string; help: string }> = [
+export const COMMANDS: Array<{ name: string; usage: string; help: string; write?: true }> = [
+  // ─── Read commands ───────────────────────────────────────────────────────────
   { name: "help",    usage: "/help",                help: "Show available slash commands." },
   { name: "kits",    usage: "/kits [@tag]",         help: "List active kits, optional tag filter." },
+  { name: "find",    usage: "/find <text>",         help: "Fuzzy search active kits (serial/notes) + entities (name)." },
   { name: "where",   usage: "/where <serial>",      help: "Show current holder and last move for a kit." },
   { name: "req",     usage: "/req",                 help: "Show your open requests." },
   { name: "oncall",  usage: "/oncall",              help: "Show who is on call right now." },
@@ -37,9 +44,14 @@ export const COMMANDS: Array<{ name: string; usage: string; help: string }> = [
   { name: "me",      usage: "/me",                  help: "Current user: role, open requests, on-call status." },
   { name: "today",   usage: "/today",               help: "Daily standup: open req count, deliveries today, on-call, overdue maint." },
   { name: "history", usage: "/history <serial>",    help: "All transactions for a kit, formatted as timeline." },
+  // ─── Write commands (PocketBase rules enforced server-side) ──────────────────
+  { name: "move",    usage: "/move <kit-serial> <entity-name>",              help: "Move a kit to an entity (admin/technician only).", write: true },
+  { name: "request", usage: "/request <kit-serial> <entity-name> [YYYY-MM-DD]", help: "Create an open request for a kit delivery (admin/user).", write: true },
+  { name: "approve", usage: "/approve <request-id> [notes]",                 help: "Approve an open request (admin only).", write: true },
+  { name: "reject",  usage: "/reject <request-id> [notes]",                  help: "Reject an open request (admin only).", write: true },
 ];
 
-const KIT_SERIAL_CMDS = new Set(["where", "kit", "inkit", "history"]);
+const KIT_SERIAL_CMDS = new Set(["where", "kit", "inkit", "history", "move", "request"]);
 const ENTITY_NAME_CMDS = new Set(["at"]);
 const PRODUCT_NAME_CMDS = new Set(["comps"]);
 
@@ -69,8 +81,16 @@ export function getArgResourceType(
 }
 
 async function handleHelp(): Promise<SlashResult> {
-  const lines = COMMANDS.map((c) => `\`${c.usage}\` — ${c.help}`);
-  return { ok: true, text: "**Slash commands:**\n" + lines.join("\n") };
+  const reads = COMMANDS.filter((c) => !c.write);
+  const writes = COMMANDS.filter((c) => c.write);
+  const readLines = reads.map((c) => `\`${c.usage}\` — ${c.help}`);
+  const writeLines = writes.map((c) => `\`${c.usage}\` — ${c.help}`);
+  return {
+    ok: true,
+    text:
+      "**Read commands:**\n" + readLines.join("\n") +
+      "\n\n**Write commands** (PocketBase rules enforced):\n" + writeLines.join("\n"),
+  };
 }
 
 async function handleKits(args: string[]): Promise<SlashResult> {
@@ -160,6 +180,7 @@ export async function execute(parsed: { name: string; args: string[] }): Promise
   switch (parsed.name) {
     case "help":    return handleHelp();
     case "kits":    return handleKits(parsed.args);
+    case "find":    return handleFind(parsed.args);
     case "where":   return handleWhere(parsed.args);
     case "req":     return handleReq();
     case "oncall":  return handleOncall();
@@ -173,6 +194,10 @@ export async function execute(parsed: { name: string; args: string[] }): Promise
     case "me":      return handleMe();
     case "today":   return handleToday();
     case "history": return handleHistory(parsed.args);
+    case "move":    return handleMove(parsed.args);
+    case "request": return handleRequest(parsed.args);
+    case "approve": return handleApprove(parsed.args);
+    case "reject":  return handleReject(parsed.args);
     default:
       return { ok: false, error: `Unknown command. Type \`/help\` to see available commands.` };
   }
