@@ -35,14 +35,12 @@ export interface CreateInviteResult {
   url: string;
   invite_id: string;
   expires_at: string;
-  wa_sent: boolean;
-  wa_error?: string;
 }
 
 export async function createInvite(
   role: string,
   email: string,
-  opts?: { phone?: string; send_via_whatsapp?: boolean }
+  opts?: { phone?: string }
 ): Promise<CreateInviteResult> {
   const res = await fetch(`${baseUrl()}/api/invite/create`, {
     method: "POST",
@@ -54,7 +52,6 @@ export async function createInvite(
       role,
       email,
       ...(opts?.phone ? { phone: opts.phone } : {}),
-      ...(opts?.send_via_whatsapp ? { send_via_whatsapp: true } : {}),
     }),
   });
   const body = await res.json();

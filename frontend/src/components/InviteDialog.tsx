@@ -1,5 +1,5 @@
 import { useState, useEffect, startTransition } from "react";
-import { Link2, Copy, Check, X, MessageCircle } from "lucide-react";
+import { Link2, Copy, Check, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -45,10 +45,8 @@ export function InviteDialog({ open, onClose }: Props) {
   const [role, setRole] = useState("user");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
-  const [sendViaWhatsapp, setSendViaWhatsapp] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
-  const [waSent, setWaSent] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
@@ -81,8 +79,6 @@ export function InviteDialog({ open, onClose }: Props) {
         setRole("user");
         setInviteEmail("");
         setInvitePhone("");
-        setSendViaWhatsapp(false);
-        setWaSent(null);
         void loadInvites();
       });
     }
@@ -103,23 +99,9 @@ export function InviteDialog({ open, onClose }: Props) {
     try {
       const result = await createInvite(role, inviteEmail.trim(), {
         phone: normalizedPhone || undefined,
-        send_via_whatsapp: sendViaWhatsapp && !!normalizedPhone,
       });
       setGeneratedUrl(result.url);
-      setWaSent(sendViaWhatsapp && !!normalizedPhone ? result.wa_sent : null);
-      if (sendViaWhatsapp && normalizedPhone) {
-        if (result.wa_sent) {
-          toast({ title: "Invite sent via WhatsApp", variant: "success" });
-        } else {
-          toast({
-            title: "Invite created — share link manually",
-            description: "WhatsApp delivery failed. Copy the link below.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({ title: "Invite link generated", variant: "success" });
-      }
+      toast({ title: "Invite link generated", variant: "success" });
       startTransition(() => loadInvites());
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -192,26 +174,9 @@ export function InviteDialog({ open, onClose }: Props) {
               id="invite-phone"
               type="tel"
               value={invitePhone}
-              onChange={(e) => {
-                setInvitePhone(e.target.value);
-                if (!e.target.value.trim()) setSendViaWhatsapp(false);
-              }}
+              onChange={(e) => setInvitePhone(e.target.value)}
               placeholder="972527799932"
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              id="invite-whatsapp"
-              type="checkbox"
-              checked={sendViaWhatsapp}
-              disabled={!invitePhone.trim()}
-              onChange={(e) => setSendViaWhatsapp(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-40"
-            />
-            <Label htmlFor="invite-whatsapp" className={`flex items-center gap-1.5 cursor-pointer ${!invitePhone.trim() ? "opacity-40" : ""}`}>
-              <MessageCircle className="h-3.5 w-3.5" />
-              Send invite via WhatsApp
-            </Label>
           </div>
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1.5">
@@ -237,9 +202,7 @@ export function InviteDialog({ open, onClose }: Props) {
           {generatedUrl && (
             <div className="rounded-md border bg-slate-50 p-3 space-y-2">
               <p className="text-xs text-muted-foreground font-medium">
-                {waSent === true
-                  ? "Invite sent via WhatsApp — link also shown below as fallback"
-                  : "Invite link (copy and share)"}
+                Invite link (copy and share)
               </p>
               <div className="flex items-center gap-2">
                 <code className="text-xs break-all flex-1 text-slate-700">{generatedUrl}</code>
