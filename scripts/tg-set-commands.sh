@@ -23,7 +23,11 @@ curl -fsSL -X POST "https://api.telegram.org/bot${TOKEN}/setMyCommands" \
       {"command":"kits",     "description":"List active kits with holders"},
       {"command":"kit",      "description":"Kit details: /kit <serial> or /kit <serial> all"},
       {"command":"requests", "description":"List open requests"},
-      {"command":"find",     "description":"Search kits and entities"}
+      {"command":"find",     "description":"Search kits and entities"},
+      {"command":"request",  "description":"Open a request: /request <kit> <entity> [YYYY-MM-DD]"},
+      {"command":"move",     "description":"Move a kit: /move <kit> <entity> (admin/technician)"},
+      {"command":"approve",  "description":"Approve a request: /approve <handle> [notes]"},
+      {"command":"reject",   "description":"Reject a request: /reject <handle> [notes]"}
     ]
   }'
 echo
