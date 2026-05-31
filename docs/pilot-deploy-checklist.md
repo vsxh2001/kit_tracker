@@ -8,7 +8,6 @@
 - [ ] All hooks load without panic? (same script)
 - [ ] All required Fly secrets known? (list below)
 - [ ] Telegram bot token + secret generated?
-- [ ] DEFAULT_WAREHOUSE_ENTITY_ID — choose AFTER deploy + seed, then set as secret
 
 ## Required Fly secrets
 
@@ -18,12 +17,11 @@
 | PB_SUPERUSER_PASSWORD | Strong password |
 | TELEGRAM_BOT_TOKEN | From @BotFather (`/newbot`) |
 | TELEGRAM_BOT_SECRET | Random hex — `openssl rand -hex 20` |
-| APP_BASE_URL | https://kit-tracker-<pilot>.fly.dev |
+| APP_BASE_URL | https://kit-tracker-<pilot>.fly.dev — base URL used in notification email links |
 | SMTP_HOST | Optional — for email notifications |
 | SMTP_USERNAME | Optional |
 | SMTP_PASSWORD | Optional |
 | SMTP_FROM | Optional |
-| DEFAULT_WAREHOUSE_ENTITY_ID | Set AFTER seed runs |
 
 Optional secrets (set if needed):
 
@@ -49,7 +47,6 @@ Optional secrets (set if needed):
    ```
 8. Register bot slash-command menu: `TELEGRAM_BOT_TOKEN=<token> bash scripts/tg-set-commands.sh`
 9. Seed demo data (optional) or production data via PB admin UI
-10. Capture warehouse entity ID, set DEFAULT_WAREHOUSE_ENTITY_ID secret + redeploy
 
 ## Verification after deploy
 
@@ -61,7 +58,7 @@ Optional secrets (set if needed):
 - [ ] Seed admin user has role=admin
 - [ ] Profile → Link Telegram flow produces a code and bot confirms "Linked!"
 - [ ] `/move <serial> <entity>` flow works end-to-end from Telegram
-- [ ] /audit filter by Source=tg-command shows the move
+- [ ] Trigger a `/move` and confirm an audit row appears in PB admin UI → audit_log (filter `changes ~ "tg-command"`); note the web `/audit` Source dropdown does not yet list `tg-command` — that's a known gap, not a deploy failure
 - [ ] CSV export from /audit works
 
 ## Rollback
@@ -75,5 +72,3 @@ Optional secrets (set if needed):
 - `docker-entrypoint.sh` is NOT executable in the worktree (mode -rw-rw-r--). The Dockerfile
   COPYs it in — verify the Docker build sets the right permissions or add `RUN chmod +x` to
   the Dockerfile. Fix is out of lane for this task; flagged here for human action.
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_SECRET` are NOT in `.env.example`. Consider adding
-  them (commented-out) to `.env.example` for operator discoverability.

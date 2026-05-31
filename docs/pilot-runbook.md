@@ -45,10 +45,10 @@ flyctl secrets set --app kit-tracker-<pilot-name> \
   PB_SUPERUSER_PASSWORD=<strong-password> \
   TELEGRAM_BOT_TOKEN=<from-botfather> \
   TELEGRAM_BOT_SECRET=<openssl rand -hex 20> \
-  DEFAULT_WAREHOUSE_ENTITY_ID=placeholder
+  APP_BASE_URL=https://kit-tracker-<pilot-name>.fly.dev
 ```
 
-> `DEFAULT_WAREHOUSE_ENTITY_ID` must be set before the first deploy (placeholder is fine); update it with the real ID after seeding (step 4 or 5).
+> `APP_BASE_URL` is used in notification email links — set to your deployed origin so emails don't link to `localhost:5173`.
 
 To generate `TELEGRAM_BOT_SECRET`:
 ```bash
@@ -137,16 +137,6 @@ PB_URL=https://kit-tracker-<pilot-name>.fly.dev \
   node scripts/seed_demo_data.mjs
 ```
 
-Watch the output for this line:
-```
-DEMO-Warehouse entity ID: <id>
-```
-
-Copy that `<id>` and set the Fly secret (takes effect immediately, no redeploy needed):
-```bash
-flyctl secrets set --app kit-tracker-<pilot-name> DEFAULT_WAREHOUSE_ENTITY_ID=<id>
-```
-
 To remove demo data when the pilot is ready to go live:
 ```bash
 PB_URL=https://kit-tracker-<pilot-name>.fly.dev \
@@ -169,11 +159,6 @@ Use this if you're going straight to real data.
 4. Create N customer-site entities: category = `field`.
 5. Click the warehouse entity to open it — copy the ID from the URL (`/entities/<id>`).
 
-Set the warehouse ID as a Fly secret:
-```bash
-flyctl secrets set --app kit-tracker-<pilot-name> DEFAULT_WAREHOUSE_ENTITY_ID=<warehouse-id>
-```
-
 ### 5b. Create technician users
 
 1. Go to **Users** page (admin only).
@@ -195,7 +180,7 @@ Go to **Kits** → **Import CSV** — upload your kit list. Required columns: `s
    - Walk through the Profile → Link Telegram flow live.
    - Walk through one `/move` live (tech sends from their phone, bot confirms, admin sees it in web audit log).
    - Walk through one `/kit` query live.
-   - Show the admin the PB panel `audit_log` collection filtered by `via=tg-command`.
+   - Show the admin the PB panel `audit_log` collection filtered by `changes ~ "tg-command"` (Telegram-originated events).
 4. Confirm each tech has linked their Telegram account before the call so they can participate.
 
 ---
@@ -213,13 +198,13 @@ Look for `[tg_webhook]` lines — each inbound Telegram command logs intent + re
 
 `https://kit-tracker-<pilot-name>.fly.dev/_/` — log in with superuser credentials.
 
-- **audit_log** collection — every write action; filter `changes.via = "tg-command"` for Telegram-originated moves.
+- **audit_log** collection — every write action; filter `changes ~ "tg-command"` in the PB admin UI to isolate Telegram-originated moves (Telegram-originated changes are stored with `changes.via = "tg-command"` — the web `/audit` Source dropdown currently lists `web`, `wa-bot`, `ai-agent`, `mcp` only; Telegram filtering will land in a follow-up).
 - **transactions** collection — full move history.
 - **users** collection — check/fix `telegram_chat_id` if a tech can't connect.
 
 ### Web audit log
 
-`https://kit-tracker-<pilot-name>.fly.dev/audit` — filter by **Source: tg-command** to see all Telegram-initiated moves. Exportable to CSV.
+`https://kit-tracker-<pilot-name>.fly.dev/audit` — exportable to CSV. Note: the Source dropdown currently lists `web`, `wa-bot`, `ai-agent`, `mcp` only — there is no `tg-command` filter option yet. To isolate Telegram-initiated moves, use the PB admin UI (`/_/` → audit_log → filter `changes ~ "tg-command"`) until the web UI is updated.
 
 ### Daily check (manual, while ops hardening is deferred)
 

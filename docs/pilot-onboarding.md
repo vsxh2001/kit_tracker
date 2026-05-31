@@ -23,7 +23,7 @@ Contact your admin and confirm they have set your role to `technician` or `user`
 ## 2. Link your Telegram account
 
 1. Open the web app and log in.
-2. Click your name or avatar in the sidebar → **Profile**.
+2. Click **Profile** in the sidebar.
 3. Click **Link Telegram**.
 4. A one-time code is minted (valid for 10 minutes). Click the **deep link** to open the bot in
    Telegram, or copy the code and send `/start <code>` directly in the bot chat.
@@ -135,6 +135,8 @@ Lists all open requests visible to your account.
 | `/move <kit> <entity>` | Move kit to entity (immediate) | admin/technician |
 | `/approve <handle> [notes]` | Approve a request | admin/technician |
 | `/reject <handle> [notes]` | Reject a request | admin/technician |
+
+> **`<handle>`** is the short 6-character request id shown at the end of each `/requests` line — e.g. `… kit ACME-001 → LAB-A · a1b2c3`. Use those 6 chars as the handle in `/approve` and `/reject`.
 
 ---
 
