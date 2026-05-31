@@ -277,4 +277,89 @@ describe("ai_mcp POST /api/mcp", () => {
     );
     expect((await txRes2.json()).items.length).toBe(1);
   });
+
+  it("get_kit active_components derives from component_transactions, not components.kit", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Seed: entity
+    const entRes = await fetch(`${baseUrl}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `MCP-GK-ENT-${suffix}`, category: "field", is_active: true }),
+    });
+    const entityId = (await entRes.json()).id;
+
+    // Seed: kit
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: `MCP-GK-KIT-${suffix}`, is_active: true }),
+    });
+    const kitId = (await kitRes.json()).id;
+
+    // Seed: product
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `MCP-GK-PROD-${suffix}`, is_active: true }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    // Seed: component linked to product
+    const compRes = await fetch(`${baseUrl}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serial: `MCP-GK-COMP-${suffix}`,
+        product: productId,
+        is_active: true,
+      }),
+    });
+    const componentId = (await compRes.json()).id;
+
+    // Seed: component_transactions row placing component into kit
+    await fetch(`${baseUrl}/api/collections/component_transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        component: componentId,
+        to_kit: kitId,
+        timestamp: new Date().toISOString(),
+        created_by: "system",
+      }),
+    });
+
+    // Seed: transactions row so current_entity_id resolves
+    await fetch(`${baseUrl}/api/collections/transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kit: kitId,
+        to_entity: entityId,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    // Call get_kit via MCP
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0",
+      id: 99,
+      method: "tools/call",
+      params: { name: "get_kit", arguments: { id: kitId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const result = body.result;
+    expect(result.isError).not.toBe(true);
+
+    const payload = toolPayload(result);
+    expect(Array.isArray(payload.active_components)).toBe(true);
+    expect(payload.active_components).toHaveLength(1);
+
+    const ac = payload.active_components[0];
+    expect(ac.serial).toBe(`MCP-GK-COMP-${suffix}`);
+    expect(ac.product_id).toBe(productId);
+    expect(ac.product_name).toBe(`MCP-GK-PROD-${suffix}`);
+  });
 });
