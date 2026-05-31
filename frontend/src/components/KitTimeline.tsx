@@ -37,6 +37,8 @@ const VIA_LABEL: Record<AuditVia, string> = {
   "wa-meta-bot": "via WhatsApp",
   "ai-agent": "via AI chat",
   mcp: "via MCP",
+  "tg-command": "via Telegram",
+  "tg-link": "via Telegram",
 };
 
 const VIA_STYLE: Record<AuditVia, string> = {
@@ -45,6 +47,8 @@ const VIA_STYLE: Record<AuditVia, string> = {
   "wa-meta-bot": "bg-green-50 text-green-700 border border-green-200",
   "ai-agent": "bg-indigo-50 text-indigo-700 border border-indigo-200",
   mcp: "bg-amber-50 text-amber-700 border border-amber-200",
+  "tg-command": "bg-sky-50 text-sky-700 border border-sky-200",
+  "tg-link": "bg-sky-50 text-sky-700 border border-sky-200",
 };
 
 function OriginBadge({ via }: { via: AuditVia }) {
