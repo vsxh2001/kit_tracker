@@ -305,7 +305,7 @@ function getAiTools() {
     },
     {
       name: "update_user_phone",
-      description: "Set the phone number for a user (E.164 format, e.g. +972527799932). Used to bind a WhatsApp account to a user record. Admin can update any user; non-admin can only update self. Returns the updated user record.",
+      description: "Set the phone number for a user (E.164 format, e.g. +972527799932). Admin can update any user; non-admin can only update self. Returns the updated user record.",
       input_schema: {
         type: "object",
         properties: {

@@ -12,8 +12,7 @@
 // (case-insensitive). Legacy invites (email = null) allow any email.
 //
 // Phone: optional E.164 without '+' (e.g. 972527799932). When provided on create,
-// stored on invite and auto-populated on accept. Optional WhatsApp delivery via
-// Meta Cloud API — best-effort, never blocks invite creation.
+// stored on invite and auto-populated on accept.
 //
 // NOTE: PB v0.22 Goja isolation — all logic inlined inside each routerAdd callback.
 
@@ -40,8 +39,6 @@ routerAdd("POST", "/api/invite/create", function(c) {
 
   // Optional phone — E.164 without '+', e.g. 972527799932
   var invitePhone = (body.phone || "").toString().trim().replace(/\D/g, "");
-
-  var sendViaWhatsapp = body.send_via_whatsapp === true;
 
   // Generate raw token (32 random bytes → hex string via $security)
   var raw = $security.randomString(43); // URL-safe random string
@@ -84,53 +81,7 @@ routerAdd("POST", "/api/invite/create", function(c) {
   }
   var url = scheme + "://" + host + "/invite/" + raw;
 
-  // WhatsApp delivery — best-effort, never blocks invite creation
-  var waSent = false;
-  var waError = "";
-  if (sendViaWhatsapp && invitePhone) {
-    try {
-      var waToken = $os.getenv("WHATSAPP_TOKEN");
-      var waPhoneNumberId = $os.getenv("WHATSAPP_PHONE_NUMBER_ID");
-      if (!waToken || !waPhoneNumberId) {
-        waError = "WhatsApp env vars not configured (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)";
-      } else {
-        var waBody = JSON.stringify({
-          messaging_product: "whatsapp",
-          to: invitePhone,
-          type: "text",
-          text: {
-            body: "Hi! You've been invited to kit-tracker.\nTap to accept: " + url + "\nValid for 7 days."
-          }
-        });
-        var waResp = $http.send({
-          url: "https://graph.facebook.com/v19.0/" + waPhoneNumberId + "/messages",
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer " + waToken,
-            "Content-Type": "application/json"
-          },
-          body: waBody,
-          timeout: 10000
-        });
-        if (waResp.statusCode >= 200 && waResp.statusCode < 300) {
-          waSent = true;
-        } else {
-          // NOTE: proactive messages outside 24h window require a pre-approved template.
-          // If the recipient has not messaged the bot in the last 24h, Meta returns 131047.
-          // Submit a template at https://business.facebook.com/wa/manage/message-templates/
-          // and use a template message type instead of text for production proactive sends.
-          waError = "WhatsApp API error: " + waResp.statusCode + " " + waResp.raw;
-        }
-      }
-    } catch(waEx) {
-      waError = "WhatsApp send exception: " + String(waEx);
-    }
-    if (waError) {
-      console.error("[invite_accept] " + waError);
-    }
-  }
-
-  return c.json(200, { url: url, invite_id: inv.id, expires_at: inv.getString("expires_at"), wa_sent: waSent, wa_error: waError || undefined });
+  return c.json(200, { url: url, invite_id: inv.id, expires_at: inv.getString("expires_at") });
 });
 
 // ─────────────────────────────────────────
