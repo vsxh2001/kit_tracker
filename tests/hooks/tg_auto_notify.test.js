@@ -16,7 +16,7 @@ import { startPb, stopPb, authUser } from "./_helper.js";
 //      - Skips admins whose channels pref excludes "telegram".
 //
 //   3. onRecordAfterCreateRequest("transactions")
-//      - Opt-in (WHATSAPP_NOTIFY_MOVES=1 required); returns early if unset.
+//      - Opt-in (TELEGRAM_NOTIFY_MOVES=1 required); returns early if unset.
 //      - Notifies requester on the linked approved request that kit moved.
 //
 // Test strategy:
@@ -321,7 +321,7 @@ describe("tg_auto_notify — request_pending", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Hook 3: kit_moved TG notification (opt-in via WHATSAPP_NOTIFY_MOVES=1)
+// Hook 3: kit_moved TG notification (opt-in via TELEGRAM_NOTIFY_MOVES=1)
 // ---------------------------------------------------------------------------
 describe("tg_auto_notify — kit_moved", () => {
   let baseUrl, suToken, adminId, adminToken;
@@ -345,7 +345,7 @@ describe("tg_auto_notify — kit_moved", () => {
 
   beforeAll(async () => {
     process.env.TELEGRAM_BOT_TOKEN = "test_token";
-    process.env.WHATSAPP_NOTIFY_MOVES = "1";
+    process.env.TELEGRAM_NOTIFY_MOVES = "1";
 
     const pb = await startPb();
     baseUrl = pb.baseUrl;
@@ -389,10 +389,10 @@ describe("tg_auto_notify — kit_moved", () => {
   afterAll(async () => {
     await stopPb();
     delete process.env.TELEGRAM_BOT_TOKEN;
-    delete process.env.WHATSAPP_NOTIFY_MOVES;
+    delete process.env.TELEGRAM_NOTIFY_MOVES;
   });
 
-  it("WHATSAPP_NOTIFY_MOVES unset — transaction creates without error, no send_telegram row", async () => {
+  it("TELEGRAM_NOTIFY_MOVES unset — transaction creates without error, no send_telegram row", async () => {
     // Temporarily unset the flag (it's set by env before startPb, but PB reads it at call time)
     // We can't unset it after PB started, so just verify that with no approved request the hook
     // skips gracefully (no matching approved request → returns early without sending).

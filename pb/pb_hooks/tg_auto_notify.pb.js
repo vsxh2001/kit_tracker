@@ -4,11 +4,11 @@
 // Hooks:
 //   onRecordAfterUpdateRequest("requests") — approved → fulfilled: notify requester via Telegram.
 //   onRecordAfterCreateRequest("requests") — new request: notify all admins via Telegram.
-//   onRecordAfterCreateRequest("transactions") — kit moved: opt-in via WHATSAPP_NOTIFY_MOVES=1.
+//   onRecordAfterCreateRequest("transactions") — kit moved: opt-in via TELEGRAM_NOTIFY_MOVES=1.
 //
 // Environment:
 //   TELEGRAM_BOT_TOKEN       — Telegram bot token from BotFather (required; skip-silently when absent)
-//   WHATSAPP_NOTIFY_MOVES=1  — opt-in gate for transaction-create notifications (default off)
+//   TELEGRAM_NOTIFY_MOVES=1  — opt-in gate for transaction-create notifications (default off)
 //
 // PB v0.22 Goja isolation: ALL helpers inlined per callback. No cross-callback scope.
 // Best-effort: failed sends log to audit_log but never block the underlying save.
@@ -442,7 +442,7 @@ onRecordAfterCreateRequest(function(e) {
 }, "requests");
 
 // ---------------------------------------------------------------------------
-// Transaction created — kit moved notification (OPT-IN via WHATSAPP_NOTIFY_MOVES=1)
+// Transaction created — kit moved notification (OPT-IN via TELEGRAM_NOTIFY_MOVES=1)
 // ---------------------------------------------------------------------------
 onRecordAfterCreateRequest(function(e) {
   // PB v0.22 Goja isolation: helpers inlined inside callback.
@@ -557,8 +557,8 @@ onRecordAfterCreateRequest(function(e) {
   }
 
   try {
-    // Opt-in guard (same env var as before)
-    var notifyMoves = $os.getenv("WHATSAPP_NOTIFY_MOVES") || "";
+    // Opt-in guard — default off
+    var notifyMoves = $os.getenv("TELEGRAM_NOTIFY_MOVES") || "";
     if (notifyMoves !== "1") return;
 
     var record = e.record;
