@@ -32,7 +32,7 @@ exports CSV for the quarterly business review. No Slack archaeology required.
 - **Telegram slash commands** — tech types `/move`, `/kit`, `/find`, `/request` in the
   Telegram bot; writes execute immediately and are logged; read queries reply in seconds
 - **Web admin — kit timeline** — every transaction in chronological order with source badge
-  (Telegram, web, AI agent)
+  (Telegram, web, MCP)
 - **Audit filter + CSV export** — filter by source, date range, entity; one-click CSV per
   kit for QBR or compliance
 - **Serial/entity resolution** — exact match with clear "not found" and "ambiguous" errors;
@@ -84,9 +84,9 @@ No commitment beyond the two weeks. No contract. Feedback is the exchange.
   SQLite volume). No Kubernetes. One binary.
 - **Telegram bot:** Free. No sandbox-to-production migration — the same bot token works
   from day one. No per-message fees.
-- **AI (web sidebar + MCP only):** Anthropic Claude API — not on the slash-command path;
-  used only for the in-app chat assistant and MCP tools. At expected pilot volume cost is
-  well under $10/mo.
+- **AI (MCP only):** Anthropic Claude API — used only by the MCP server (`/api/mcp`) for
+  external clients like Claude Desktop and Claude Code. Neither the Telegram bot nor the
+  in-app chat sidebar calls an LLM. At expected pilot volume cost is well under $10/mo.
 - **Total pilot cost:** ~$5/mo hosting. That's it.
 
 ---
