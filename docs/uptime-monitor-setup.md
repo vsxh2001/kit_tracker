@@ -65,7 +65,7 @@ The following add noise without actionable signal at pilot scale:
 
 - **Per-page performance** — no baseline established; noise > signal until user base grows.
 - **Database row counts** — no automated rebalance; alert without action is noise.
-- **WhatsApp webhook reachability** — covered by `/api/health` (same process).
+- **Telegram webhook reachability** — covered by `/api/health` (same process).
 - **AI chat latency** — Anthropic's own status page is the upstream signal.
 
 ---
