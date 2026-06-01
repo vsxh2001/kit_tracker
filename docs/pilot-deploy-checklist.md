@@ -58,7 +58,7 @@ Optional secrets (set if needed):
 - [ ] Seed admin user has role=admin
 - [ ] Profile → Link Telegram flow produces a code and bot confirms "Linked!"
 - [ ] `/move <serial> <entity>` flow works end-to-end from Telegram
-- [ ] Trigger a `/move` and confirm an audit row appears in PB admin UI → audit_log (filter `changes ~ "tg-command"`); note the web `/audit` Source dropdown does not yet list `tg-command` — that's a known gap, not a deploy failure
+- [ ] Trigger a `/move` and confirm an audit row appears in web `/audit` with Source filter set to `Telegram` (the dropdown also exposes `Telegram link` for `/start <code>` linking events)
 - [ ] CSV export from /audit works
 
 ## Rollback
@@ -66,9 +66,3 @@ Optional secrets (set if needed):
 - `flyctl releases rollback` to the previous release
 - Or rebuild from a known-good commit + `flyctl deploy --remote-only`
 - Data: snapshot pb_data per `scripts/backup-pb-data.sh` before any risky change
-
-## Known gaps / findings (from dry-run)
-
-- `docker-entrypoint.sh` is NOT executable in the worktree (mode -rw-rw-r--). The Dockerfile
-  COPYs it in — verify the Docker build sets the right permissions or add `RUN chmod +x` to
-  the Dockerfile. Fix is out of lane for this task; flagged here for human action.

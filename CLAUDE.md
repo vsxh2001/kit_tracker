@@ -546,6 +546,9 @@ PB_URL=http://127.0.0.1:8090 \
 | demo-admin-1@kit.local | admin |
 | demo-technician-1@kit.local | technician |
 | demo-technician-2@kit.local | technician |
+| demo-technician-3@kit.local | technician |
+| demo-technician-4@kit.local | technician |
+| demo-technician-5@kit.local | technician |
 | demo-user-1@kit.local | user |
 | demo-user-2@kit.local | user |
 | demo-viewer-1@kit.local | viewer |
