@@ -206,11 +206,11 @@ Look for `[tg_webhook]` lines — each inbound Telegram command logs intent + re
 
 `https://kit-tracker-<pilot-name>.fly.dev/audit` — exportable to CSV. The Source dropdown includes `web`, `wa-bot`, `ai-agent`, `mcp`, `tg-command` (Telegram), and `tg-link` (Telegram link). Use the Source filter to isolate Telegram-initiated moves directly from the web UI.
 
-### Daily check (manual, while ops hardening is deferred)
+### Daily check
 
 Each day during the pilot:
 1. Tail logs for the previous 24h — scan for repeated errors.
-2. Run a manual backup (see section 10).
+2. Confirm the daily backup workflow succeeded (`.github/workflows/backup.yml` runs at 04:23 UTC). Spot-check the latest `backup-*` release on the repo; if missing or failed, run the workflow manually via `workflow_dispatch` or fall back to `bash scripts/backup-pb-data.sh` (see section 10).
 
 ---
 
@@ -220,8 +220,7 @@ These are accepted risks for the pilot period. Be transparent with the pilot tea
 
 | Limitation | Impact | Plan |
 |---|---|---|
-| **No automated daily backup** | Critical if data loss occurs | Run `bash scripts/backup-pb-data.sh` manually each day during pilot; add cron post-commit |
-| **No uptime monitoring or Sentry** | Low visibility into silent failures | Check logs daily; add UptimeRobot + Sentry post-commit |
+| **No Sentry / APM** | Low visibility into silent frontend errors | Check logs daily; UptimeRobot covers reachability per `docs/uptime-monitor-setup.md` — add Sentry post-pilot |
 | **PB JS SDK pinned to `^0.21.x`** | Bumping can break OAuth | See `CLAUDE.md` "PocketBase SDK version" before any upgrade |
 | **OAuth `client_secret_*.json` must never be committed** | Security leak | Verify `.gitignore` before any commit touching OAuth config |
 
@@ -248,7 +247,11 @@ flyctl releases --app kit-tracker-<pilot-name>
 flyctl releases rollback --app kit-tracker-<pilot-name>
 ```
 
-### Database backup (manual, run daily during pilot)
+### Database backup
+
+Daily backups run automatically via `.github/workflows/backup.yml` (04:23 UTC cron). Snapshots are GPG-encrypted and uploaded as GitHub release artifacts; the prune step keeps a rolling window per `scripts/prune-backup-releases.sh`. Required secrets: `FLY_API_TOKEN`, `PB_SUPERUSER_EMAIL`, `PB_SUPERUSER_PASSWORD`, `APP_BASE_URL`, `BACKUP_ENCRYPTION_KEY`.
+
+For an ad-hoc snapshot (e.g. before a risky migration), run locally:
 
 ```bash
 bash scripts/backup-pb-data.sh
