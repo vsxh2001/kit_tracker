@@ -15,7 +15,8 @@ A Telegram-driven kit tracker for field-service and IT ops teams. Technicians lo
 - **Backend:** PocketBase v0.22 (Go + SQLite + Goja JS hooks) on Fly.io
 - **Frontend:** React 18 + Vite + Tailwind + Radix UI
 - **Telegram:** Telegram Bot API webhook (`/api/tg/webhook`) — deterministic slash-command router, no AI in the chat path
-- **AI / MCP:** Anthropic Claude Haiku 4.5 powers the in-app web chat sidebar and the MCP server at `/api/mcp` for external clients (Claude Desktop, Claude Code)
+- **In-app chat sidebar:** deterministic slash-command interface (same command set as Telegram) — no AI, runs entirely in the browser
+- **MCP:** `/api/mcp` Streamable HTTP server exposes 27 read/write tools for external clients (Claude Desktop, Claude Code); the MCP path is the only AI-touching surface in the system
 
 ## Quick start (pilot deployment)
 
