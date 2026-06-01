@@ -118,7 +118,7 @@ export function ChatInput({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Ask something… (Enter to send, Shift+Enter for newline)"
+          placeholder="Type /help to list commands… (Enter to send, Shift+Enter for newline)"
           rows={1}
           disabled={loading}
           aria-label="Chat message input"
