@@ -49,15 +49,14 @@ exports CSV for the quarterly business review. No Slack archaeology required.
 - **Per-product component model** — products can hold serialized components (individual
   serial per item) or bulk components (quantity-tracked); kit contents are inspectable
   from the kit detail page
+- **Public QR landing** — print a QR sticker from `/kits/print`; anyone scanning gets a
+  no-login page showing serial, current holder, tags, and notes — useful for warehouse
+  intake and customer hand-off
 
 ---
 
 ## What's NOT in the pilot (yet)
 
-- **Daily automated backup** — snapshots are manual (`bash scripts/backup-pb-data.sh`);
-  automated schedule is on the roadmap
-- **Public QR scan landing** — scan a label → open kit detail page; designed but not
-  shipped in this sprint
 - **Maintenance schedule UX rebuild** — data model exists; the scheduling interface needs
   a proper rebuild before it's usable
 - **Component reorder points / low-stock alerts** — bulk components track quantity but
@@ -97,7 +96,6 @@ No commitment beyond the two weeks. No contract. Feedback is the exchange.
 | Risk | Mitigation |
 |---|---|
 | **Bot token compromised** | Rotate via @BotFather (`/revoke`) + update Fly secret — takes effect immediately |
-| **No automated daily backup** | Run `bash scripts/backup-pb-data.sh` manually each day during pilot |
 
 ---
 
