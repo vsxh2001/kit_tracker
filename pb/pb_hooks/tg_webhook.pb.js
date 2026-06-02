@@ -68,7 +68,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       .replace(/>/g, "&gt;");
   }
 
-  // sendTelegram — copied verbatim from tg_send.pb.js / tg_group_digest.pb.js.
+  // sendTelegram — mirrors the helper in tg_send.pb.js.
   // Reads TELEGRAM_BOT_TOKEN at call time. If unset, logs and skips (no crash).
   function sendTelegram(chatId, text) {
     var tok = $os.getenv("TELEGRAM_BOT_TOKEN") || "";
