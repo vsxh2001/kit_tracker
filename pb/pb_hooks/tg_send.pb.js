@@ -108,7 +108,7 @@ routerAdd("POST", "/api/tg/send", function(c) {
   }
 
   // ===========================================================================
-  // Write to audit_log (non-fatal — mirror wa_meta_send.pb.js column shape)
+  // Write to audit_log (non-fatal)
   // ===========================================================================
   try {
     var auditCol = $app.dao().findCollectionByNameOrId("audit_log");
