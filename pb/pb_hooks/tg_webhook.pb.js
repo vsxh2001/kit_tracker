@@ -27,7 +27,7 @@
 //
 // Secret token verification:
 //   Telegram sends X-Telegram-Bot-Api-Secret-Token header when the webhook is
-//   registered with a secret_token. Logic mirrors wa_meta_webhook.pb.js:
+//   registered with a secret_token:
 //     - TELEGRAM_BOT_SECRET set  → header must match, else 401.
 //     - TELEGRAM_BOT_SECRET unset → log warning + proceed (local dev / CI without secrets).
 //     - TG_SKIP_SIGNATURE_CHECK=1 → always proceed (explicit dev escape hatch).
@@ -233,7 +233,7 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
   }
 
   // ===========================================================================
-  // Secret-token verification (mirrors wa_meta_webhook.pb.js pattern)
+  // Secret-token verification
   // ===========================================================================
   var expectedSecret = $os.getenv("TELEGRAM_BOT_SECRET") || "";
   var skipCheck = $os.getenv("TG_SKIP_SIGNATURE_CHECK") === "1";
