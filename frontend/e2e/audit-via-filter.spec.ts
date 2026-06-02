@@ -29,8 +29,12 @@ test.describe("Audit log — CSV export @smoke", () => {
     // Navigate to /audit
     await page.goto(`${BASE_URL}/audit`);
     // waitForLoadState("networkidle") hangs on /audit due to PB SSE realtime subscription.
-    // Wait for the page heading instead — confirms route rendered and data loaded.
+    // Wait for the page heading first, then for data to actually load — the
+    // heading appears before fetch completes, so on slower (dockerized) CI
+    // runners the export would otherwise fire against an empty entry list and
+    // produce a header-only CSV that fails the data-row assertion below.
     await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Showing \d+ of \d+ entries/)).toBeVisible({ timeout: 10_000 });
 
     // Start waiting for download before clicking
     const downloadPromise = page.waitForEvent("download");
@@ -72,6 +76,9 @@ test.describe("Audit log — via source filter @smoke", () => {
     await page.goto(`${BASE_URL}/audit`);
     // waitForLoadState("networkidle") hangs on /audit due to PB SSE realtime subscription.
     await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible({ timeout: 10_000 });
+    // Wait for data load — the heading shows before fetch completes; on slow
+    // CI runners the row assertions below would race against an empty list.
+    await expect(page.getByText(/Showing \d+ of \d+ entries/)).toBeVisible({ timeout: 10_000 });
 
     // All 3 seeded rows should be present (table may have more rows from other tests)
     const rows = page.locator("table tbody tr");
