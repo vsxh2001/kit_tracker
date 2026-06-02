@@ -8,7 +8,12 @@ interface ScanResult {
   notes: string;
 }
 
-const PB_URL = import.meta.env.VITE_PB_URL ?? "http://127.0.0.1:8090";
+// Strip trailing slash so concatenation with "/api/..." never produces a
+// protocol-relative "//api/..." URL. In Docker prod builds VITE_PB_URL="/"
+// (so the SDK resolves against window.location.origin); without this strip,
+// `${"/"}/api/scan/X` => "//api/scan/X" which the browser reads as
+// https://api/scan/X.
+const PB_URL = (import.meta.env.VITE_PB_URL ?? "http://127.0.0.1:8090").replace(/\/+$/, "");
 
 export function ScanPage() {
   const { kitId } = useParams<{ kitId: string }>();
