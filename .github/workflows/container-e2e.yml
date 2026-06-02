@@ -39,7 +39,19 @@ jobs:
         run: cd frontend && npm ci
 
       - name: Install Playwright browsers
-        run: cd frontend && npx playwright install chromium --with-deps
+        # Retry: `--with-deps` runs `apt-get update` which occasionally fails
+        # with a Hash Sum mismatch against Google's chrome-stable apt mirror.
+        run: |
+          cd frontend
+          for i in 1 2 3; do
+            if npx playwright install chromium --with-deps; then
+              exit 0
+            fi
+            echo "::warning::playwright install attempt $i failed; retrying in $((i * 15))s..."
+            sleep $((i * 15))
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
 
       - uses: docker/setup-buildx-action@v3
 
