@@ -193,20 +193,6 @@ export interface OnCallShift {
   expand?: { user?: PBUser; created_by?: PBUser };
 }
 
-export interface ScheduledBroadcast {
-  id: string;
-  name: string;
-  cron_expression: string;
-  enabled: boolean;
-  recipient_filter: string; // JSON text — same shape as BroadcastRecipientFilter
-  message: string;          // JSON text — same shape as BroadcastMessage
-  last_run_at: string;      // PB date or empty
-  last_result: string;      // JSON text — { totalRecipients, successCount, failed }
-  created_by: string;
-  created: string;
-  updated: string;
-}
-
 export interface ComponentTransaction {
   id: string;
   component: string;
