@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-30
 **Status:** Design — awaiting user approval before plan/implementation
-**Supersedes:** the messaging/cron portions of `docs/telegram-migration-spec.md` (Phases 1, 7b, 7c). The identity-linking (Phase 2/4) and event-notification (Phase 6, minus escalation) portions remain.
+**Supersedes:** the now-completed WhatsApp → Telegram migration (final WA removal in PRs #197/#198/#201).
 
 ## 1. Motivation
 
