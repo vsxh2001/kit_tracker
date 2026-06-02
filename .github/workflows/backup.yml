@@ -20,6 +20,28 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
 
+      - name: Verify required secrets are set
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PB_SUPERUSER_EMAIL: ${{ secrets.PB_SUPERUSER_EMAIL }}
+          PB_SUPERUSER_PASSWORD: ${{ secrets.PB_SUPERUSER_PASSWORD }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          missing=()
+          for name in FLY_API_TOKEN PB_SUPERUSER_EMAIL PB_SUPERUSER_PASSWORD APP_BASE_URL BACKUP_ENCRYPTION_KEY; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Required GitHub repository secrets are missing: ${missing[*]}"
+            echo "Set each with: gh secret set <NAME> -b '<value>'"
+            echo "See docs/superpowers/specs/2026-05-17-post-pilot-ops-hardening.md and issue #221 for details."
+            exit 1
+          fi
+          echo "✓ All required secrets are set."
+
       - name: Trigger PB backup via HTTP API
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
