@@ -15,7 +15,6 @@ describe("tg_status auth gates", () => {
   beforeAll(async () => {
     // No TELEGRAM_* env vars set → short-circuits to { configured: false }; no external calls.
     delete process.env.TELEGRAM_BOT_TOKEN;
-    delete process.env.TELEGRAM_GROUP_CHAT_ID;
 
     const pb = await startPb();
     baseUrl = pb.baseUrl;

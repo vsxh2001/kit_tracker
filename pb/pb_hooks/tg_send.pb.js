@@ -12,7 +12,7 @@
 //
 // NO module-level vars — PB v0.22 Goja isolation.
 // sendTelegram is defined INSIDE the routerAdd callback (Goja per-callback isolation;
-// top-level function declarations are NOT visible inside callbacks — see tg_group_digest.pb.js).
+// top-level function declarations are NOT visible inside callbacks).
 
 routerAdd("POST", "/api/tg/send", function(c) {
 
@@ -50,7 +50,7 @@ routerAdd("POST", "/api/tg/send", function(c) {
 
   // ===========================================================================
   // sendTelegram helper (MUST be inside callback — Goja isolation)
-  // Copied verbatim from tg_group_digest.pb.js (4096-char chunk splitter).
+  // 4096-char chunk splitter — splits on newline when possible.
   // ===========================================================================
   function sendTelegram(tok, chatId, txt) {
     var MAX = 4000; // stay comfortably under the 4096 Telegram limit
