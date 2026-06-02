@@ -161,7 +161,9 @@ jobs:
   prod-smoke:
     runs-on: ubuntu-latest
     needs: build
-    timeout-minutes: 5
+    # 8 minutes (was 5) leaves headroom for the playwright-install retry loop
+    # (up to 90s of backoff sleep + 3 × install attempts) without brushing the cap.
+    timeout-minutes: 8
     env:
       SEED_TEST_USERS: "1"
     steps:
