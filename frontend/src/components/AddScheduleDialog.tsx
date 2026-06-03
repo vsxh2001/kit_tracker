@@ -20,7 +20,7 @@ import {
 import { createSchedule } from "../services/maintenance";
 import { listKits } from "../services/kits";
 import { toast } from "./ui/use-toast";
-import { MAINTENANCE_TYPES } from "../lib/maintenance-types";
+import { MAINTENANCE_TYPES, maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { Kit, MaintenanceType } from "../types";
 
 interface Props {
@@ -104,7 +104,7 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
       if (lastDoneAt) payload.last_done_at = lastDoneAt;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await createSchedule(payload as any);
-      toast({ title: "Schedule created", description: MAINTENANCE_TYPES.find(t => t.value === type)?.label ?? type, variant: "success" });
+      toast({ title: "Schedule created", description: maintenanceTypeLabel(type), variant: "success" });
       reset();
       onSaved();
       onClose();
