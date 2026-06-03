@@ -757,7 +757,7 @@ test.describe.skip("F. On-call rotation", () => {
     await waitForModal(page);
     await screenshot(page, "F4-add-shift-dialog");
 
-    // Fill shift details — scope all to dialog to avoid AI chat Send button
+    // Fill shift details — scope all to dialog to avoid chat sidebar Send button
     const dialog = page.locator('[role="dialog"]:not([aria-label="Navigation menu"])');
     const today = new Date();
     const startDate = new Date(today.getTime() - 12 * 60 * 60 * 1000); // today - 12h
