@@ -19,16 +19,8 @@ import {
 } from "./ui/select";
 import { updateSchedule } from "../services/maintenance";
 import { toast } from "./ui/use-toast";
+import { MAINTENANCE_TYPES } from "../lib/maintenance-types";
 import type { KitMaintenanceSchedule, MaintenanceType } from "../types";
-
-const MAINTENANCE_TYPES: { value: MaintenanceType; label: string }[] = [
-  { value: "calibration",   label: "Calibration" },
-  { value: "inspection",    label: "Inspection" },
-  { value: "service",       label: "Service" },
-  { value: "replacement",   label: "Replacement" },
-  { value: "certification", label: "Certification" },
-  { value: "other",         label: "Other" },
-];
 
 interface Props {
   schedule: KitMaintenanceSchedule | null;
