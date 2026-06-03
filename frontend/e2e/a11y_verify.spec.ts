@@ -24,8 +24,8 @@ test.describe("a11y verify — commit a122490", () => {
     if (a11yEntityId) await deactivateEntity(a11yEntityId);
   });
 
-  // The mobile nav drawer. Scoped by aria-label because the AI chat panel is
-  // now also an `aside.fixed`, so the bare selector matches 2 elements.
+  // The mobile nav drawer. Scoped by aria-label because the slash-command chat
+  // panel is also an `aside.fixed`, so the bare selector matches 2 elements.
   const NAV_DRAWER = 'aside[aria-label="Navigation menu"]';
 
   test("Check 1: Esc key closes drawer", async ({ page }) => {
