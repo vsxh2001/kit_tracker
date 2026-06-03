@@ -3,12 +3,6 @@ import { startPb, stopPb, authUser } from "./_helper.js";
 
 // Tests for the update_user_telegram_chat_id tool via POST /api/mcp (ai_mcp.pb.js).
 //
-// NOTE: exercised through the MCP tools/call path only. The ai_chat.pb.js copy is a
-// near-identical execute fn (differs only in audit via="ai-agent" vs "mcp"); its path
-// is reached by an LLM deciding to call the tool — not directly invocable in the
-// ephemeral hook-test PB (no Anthropic key), so MCP stands in for the shared execute
-// logic. The MCP outer write-gate + inner self-vs-admin check are identical.
-//
 // Covers:
 //   - admin sets telegram_chat_id on another user (success + field persisted)
 //   - write is audit-logged with via=mcp + tool tag
