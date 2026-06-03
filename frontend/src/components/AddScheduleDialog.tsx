@@ -20,16 +20,8 @@ import {
 import { createSchedule } from "../services/maintenance";
 import { listKits } from "../services/kits";
 import { toast } from "./ui/use-toast";
+import { MAINTENANCE_TYPES } from "../lib/maintenance-types";
 import type { Kit, MaintenanceType } from "../types";
-
-const MAINTENANCE_TYPES: { value: MaintenanceType; label: string }[] = [
-  { value: "calibration",   label: "Calibration" },
-  { value: "inspection",    label: "Inspection" },
-  { value: "service",       label: "Service" },
-  { value: "replacement",   label: "Replacement" },
-  { value: "certification", label: "Certification" },
-  { value: "other",         label: "Other" },
-];
 
 interface Props {
   /** When provided, the kit picker is hidden and this kit is used. */

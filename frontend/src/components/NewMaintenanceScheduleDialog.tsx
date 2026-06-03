@@ -20,18 +20,8 @@ import {
 import { createSchedule, bulkCreateSchedules } from "../services/maintenance";
 import { listKits } from "../services/kits";
 import { toast } from "./ui/use-toast";
+import { MAINTENANCE_TYPES } from "../lib/maintenance-types";
 import type { Kit, MaintenanceType } from "../types";
-
-// Controlled type vocab — matches PR #5 (worktree-maintenance-ux-phase1).
-// Kept inline here to avoid merge race; extract shared primitive after PR #5 lands.
-const MAINTENANCE_TYPES = [
-  { value: "calibration",   label: "Calibration" },
-  { value: "inspection",    label: "Inspection" },
-  { value: "service",       label: "Service" },
-  { value: "replacement",   label: "Replacement" },
-  { value: "certification", label: "Certification" },
-  { value: "other",         label: "Other" },
-] as const;
 
 interface Props {
   open: boolean;
