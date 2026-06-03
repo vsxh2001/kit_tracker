@@ -45,7 +45,7 @@ echo "  $MIG_COUNT migrations present"
 
 echo ""
 echo "→ Required env vars documented?"
-for v in PB_SUPERUSER_EMAIL PB_SUPERUSER_PASSWORD CLAUDE_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_BOT_SECRET APP_BASE_URL; do
+for v in PB_SUPERUSER_EMAIL PB_SUPERUSER_PASSWORD TELEGRAM_BOT_TOKEN TELEGRAM_BOT_SECRET APP_BASE_URL; do
   if grep -q "$v" "$REPO_ROOT/.env.example" "$REPO_ROOT/docs/pilot-runbook.md" 2>/dev/null; then
     ok "$v"
   else
