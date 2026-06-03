@@ -329,7 +329,7 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     });
   });
 
-  it("[Phase5] linked user with empty role (awaiting approval) → 200, no ai_chat action", async () => {
+  it("[Phase5] linked user with empty role (awaiting approval) → 200, no command routed", async () => {
     // Create a user with no role and telegram_chat_id set
     const u3 = await fetch(`${baseUrl}/api/collections/users/records`, {
       method: "POST",
@@ -351,7 +351,7 @@ describe("tg_webhook hook (POST /api/tg/webhook)", () => {
     });
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
-    // The awaiting-approval branch returns 200 without attempting ai_chat.
+    // The awaiting-approval branch returns 200 without routing to any slash command.
 
     // Cleanup
     await fetch(`${baseUrl}/api/collections/users/records/${u3Data.id}`, {
