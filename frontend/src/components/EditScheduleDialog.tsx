@@ -19,7 +19,7 @@ import {
 } from "./ui/select";
 import { updateSchedule } from "../services/maintenance";
 import { toast } from "./ui/use-toast";
-import { MAINTENANCE_TYPES } from "../lib/maintenance-types";
+import { MAINTENANCE_TYPES, maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { KitMaintenanceSchedule, MaintenanceType } from "../types";
 
 interface Props {
@@ -72,7 +72,7 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
       });
       toast({
         title: "Schedule updated",
-        description: MAINTENANCE_TYPES.find((t) => t.value === type)?.label ?? type,
+        description: maintenanceTypeLabel(type),
         variant: "success",
       });
       onSaved();
