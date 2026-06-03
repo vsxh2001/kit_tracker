@@ -48,6 +48,10 @@ set +u
 source .env
 set -u
 
+# Re-export so child processes (Playwright reads PB_SUPERUSER_* via process.env
+# in e2e/helpers/api.ts:getSuperToken — needed by audit-via-filter.spec.ts).
+export PB_SUPERUSER_EMAIL PB_SUPERUSER_PASSWORD
+
 # Enable test-user seeding for local dev / CI parity
 export SEED_TEST_USERS=1
 
