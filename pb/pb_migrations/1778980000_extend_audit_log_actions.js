@@ -4,9 +4,9 @@
 // After:  ["create", "update", "delete", "cascade_delete", "cascade_partial", "create_failed", "update_failed"]
 //
 // cascade_delete / cascade_partial — written by cascade_delete.pb.js
-// create_failed / update_failed    — written by ai_chat.pb.js and ai_mcp.pb.js
+// create_failed / update_failed    — written by ai_mcp.pb.js
 // Without this migration those writes fail enum validation and are silently
-// swallowed, leaving hard-deletes and AI failures with no audit trail.
+// swallowed, leaving hard-deletes and MCP failures with no audit trail.
 
 migrate(
   (db) => {
