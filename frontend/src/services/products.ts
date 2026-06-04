@@ -24,7 +24,7 @@ export async function createProduct(data: Partial<Product>): Promise<Product> {
   // Always send is_active and is_serialized explicitly. The PB hook can't
   // distinguish "field absent" from "field=false", so the service layer owns
   // the defaults.
-  return pb.collection("products").create<Product>({ is_active: true, is_serialized: true, track_in_status: false, reorder_point: null, ...data });
+  return pb.collection("products").create<Product>({ is_active: true, is_serialized: true, track_in_status: false, is_consumable: false, reorder_point: null, ...data });
 }
 
 export async function updateProduct(id: string, data: Partial<Product>): Promise<Product> {
