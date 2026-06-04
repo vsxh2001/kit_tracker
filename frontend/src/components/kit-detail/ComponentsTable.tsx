@@ -80,6 +80,9 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                   </div>
                   <div className="flex items-center gap-2">
                     {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
+                    {comp.bin_code && (
+                      <span className="font-mono text-xs text-indigo-700">Bin: {comp.bin_code}</span>
+                    )}
                     {canTransferKits && (
                       <button
                         onClick={() => setMovingComponent(comp)}
@@ -101,6 +104,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                   <tr className="border-b bg-slate-50/80">
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Product / Type / Serial</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bin</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -118,6 +122,9 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                         {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-indigo-700">
+                        {comp.bin_code || <span className="text-muted-foreground opacity-40">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         {canTransferKits && (
                           <button
