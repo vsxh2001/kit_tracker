@@ -295,6 +295,18 @@ routerAdd("POST", "/_test/maintenance-reminder", function(c) {
     return c.json(200, { fired: true, skipped: "no_recipients", due: due.length, sent: 0 });
   }
 
+  // Short-circuit when SMTP is not configured — surfaces a clear signal to admins
+  // running the manual trigger rather than reporting sent=0 with no reason.
+  var smtpEnabled = false;
+  try {
+    var smtpSettings = $app.settings().smtp;
+    smtpEnabled = !!(smtpSettings && smtpSettings.enabled === true);
+  } catch (e) { /* default false */ }
+  if (!smtpEnabled) {
+    console.log("[maintenance-reminder] route: SMTP not configured, would-send=" + recipientIdsRoute.length);
+    return c.json(200, { fired: true, skipped: "smtp_unconfigured", due: due.length, sent: 0 });
+  }
+
   var rows = [];
   for (var j = 0; j < due.length; j++) {
     var item = due[j];
