@@ -96,11 +96,16 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                   )}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  {kitSerial && kitId ? (
-                    <span>Kit: {kitSerial}</span>
-                  ) : (
-                    <span>—</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {kitSerial && kitId ? (
+                      <span>Kit: {kitSerial}</span>
+                    ) : (
+                      <span>—</span>
+                    )}
+                    {component.bin_code && (
+                      <span className="font-mono text-indigo-700">Bin: {component.bin_code}</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     {!component.is_active && (
                       <Badge variant="destructive" className="text-xs">Inactive</Badge>
@@ -123,6 +128,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                 {th("Product")}
                 {isSerializedSection ? th("Serial") : th("Quantity")}
                 {th("Kit")}
+                {th("Bin")}
                 {th("Active")}
                 {th("Actions")}
               </tr>
@@ -168,6 +174,9 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                       ) : (
                         <span className="text-muted-foreground opacity-40">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-indigo-700">
+                      {component.bin_code || <span className="text-muted-foreground opacity-40">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1 items-start">
