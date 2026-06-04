@@ -60,6 +60,23 @@ export async function getComponentCountsByProduct(): Promise<Record<string, numb
   return map;
 }
 
+// Bulk components contribute their quantity; serialized contribute 1 each.
+// Mirrors getOnHandForProduct() but aggregates across all products in one call.
+export async function getOnHandByProduct(): Promise<Record<string, number>> {
+  const comps = await pb.collection("components").getFullList<Component>({
+    filter: "is_active = true && product != ''",
+    fields: "product,is_bulk,quantity",
+    requestKey: "on-hand-by-product",
+  });
+  const map: Record<string, number> = {};
+  for (const c of comps) {
+    if (!c.product) continue;
+    const inc = c.is_bulk ? (c.quantity ?? 0) : 1;
+    map[c.product] = (map[c.product] || 0) + inc;
+  }
+  return map;
+}
+
 export async function getOnHandForProduct(productId: string, isSerialized: boolean): Promise<number> {
   const arr = await pb.collection("components").getFullList<Component>({
     filter: pb.filter("product = {:productId} && is_active = true", { productId }),

@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AddProductDialog } from "../components/AddProductDialog";
-import { listProducts, getComponentCountsByProduct, updateProduct, softDeleteProduct } from "../services/products";
+import { listProducts, getComponentCountsByProduct, getOnHandByProduct, updateProduct, softDeleteProduct } from "../services/products";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
@@ -26,6 +26,7 @@ import type { Product } from "../types";
 interface ProductRow {
   product: Product;
   componentCount: number;
+  onHand: number;
 }
 
 type BulkAction = "retire" | "activate";
@@ -49,11 +50,12 @@ export function ProductsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [products, counts] = await Promise.all([
+      const [products, counts, onHandMap] = await Promise.all([
         listProducts({ includeInactive: showInactive }),
         getComponentCountsByProduct(),
+        getOnHandByProduct(),
       ]);
-      setRows(products.map((p) => ({ product: p, componentCount: counts[p.id] ?? 0 })));
+      setRows(products.map((p) => ({ product: p, componentCount: counts[p.id] ?? 0, onHand: onHandMap[p.id] ?? 0 })));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -227,7 +229,7 @@ export function ProductsPage() {
           {/* Mobile card list — no checkboxes (desktop-only bulk selection) */}
           {filtered.length > 0 && (
             <div className="md:hidden space-y-2">
-              {filtered.map(({ product, componentCount }) => (
+              {filtered.map(({ product, componentCount, onHand }) => (
                 <Link key={product.id} to={`/products/${product.id}`}>
                   <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -237,6 +239,9 @@ export function ProductsPage() {
                           {product.is_serialized !== false ? "Serial" : "Bulk"}
                         </Badge>
                         {product.is_consumable && <Badge variant="outline" className="text-xs">Consumable</Badge>}
+                        {product.reorder_point != null && onHand < product.reorder_point && (
+                          <Badge variant="destructive" className="text-xs">Low stock</Badge>
+                        )}
                         {!product.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
                     </div>
@@ -327,8 +332,9 @@ export function ProductsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map(({ product, componentCount }) => {
+                      {filtered.map(({ product, componentCount, onHand }) => {
                         const isChecked = selected.has(product.id);
+                        const lowStock = product.reorder_point != null && onHand < product.reorder_point;
                         return (
                           <tr key={product.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/products/${product.id}`)}>
                             {canDecideRequests && (
@@ -360,9 +366,12 @@ export function ProductsPage() {
                             <td className="px-4 py-3 text-xs text-muted-foreground">{product.model || <span className="opacity-40">—</span>}</td>
                             <td className="px-4 py-3 tabular-nums text-xs">{componentCount}</td>
                             <td className="px-4 py-3">
-                              {product.is_active
-                                ? <Badge variant="outline" className="text-xs">Active</Badge>
-                                : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                              <div className="flex flex-col gap-1 items-start">
+                                {product.is_active
+                                  ? <Badge variant="outline" className="text-xs">Active</Badge>
+                                  : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                                {lowStock && <Badge variant="destructive" className="text-xs">Low stock</Badge>}
+                              </div>
                             </td>
                             <td className="px-4 py-3">
                               {product.track_in_status
