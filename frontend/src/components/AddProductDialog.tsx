@@ -26,6 +26,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
   const [model, setModel] = useState("");
   const [description, setDescription] = useState("");
   const [url, setUrl] = useState("");
+  const [reorderPoint, setReorderPoint] = useState("");
   const [specs, setSpecs] = useState("");
   const [isSerialized, setIsSerialized] = useState(true);
   const [error, setError] = useState("");
@@ -39,6 +40,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     setModel("");
     setDescription("");
     setUrl("");
+    setReorderPoint("");
     setSpecs("");
     setIsSerialized(true);
     setError("");
@@ -54,6 +56,13 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     if (!name.trim()) {
       setError("Name is required.");
       return;
+    }
+    if (reorderPoint !== "") {
+      const n = Number(reorderPoint);
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+        setError("Reorder point must be a non-negative whole number.");
+        return;
+      }
     }
     if (specs.trim()) {
       try {
@@ -76,6 +85,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
         url: url.trim() || "",
         specs: specs.trim() || "",
         is_serialized: isSerialized,
+        reorder_point: reorderPoint !== "" ? Number(reorderPoint) : null,
       });
       toast({ title: "Product created", description: prod.name, variant: "success" });
       window.dispatchEvent(new CustomEvent("kit-tracker:data-changed"));
@@ -155,6 +165,19 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/datasheet"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="prod-reorder-point">Reorder point (optional)</Label>
+            <Input
+              id="prod-reorder-point"
+              type="number"
+              min={0}
+              step={1}
+              value={reorderPoint}
+              onChange={(e) => setReorderPoint(e.target.value)}
+              placeholder="e.g. 5"
+            />
+            <p className="text-xs text-muted-foreground">Alert when active on-hand falls below this number. Leave blank to disable.</p>
           </div>
           <div className="flex items-center gap-3">
             <input
