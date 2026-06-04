@@ -115,6 +115,7 @@ export interface Product {
   is_serialized: boolean;
   track_in_status: boolean;
   reorder_point?: number | null;
+  is_consumable: boolean;
   is_active: boolean;
   created: string;
   updated: string;

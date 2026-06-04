@@ -32,6 +32,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [specs, setSpecs] = useState(product.specs ?? "");
   const [isSerialized, setIsSerialized] = useState(product.is_serialized ?? true);
   const [trackInStatus, setTrackInStatus] = useState(product.track_in_status ?? false);
+  const [isConsumable, setIsConsumable] = useState(product.is_consumable ?? false);
   const [activeComponentCount, setActiveComponentCount] = useState(0);
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
@@ -50,6 +51,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         setSpecs(product.specs ?? "");
         setIsSerialized(product.is_serialized ?? true);
         setTrackInStatus(product.track_in_status ?? false);
+        setIsConsumable(product.is_consumable ?? false);
         setActiveComponentCount(0);
         setError("");
         setSpecsError("");
@@ -106,6 +108,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         specs: specs.trim() || "",
         is_serialized: isSerialized,
         track_in_status: trackInStatus,
+        is_consumable: isConsumable,
         reorder_point: reorderPoint !== "" ? Number(reorderPoint) : null,
       });
       toast({ title: "Product updated", description: name.trim(), variant: "success" });
@@ -230,6 +233,19 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
             <div>
               <Label htmlFor="edit-prod-track-in-status">Track in kit status</Label>
               <p className="text-xs text-muted-foreground">Show this product&apos;s presence in /kit status</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="edit-prod-consumable"
+              checked={isConsumable}
+              onChange={(e) => setIsConsumable(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <div>
+              <Label htmlFor="edit-prod-consumable">Consumable (one-way; not expected to return)</Label>
+              <p className="text-xs text-muted-foreground">For tape, adhesives, batteries, and similar items consumed in use.</p>
             </div>
           </div>
           <div className="space-y-1.5">

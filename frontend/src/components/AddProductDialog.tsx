@@ -29,6 +29,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
   const [reorderPoint, setReorderPoint] = useState("");
   const [specs, setSpecs] = useState("");
   const [isSerialized, setIsSerialized] = useState(true);
+  const [isConsumable, setIsConsumable] = useState(false);
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     setReorderPoint("");
     setSpecs("");
     setIsSerialized(true);
+    setIsConsumable(false);
     setError("");
     setSpecsError("");
   }
@@ -85,6 +87,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
         url: url.trim() || "",
         specs: specs.trim() || "",
         is_serialized: isSerialized,
+        is_consumable: isConsumable,
         reorder_point: reorderPoint !== "" ? Number(reorderPoint) : null,
       });
       toast({ title: "Product created", description: prod.name, variant: "success" });
@@ -188,6 +191,19 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
               className="h-4 w-4"
             />
             <Label htmlFor="prod-serialized">Serialized (one unit per component)</Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="prod-consumable"
+              checked={isConsumable}
+              onChange={(e) => setIsConsumable(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <div>
+              <Label htmlFor="prod-consumable">Consumable (one-way; not expected to return)</Label>
+              <p className="text-xs text-muted-foreground">For tape, adhesives, batteries, and similar items consumed in use.</p>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="prod-specs">Specs (JSON)</Label>

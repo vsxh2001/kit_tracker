@@ -124,6 +124,7 @@ export function ProductDetailPage() {
           {product.is_serialized
             ? <Badge variant="outline">Serialized</Badge>
             : <Badge variant="secondary">Bulk</Badge>}
+          {product.is_consumable && <Badge variant="outline">Consumable</Badge>}
           {!product.is_active && <Badge variant="destructive">Inactive</Badge>}
         </div>
       </div>
@@ -141,6 +142,7 @@ export function ProductDetailPage() {
             <Row label="Model" value={product.model || "—"} />
             <Row label="Description" value={product.description || "—"} />
             <Row label="Reorder point" value={product.reorder_point != null ? String(product.reorder_point) : "—"} />
+            <Row label="Consumable" value={product.is_consumable ? "Yes" : "No"} />
             {product.url && (
               <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
                 <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">URL</p>
