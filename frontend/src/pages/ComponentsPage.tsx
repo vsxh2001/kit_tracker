@@ -11,6 +11,7 @@ import { listComponents } from "../services/components";
 import { listAllComponentTransactions } from "../services/componentTransactions";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
+import { expiryStatus, daysUntilExpiry } from "../lib/utils";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
 interface ComponentRow {
@@ -43,6 +44,16 @@ function th(label: string) {
       {label}
     </th>
   );
+}
+
+function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
+  const status = expiryStatus(expiresAt);
+  if (status === "none" || status === "ok") return null;
+  const days = daysUntilExpiry(expiresAt);
+  if (status === "expired") {
+    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
+  }
+  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
 }
 
 interface SectionTableProps {
@@ -90,9 +101,12 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                   ) : (
                     <span>—</span>
                   )}
-                  {!component.is_active && (
-                    <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {!component.is_active && (
+                      <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                    )}
+                    <ExpiryBadge expiresAt={component.expires_at} />
+                  </div>
                 </div>
               </div>
             </Link>
@@ -156,11 +170,14 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {component.is_active ? (
-                        <Badge variant="outline" className="text-xs">Active</Badge>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                      )}
+                      <div className="flex flex-col gap-1 items-start">
+                        {component.is_active ? (
+                          <Badge variant="outline" className="text-xs">Active</Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                        )}
+                        <ExpiryBadge expiresAt={component.expires_at} />
+                      </div>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <Link

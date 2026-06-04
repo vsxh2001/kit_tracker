@@ -41,6 +41,8 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
   const [serial, setSerial] = useState("");
   const [notes, setNotes] = useState("");
   const [binCode, setBinCode] = useState("");
+  const [lotCode, setLotCode] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   const [isBulk, setIsBulk] = useState(false);
   const [quantity, setQuantity] = useState("1");
   const [productId, setProductId] = useState(presetProductId ?? "");
@@ -64,6 +66,8 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         setSerial("");
         setNotes("");
         setBinCode("");
+        setLotCode("");
+        setExpiresAt("");
         setIsBulk(false);
         setQuantity("1");
         setProductId(presetProductId ?? "");
@@ -150,6 +154,8 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         serial: isSerialized ? serial.trim() : "",
         notes: notes.trim(),
         bin_code: binCode.trim(),
+        lot_code: lotCode.trim(),
+        expires_at: expiresAt || "",
         is_bulk: !isSerialized,
         quantity: bulkQty,
         is_active: true,
@@ -303,6 +309,25 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
                         onChange={(e) => setBinCode(e.target.value)}
                         maxLength={16}
                         placeholder="e.g. A3-04"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-lot">Lot code (optional)</Label>
+                      <Input
+                        id="comp-lot"
+                        value={lotCode}
+                        onChange={(e) => setLotCode(e.target.value)}
+                        maxLength={32}
+                        placeholder="e.g. LOT-2026-A"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-expires">Expires at (optional)</Label>
+                      <Input
+                        id="comp-expires"
+                        type="date"
+                        value={expiresAt}
+                        onChange={(e) => setExpiresAt(e.target.value)}
                       />
                     </div>
                     {prodIsSerialized === null && (
