@@ -128,6 +128,8 @@ export interface Component {
   quantity: number | null;
   product: string; // relation id, now required
   bin_code: string; // optional shelf/bin label inside an entity; max 16 chars
+  lot_code: string;     // optional lot/batch code; max 32 chars
+  expires_at: string;   // optional expiry date; ISO "YYYY-MM-DD ..." or empty
   created: string;
   updated: string;
   expand?: { product?: Product };

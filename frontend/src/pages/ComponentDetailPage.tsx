@@ -21,8 +21,8 @@ import { listTransactionsForComponent } from "../services/componentTransactions"
 import { listSchedulesForComponent, updateSchedule } from "../services/maintenance";
 import { countComponentsForProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
-import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
-import type { MaintStatus } from "../lib/utils";
+import { formatDate, formatDateOnly, maintenanceStatus, expiryStatus } from "../lib/utils";
+import type { MaintStatus, ExpiryStatus } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
@@ -44,6 +44,8 @@ export function ComponentDetailPage() {
   const [editSerial, setEditSerial] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editBinCode, setEditBinCode] = useState("");
+  const [editLotCode, setEditLotCode] = useState("");
+  const [editExpiresAt, setEditExpiresAt] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
@@ -110,6 +112,8 @@ export function ComponentDetailPage() {
     setEditSerial(component.serial);
     setEditNotes(component.notes);
     setEditBinCode(component.bin_code ?? "");
+    setEditLotCode(component.lot_code ?? "");
+    setEditExpiresAt(component.expires_at ? component.expires_at.slice(0, 10) : "");
     setEditError("");
     setShowEdit(true);
   }
@@ -122,6 +126,8 @@ export function ComponentDetailPage() {
         serial: editSerial.trim(),
         notes: editNotes.trim(),
         bin_code: editBinCode.trim(),
+        lot_code: editLotCode.trim(),
+        expires_at: editExpiresAt || "",
       });
       toast({ title: "Component updated", variant: "success" });
       setShowEdit(false);
@@ -198,6 +204,14 @@ export function ComponentDetailPage() {
             )}
             <Row label="Bulk" value={component.is_bulk ? "Yes" : "No"} />
             <Row label="Bin / shelf" value={component.bin_code || "—"} mono />
+            <Row label="Lot code" value={component.lot_code || "—"} mono />
+            <Row label="Expires at" value={component.expires_at ? formatDateOnly(component.expires_at) : "—"} />
+            {component.expires_at && (
+              <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
+                <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">Expiry status</p>
+                <ExpiryStatusPill expiresAt={component.expires_at} />
+              </div>
+            )}
             {latest && <Row label="Current location" value={locationLabel(latest)} />}
           </CardContent>
         </Card>
@@ -552,6 +566,25 @@ export function ComponentDetailPage() {
                   placeholder="e.g. A3-04"
                 />
               </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Lot code</label>
+                <input
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={editLotCode}
+                  onChange={(e) => setEditLotCode(e.target.value)}
+                  maxLength={32}
+                  placeholder="e.g. LOT-2026-A"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Expires at</label>
+                <input
+                  type="date"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={editExpiresAt}
+                  onChange={(e) => setEditExpiresAt(e.target.value)}
+                />
+              </div>
               {editError && <p className="text-sm text-destructive">{editError}</p>}
             </div>
             <AlertDialogFooter>
@@ -616,6 +649,17 @@ export function ComponentDetailPage() {
 function CompMaintStatusPill({ status }: { status: MaintStatus }) {
   if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
   if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
+  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
+}
+
+function ExpiryStatusPill({ expiresAt }: { expiresAt: string }) {
+  const status: ExpiryStatus = expiryStatus(expiresAt);
+  if (status === "expired") {
+    return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Expired</span>;
+  }
+  if (status === "expiring-soon") {
+    return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Expiring soon</span>;
+  }
   return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }
 

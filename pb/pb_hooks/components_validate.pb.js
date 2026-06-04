@@ -74,7 +74,7 @@ onRecordBeforeUpdateRequest((e) => {
   const role = info.authRecord ? info.authRecord.getString("role") : "";
   if (role !== "admin" && role !== "technician") {
     const original = $app.dao().findRecordById("components", e.record.id);
-    const protectedFields = ["serial", "notes", "is_active", "is_bulk", "bin_code"];
+    const protectedFields = ["serial", "notes", "is_active", "is_bulk", "bin_code", "lot_code", "expires_at"];
     for (const f of protectedFields) {
       if (e.record.getString(f) !== original.getString(f)) {
         throw new BadRequestError("Non-admins cannot change field: " + f);

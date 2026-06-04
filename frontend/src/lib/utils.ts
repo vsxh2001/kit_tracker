@@ -53,3 +53,19 @@ export function maintenanceStatus(nextDueAt: string, daysWindow = 7): MaintStatu
   if (days <= daysWindow) return "due-soon";
   return "ok";
 }
+
+export type ExpiryStatus = "ok" | "expiring-soon" | "expired" | "none";
+export function expiryStatus(expiresAt: string, daysWindow = 30): ExpiryStatus {
+  if (!expiresAt) return "none";
+  const exp = new Date(expiresAt.slice(0, 10) + "T00:00:00").getTime();
+  const today = new Date(new Date().toLocaleDateString("en-CA") + "T00:00:00").getTime();
+  const days = (exp - today) / 86400000;
+  if (days < 0) return "expired";
+  if (days <= daysWindow) return "expiring-soon";
+  return "ok";
+}
+export function daysUntilExpiry(expiresAt: string): number {
+  const exp = new Date(expiresAt.slice(0, 10) + "T00:00:00").getTime();
+  const today = new Date(new Date().toLocaleDateString("en-CA") + "T00:00:00").getTime();
+  return Math.floor((exp - today) / 86400000);
+}
