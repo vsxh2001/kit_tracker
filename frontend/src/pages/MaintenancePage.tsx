@@ -10,6 +10,7 @@ import { EditScheduleDialog } from "../components/EditScheduleDialog";
 import { SnoozeScheduleDialog } from "../components/SnoozeScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
 import { listAllActiveSchedules } from "../services/maintenance";
+import { getSmtpStatus } from "../services/health";
 import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, maintenanceStatus } from "../lib/utils";
 import type { MaintStatus } from "../lib/utils";
@@ -29,6 +30,7 @@ export function MaintenancePage() {
   const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [snoozeSchedule, setSnoozeSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [showAddSchedule, setShowAddSchedule] = useState(false);
+  const [smtpEnabled, setSmtpEnabled] = useState<boolean | null>(null);
 
   async function load() {
     setLoading(true);
@@ -43,6 +45,20 @@ export function MaintenancePage() {
   }
 
   useEffect(() => { startTransition(() => load()); }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    startTransition(() => {
+      (async () => {
+        try {
+          const status = await getSmtpStatus();
+          setSmtpEnabled(status.enabled);
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        }
+      })();
+    });
+  }, [isAdmin]);
 
   if (authLoading) return null;
   if (!canDecideRequests) return <Navigate to="/dashboard" replace />;
@@ -73,6 +89,12 @@ export function MaintenancePage() {
           )}
         </div>
       </div>
+
+      {isAdmin && smtpEnabled === false && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          SMTP not configured — maintenance reminder emails are disabled. Set SMTP_HOST + credentials via Fly secrets (see CLAUDE.md → Email notifications setup).
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">

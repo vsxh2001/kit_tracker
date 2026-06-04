@@ -102,7 +102,7 @@ describe("maintenance_reminder hook (/_test/maintenance-reminder)", () => {
     expect(body.skipped).toBe("no_due");
   });
 
-  it("returns skipped=null and due=1 for an overdue active schedule", async () => {
+  it("returns skipped=smtp_unconfigured and due=1 for an overdue active schedule (SMTP not configured)", async () => {
     await createSchedule({ nextDueAt: "2020-06-01", isActive: true });
     const res = await fetch(`${baseUrl}/_test/maintenance-reminder`, {
       method: "POST",
@@ -111,13 +111,12 @@ describe("maintenance_reminder hook (/_test/maintenance-reminder)", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.fired).toBe(true);
-    expect(body.skipped).toBeNull();
+    expect(body.skipped).toBe("smtp_unconfigured");
     expect(body.due).toBeGreaterThanOrEqual(1);
-    // sent=0: SMTP not configured in test env
-    expect(typeof body.sent).toBe("number");
+    expect(body.sent).toBe(0);
   });
 
-  it("returns skipped=null for a schedule due within 7 days", async () => {
+  it("returns skipped=smtp_unconfigured for a schedule due within 7 days (SMTP not configured)", async () => {
     const soon = new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
     await createSchedule({ nextDueAt: soon, isActive: true });
     const res = await fetch(`${baseUrl}/_test/maintenance-reminder`, {
@@ -127,8 +126,9 @@ describe("maintenance_reminder hook (/_test/maintenance-reminder)", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.fired).toBe(true);
-    expect(body.skipped).toBeNull();
+    expect(body.skipped).toBe("smtp_unconfigured");
     expect(body.due).toBeGreaterThanOrEqual(1);
+    expect(body.sent).toBe(0);
   });
 
   it("does not count a schedule due more than 7 days out", async () => {
