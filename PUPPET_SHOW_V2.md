@@ -13,14 +13,9 @@ Status: READY-TO-PLAY · 2026-05-15
 
 | # | Where | What | Source |
 |---|-------|------|--------|
-| K1 | `/maintenance` | EmptyState has no CTA; first-time visit dead-ends with no "Add schedule" action available from the page itself (only from kit detail). | `MAINTENANCE_REVIEW.md` finding 1, 2 |
-| K2 | Maintenance certificate downloads | Certificates uploaded via `RecordMaintenanceDialog` cannot be re-downloaded from the UI. | `MAINTENANCE_REVIEW.md` finding 4 |
-| K3 | Maintenance schedule history | `listRecordsForSchedule` exists in `services/maintenance.ts:35-42` but is never called from any React component. | `MAINTENANCE_REVIEW.md` finding 3 |
 | K4 | SMTP failure | Reminder cron silently no-ops if SMTP not configured (`maintenance_reminder.pb.js:150-152`). No in-app banner. | `MAINTENANCE_REVIEW.md` finding 5 |
 | K5 | Components page bulk vs serial UX | One dialog conditionally toggles fields rather than two distinct paths. Easy to mis-fill. | `COMPONENT_HYPERCHARGE_IDEAS.md` §4.9 |
-| K6 | Mobile schedule creation | Kit detail page is long; mobile requires deep scroll to find "Add schedule." | `MAINTENANCE_REVIEW.md` finding 10 |
-| K7 | Maintenance type free-text | `kms_type` is uncontrolled text → "Calib" vs "Calibration" fragmentation. | `MAINTENANCE_REVIEW.md` finding 12 |
-| K8 | Maintenance edit-in-place | Wrong interval at creation → must deactivate + re-create. No edit button. | `MAINTENANCE_REVIEW.md` finding 8 |
+| K6 | Mobile schedule creation | Kit detail page is long; mobile requires deep scroll to find "Add schedule" (workaround: use the `/maintenance` page's "New schedule" CTA instead). | `MAINTENANCE_REVIEW.md` finding 10 |
 
 > Stories below assume these gaps remain. Where a story would be "pre-doomed," it is omitted and the gap above is referenced.
 
@@ -274,7 +269,7 @@ Status: READY-TO-PLAY · 2026-05-15
 
 ### E. Maintenance
 
-> See pre-existing bugs K1–K8 above for the friction-laden surface. Stories here cover what currently works.
+> See pre-existing bugs K4–K6 above for the remaining friction surface. Stories here cover what currently works.
 
 #### E1: Admin creates a maintenance schedule from a kit detail page @smoke
 **Persona:** demo-admin-1
@@ -288,13 +283,16 @@ Status: READY-TO-PLAY · 2026-05-15
 **Expected:** Schedule appears on `/maintenance` and on the kit detail Maintenance section. `next_due_at` = (last_done_at + 90d).
 **Bug if:** next_due_at math is wrong (`AddScheduleDialog.tsx:41-50`), or schedule missing from `/maintenance` table after refresh.
 
-#### E2: Cannot create a maintenance schedule from /maintenance page (KNOWN GAP)
+#### E2: Admin creates a maintenance schedule directly from /maintenance @smoke
 **Persona:** demo-admin-1
 **Preconditions:** Logged in.
 **Steps:**
-1. Navigate to `/maintenance` empty state.
-**Expected:** Per K1/K2 above, no "Add schedule" CTA. This story is a documentation marker — Playwright should assert the gap exists so we know when it gets fixed.
-**Bug if:** A working "Add schedule" button appears (then K1 is fixed — convert this story to creating from /maintenance).
+1. Navigate to `/maintenance`.
+2. Click the header "New schedule" button (`MaintenancePage.tsx:69`) — also reachable via the EmptyState CTA when the list is empty (`MaintenancePage.tsx:119`).
+3. Pick kit `DEMO-KIT-03`, type "inspection", interval 30, last_done_at today − 5d, notes "Puppet E2".
+4. Submit.
+**Expected:** Schedule appears in the `/maintenance` table without navigating away. `next_due_at` = last_done_at + 30d.
+**Bug if:** "New schedule" button missing for admin, dialog doesn't open, or submit fails to refresh the list.
 
 #### E3: Technician records maintenance completion
 **Persona:** demo-technician-1
@@ -316,13 +314,15 @@ Status: READY-TO-PLAY · 2026-05-15
 **Expected:** `/maintenance` blocked at route gate (`CanDecideOnly`, `App.tsx:75`). Redirect to `/dashboard`.
 **Bug if:** Viewer reaches /maintenance UI even read-only, or "Record done" button is rendered for viewer if a leak occurs.
 
-#### E5: Maintenance certificate is currently write-only (KNOWN GAP K2)
+#### E5: Admin downloads a recorded maintenance certificate
 **Persona:** demo-admin-1
-**Preconditions:** E3 succeeded with a certificate uploaded.
+**Preconditions:** E3 succeeded with a certificate uploaded for a schedule of DEMO-KIT-02.
 **Steps:**
-1. Try to find a download link for the uploaded certificate anywhere in the UI.
-**Expected:** Per K2, no UI surface exists. Playwright asserts the gap.
-**Bug if:** A download link appears (K2 is fixed — convert to a "download succeeds" story).
+1. Navigate to `/maintenance/<schedule id>` (or click into the schedule from `/maintenance`).
+2. Locate the recent record in the history list (`ScheduleDetailPage.tsx:172-218`).
+3. Click the certificate download link.
+**Expected:** Link href is `${baseUrl()}/api/files/maintenance_records/<rec id>/<filename>` and resolves 200 with the original file bytes.
+**Bug if:** Link missing for a record with a certificate, or the href returns 404/403.
 
 ---
 
@@ -598,7 +598,7 @@ Status: READY-TO-PLAY · 2026-05-15
 #### L6: Concurrent edit on the same Schedule
 **Persona:** demo-admin-1 (window A) + demo-technician-1 (window B)
 **Steps:**
-1. Both open a schedule (currently only via /kits/<id> → maintenance section; see K8).
+1. Both open a schedule (either via `/maintenance/<id>` or `/kits/<id>` → maintenance section).
 2. Tech 1 hits Record done; Admin-1 hits Deactivate; both within 1s.
 **Expected:** Both update paths succeed independently (one writes maintenance_records, the other patches is_active). Final schedule row: is_active=false, last_done_at updated.
 **Bug if:** Deactivate races and one update is lost.
@@ -635,7 +635,7 @@ Specific multi-persona scenarios where the Playwright agents MUST run side-by-si
 | L. Error states + edge cases | 6 |
 | **Total** | **59** |
 
-Total includes K1–K8 as documentation markers (not playable stories) so the playable count is **59 stories** distributed across the 11 active groups (the original group G "AI chat" was retired when the AI chat sidebar was replaced by deterministic slash commands).
+K4–K6 are documentation markers (not playable stories); the 59-count above only covers playable stories distributed across the 11 active groups (the original group G "AI chat" was retired when the AI chat sidebar was replaced by deterministic slash commands).
 
 ## Highest-ROI starting points (if forced to pick 3)
 
