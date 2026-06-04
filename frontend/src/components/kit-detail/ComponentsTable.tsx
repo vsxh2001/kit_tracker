@@ -83,6 +83,9 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                     {comp.bin_code && (
                       <span className="font-mono text-xs text-indigo-700">Bin: {comp.bin_code}</span>
                     )}
+                    {comp.lot_code && (
+                      <span className="font-mono text-xs text-indigo-700">Lot: {comp.lot_code}</span>
+                    )}
                     {canTransferKits && (
                       <button
                         onClick={() => setMovingComponent(comp)}
@@ -105,6 +108,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Product / Type / Serial</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bin</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Lot</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -124,6 +128,9 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                       <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
                       <td className="px-4 py-3 font-mono text-xs text-indigo-700">
                         {comp.bin_code || <span className="text-muted-foreground opacity-40">—</span>}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-indigo-700">
+                        {comp.lot_code || <span className="text-muted-foreground opacity-40">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {canTransferKits && (
