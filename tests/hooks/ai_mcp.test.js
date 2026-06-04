@@ -378,4 +378,101 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(ac.product_id).toBe(productId);
     expect(ac.product_name).toBe(`MCP-GK-PROD-${suffix}`);
   });
+
+  // ---- regression: create_product / update_product persist reorder_point + is_consumable ----
+
+  it("create_product persists reorder_point and is_consumable when provided", async () => {
+    const name = `MCP-PROD-REORDER-${Math.random().toString(36).slice(2)}`;
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 200, method: "tools/call",
+      params: { name: "create_product", arguments: { name, reorder_point: 7, is_consumable: true } },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.success).toBe(true);
+
+    const got = await fetch(`${baseUrl}/api/collections/products/records/${payload.record_id}`, {
+      headers: { Authorization: suToken },
+    });
+    const body = await got.json();
+    expect(body.name).toBe(name);
+    expect(body.reorder_point).toBe(7);
+    expect(body.is_consumable).toBe(true);
+  });
+
+  it("update_product flips reorder_point + is_consumable and records before/after", async () => {
+    // Seed a product with both fields set.
+    const seed = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-PROD-UPD-${Math.random().toString(36).slice(2)}`,
+        is_active: true,
+        reorder_point: 3,
+        is_consumable: false,
+      }),
+    });
+    const seedBody = await seed.json();
+    const id = seedBody.id;
+
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 201, method: "tools/call",
+      params: { name: "update_product", arguments: { id, reorder_point: 12, is_consumable: true } },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.success).toBe(true);
+    expect(payload.before.reorder_point).toBe(3);
+    expect(payload.after.reorder_point).toBe(12);
+    expect(payload.before.is_consumable).toBe(false);
+    expect(payload.after.is_consumable).toBe(true);
+
+    const got = await fetch(`${baseUrl}/api/collections/products/records/${id}`, {
+      headers: { Authorization: suToken },
+    });
+    const after = await got.json();
+    expect(after.reorder_point).toBe(12);
+    expect(after.is_consumable).toBe(true);
+  });
+
+  it("create_component persists bin_code, lot_code, and expires_at when provided", async () => {
+    // Seed serialized product so the serial-required guard accepts the component.
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-COMP-PROD-${Math.random().toString(36).slice(2)}`,
+        is_active: true,
+        is_serialized: true,
+      }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    const serial = `MCP-COMP-BIN-${Math.random().toString(36).slice(2)}`;
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 202, method: "tools/call",
+      params: {
+        name: "create_component",
+        arguments: {
+          product_id: productId,
+          serial,
+          bin_code: "A-12-03",
+          lot_code: "LOT-XYZ-001",
+          expires_at: "2026-12-31",
+        },
+      },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.success).toBe(true);
+
+    const got = await fetch(`${baseUrl}/api/collections/components/records/${payload.record_id}`, {
+      headers: { Authorization: suToken },
+    });
+    const body = await got.json();
+    expect(body.serial).toBe(serial);
+    expect(body.bin_code).toBe("A-12-03");
+    expect(body.lot_code).toBe("LOT-XYZ-001");
+    expect(body.expires_at).toContain("2026-12-31");
+  });
 });
