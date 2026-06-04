@@ -196,7 +196,9 @@ routerAdd("POST", "/api/mcp", function(c) {
             model: { type: "string", description: "Optional model identifier" },
             description: { type: "string", description: "Optional description" },
             url: { type: "string", description: "Optional URL (product page, datasheet)" },
-            specs: { type: "string", description: "Optional specs (JSON string or plain text)" }
+            specs: { type: "string", description: "Optional specs (JSON string or plain text)" },
+            reorder_point: { type: "number", description: "Optional low-stock threshold (>=0, integer). Surfaces low-stock badge on product detail when on-hand below this. 0 or omitted = no threshold." },
+            is_consumable: { type: "boolean", description: "Optional flag for one-way inventory (tape, screws, adhesives) — components consumed not returned." }
           },
           required: ["name"]
         }
@@ -211,7 +213,10 @@ routerAdd("POST", "/api/mcp", function(c) {
             serial: { type: "string", description: "Serial number (required when is_bulk=false)" },
             is_bulk: { type: "boolean", description: "True for bulk/consumable components (default false)" },
             quantity: { type: "number", description: "Quantity (required when is_bulk=true)" },
-            notes: { type: "string", description: "Optional notes" }
+            notes: { type: "string", description: "Optional notes" },
+            bin_code: { type: "string", description: "Optional shelf/bin location code within an entity, max 16 chars (e.g. 'A-12-03')" },
+            lot_code: { type: "string", description: "Optional lot/batch code, max 32 chars" },
+            expires_at: { type: "string", description: "Optional expiry date (ISO 8601: YYYY-MM-DD or full timestamp)" }
           },
           required: ["product_id"]
         }
@@ -300,7 +305,9 @@ routerAdd("POST", "/api/mcp", function(c) {
             description: { type: "string", description: "New description" },
             url: { type: "string", description: "New URL" },
             specs: { type: "string", description: "New specs" },
-            is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
+            is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" },
+            reorder_point: { type: "number", description: "New low-stock threshold (>=0, integer). Pass 0 to clear / disable." },
+            is_consumable: { type: "boolean", description: "Set true to mark as one-way consumable inventory" }
           },
           required: ["id"]
         }
@@ -1090,6 +1097,13 @@ routerAdd("POST", "/api/mcp", function(c) {
         record.set("url", args.url ? String(args.url) : "");
         record.set("specs", args.specs ? String(args.specs) : "");
         record.set("is_active", true);
+        if (args.reorder_point !== undefined && args.reorder_point !== null) {
+          var rp = parseInt(args.reorder_point, 10);
+          if (!isNaN(rp) && rp >= 0) record.set("reorder_point", rp);
+        }
+        if (args.is_consumable !== undefined) {
+          record.set("is_consumable", args.is_consumable === true);
+        }
         dao.save(record);
 
         saveMcpAuditLog(dao, {
@@ -1148,6 +1162,11 @@ routerAdd("POST", "/api/mcp", function(c) {
         record.set("quantity", isBulk ? quantity : null);
         record.set("notes", args.notes ? String(args.notes) : "");
         record.set("is_active", true);
+        if (args.bin_code !== undefined) record.set("bin_code", String(args.bin_code));
+        if (args.lot_code !== undefined) record.set("lot_code", String(args.lot_code));
+        if (args.expires_at !== undefined && String(args.expires_at).trim() !== "") {
+          record.set("expires_at", String(args.expires_at));
+        }
         dao.save(record);
 
         saveMcpAuditLog(dao, {
@@ -1539,7 +1558,7 @@ routerAdd("POST", "/api/mcp", function(c) {
       if (!id) {
         return { error: "missing_required", detail: "id is required" };
       }
-      var mutableFields = ["name", "category", "manufacturer", "model", "description", "url", "specs", "is_active"];
+      var mutableFields = ["name", "category", "manufacturer", "model", "description", "url", "specs", "is_active", "reorder_point", "is_consumable"];
       var hasUpdate = false;
       for (var fi = 0; fi < mutableFields.length; fi++) {
         if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
@@ -1570,6 +1589,18 @@ routerAdd("POST", "/api/mcp", function(c) {
         before.is_active = record.getBool ? record.getBool("is_active") : (safeStr(record, "is_active") === "true");
         record.set("is_active", args.is_active === true);
         after.is_active = args.is_active === true;
+      }
+      if (args.reorder_point !== undefined) {
+        before.reorder_point = record.getInt ? record.getInt("reorder_point") : parseInt(safeStr(record, "reorder_point"), 10) || 0;
+        var newRp = parseInt(args.reorder_point, 10);
+        if (isNaN(newRp) || newRp < 0) newRp = 0;
+        record.set("reorder_point", newRp);
+        after.reorder_point = newRp;
+      }
+      if (args.is_consumable !== undefined) {
+        before.is_consumable = record.getBool ? record.getBool("is_consumable") : (safeStr(record, "is_consumable") === "true");
+        record.set("is_consumable", args.is_consumable === true);
+        after.is_consumable = args.is_consumable === true;
       }
 
       try {
