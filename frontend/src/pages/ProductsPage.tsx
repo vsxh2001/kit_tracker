@@ -236,6 +236,7 @@ export function ProductsPage() {
                         <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
                           {product.is_serialized !== false ? "Serial" : "Bulk"}
                         </Badge>
+                        {product.is_consumable && <Badge variant="outline" className="text-xs">Consumable</Badge>}
                         {!product.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
                     </div>
@@ -348,9 +349,12 @@ export function ProductsPage() {
                                 : <span className="text-muted-foreground opacity-40">—</span>}
                             </td>
                             <td className="px-4 py-3 text-xs">
-                              <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
-                                {product.is_serialized !== false ? "Serial" : "Bulk"}
-                              </Badge>
+                              <div className="flex items-center gap-1">
+                                <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
+                                  {product.is_serialized !== false ? "Serial" : "Bulk"}
+                                </Badge>
+                                {product.is_consumable && <Badge variant="outline" className="text-xs">Consumable</Badge>}
+                              </div>
                             </td>
                             <td className="px-4 py-3 text-xs text-muted-foreground">{product.manufacturer || <span className="opacity-40">—</span>}</td>
                             <td className="px-4 py-3 text-xs text-muted-foreground">{product.model || <span className="opacity-40">—</span>}</td>
