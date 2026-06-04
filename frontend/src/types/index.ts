@@ -127,6 +127,7 @@ export interface Component {
   is_bulk: boolean;
   quantity: number | null;
   product: string; // relation id, now required
+  bin_code: string; // optional shelf/bin label inside an entity; max 16 chars
   created: string;
   updated: string;
   expand?: { product?: Product };
