@@ -40,6 +40,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
   // Create new fields
   const [serial, setSerial] = useState("");
   const [notes, setNotes] = useState("");
+  const [binCode, setBinCode] = useState("");
   const [isBulk, setIsBulk] = useState(false);
   const [quantity, setQuantity] = useState("1");
   const [productId, setProductId] = useState(presetProductId ?? "");
@@ -62,6 +63,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
         setTab(isAdmin ? "create" : "move");
         setSerial("");
         setNotes("");
+        setBinCode("");
         setIsBulk(false);
         setQuantity("1");
         setProductId(presetProductId ?? "");
@@ -147,6 +149,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
       const comp = await createComponent({
         serial: isSerialized ? serial.trim() : "",
         notes: notes.trim(),
+        bin_code: binCode.trim(),
         is_bulk: !isSerialized,
         quantity: bulkQty,
         is_active: true,
@@ -290,6 +293,16 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Optional notes…"
                         rows={2}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="comp-bin">Bin / shelf code (optional)</Label>
+                      <Input
+                        id="comp-bin"
+                        value={binCode}
+                        onChange={(e) => setBinCode(e.target.value)}
+                        maxLength={16}
+                        placeholder="e.g. A3-04"
                       />
                     </div>
                     {prodIsSerialized === null && (

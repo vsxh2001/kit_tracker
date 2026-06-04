@@ -43,6 +43,7 @@ export function ComponentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editSerial, setEditSerial] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editBinCode, setEditBinCode] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
@@ -108,6 +109,7 @@ export function ComponentDetailPage() {
     if (!component) return;
     setEditSerial(component.serial);
     setEditNotes(component.notes);
+    setEditBinCode(component.bin_code ?? "");
     setEditError("");
     setShowEdit(true);
   }
@@ -119,6 +121,7 @@ export function ComponentDetailPage() {
       await updateComponent(component.id, {
         serial: editSerial.trim(),
         notes: editNotes.trim(),
+        bin_code: editBinCode.trim(),
       });
       toast({ title: "Component updated", variant: "success" });
       setShowEdit(false);
@@ -194,6 +197,7 @@ export function ComponentDetailPage() {
               <Row label="Quantity" value={component.quantity != null ? String(component.quantity) : "—"} />
             )}
             <Row label="Bulk" value={component.is_bulk ? "Yes" : "No"} />
+            <Row label="Bin / shelf" value={component.bin_code || "—"} mono />
             {latest && <Row label="Current location" value={locationLabel(latest)} />}
           </CardContent>
         </Card>
@@ -536,6 +540,16 @@ export function ComponentDetailPage() {
                   onChange={(e) => setEditNotes(e.target.value)}
                   placeholder="Optional notes"
                   rows={2}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Bin / shelf code</label>
+                <input
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={editBinCode}
+                  onChange={(e) => setEditBinCode(e.target.value)}
+                  maxLength={16}
+                  placeholder="e.g. A3-04"
                 />
               </div>
               {editError && <p className="text-sm text-destructive">{editError}</p>}
