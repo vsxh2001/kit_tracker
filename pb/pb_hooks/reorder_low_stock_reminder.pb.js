@@ -26,11 +26,14 @@ cronAdd("reorderLowStockReminder", "15 8 * * *", function() {
 
   var todayStr = new Date().toISOString().slice(0, 10);
 
+  // reorder_point > 0 — matches the "0 = disabled" semantics documented in
+  // ai_mcp.pb.js's update_product tool; also tolerates PB v0.22's NUMERIC
+  // default-of-0 when the field is omitted on create.
   var products = [];
   try {
     products = $app.dao().findRecordsByFilter(
       "products",
-      "reorder_point != null && is_active = true",
+      "reorder_point > 0 && is_active = true",
       "name",
       200,
       0,
@@ -208,11 +211,14 @@ routerAdd("POST", "/_test/reorder-low-stock-reminder", function(c) {
 
   var todayStr = new Date().toISOString().slice(0, 10);
 
+  // reorder_point > 0 — matches the "0 = disabled" semantics documented in
+  // ai_mcp.pb.js's update_product tool; also tolerates PB v0.22's NUMERIC
+  // default-of-0 when the field is omitted on create.
   var products = [];
   try {
     products = $app.dao().findRecordsByFilter(
       "products",
-      "reorder_point != null && is_active = true",
+      "reorder_point > 0 && is_active = true",
       "name",
       200,
       0,

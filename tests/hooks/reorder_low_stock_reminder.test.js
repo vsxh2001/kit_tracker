@@ -143,4 +143,30 @@ describe("reorder_low_stock_reminder hook (/_test/reorder-low-stock-reminder)", 
     expect(body.low).toBeGreaterThanOrEqual(2); // both the serialized (0 comps) + this bulk product
     expect(body.sent).toBe(0);
   });
+
+  it("ignores a product with reorder_point=0 (disabled-threshold convention)", async () => {
+    // reorder_point=0 means "no threshold set" per the ai_mcp.pb.js convention.
+    // Even with zero active components (on_hand=0), the product must NOT appear
+    // in the digest. We can't read the digest body, but we can assert the low
+    // count didn't grow vs the prior run by creating a unique disabled product
+    // and re-querying.
+    const baselineRes = await fetch(`${baseUrl}/_test/reorder-low-stock-reminder`, {
+      method: "POST",
+      headers: { Authorization: adminToken },
+    });
+    const baseline = (await baselineRes.json()).low;
+
+    await createProduct({ name: "REORDER-TEST-DISABLED", is_serialized: true, reorder_point: 0 });
+
+    const res = await fetch(`${baseUrl}/_test/reorder-low-stock-reminder`, {
+      method: "POST",
+      headers: { Authorization: adminToken },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.fired).toBe(true);
+    // The reorder_point=0 product must be filtered out by the cron/route query,
+    // so the low count is unchanged.
+    expect(body.low).toBe(baseline);
+  });
 });
