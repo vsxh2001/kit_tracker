@@ -99,6 +99,11 @@ export function ProductDetailPage() {
   if (loading) return <p className="text-muted-foreground">Loading…</p>;
   if (!product) return <p>Product not found.</p>;
 
+  const activeComps = components.filter((c) => c.is_active);
+  const onHand = product.is_serialized
+    ? activeComps.length
+    : activeComps.reduce((s, c) => s + (c.quantity ?? 0), 0);
+
   let specsFormatted = product.specs ?? "";
   if (specsFormatted) {
     try {
@@ -135,6 +140,7 @@ export function ProductDetailPage() {
             <Row label="Manufacturer" value={product.manufacturer || "—"} />
             <Row label="Model" value={product.model || "—"} />
             <Row label="Description" value={product.description || "—"} />
+            <Row label="Reorder point" value={product.reorder_point != null ? String(product.reorder_point) : "—"} />
             {product.url && (
               <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
                 <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">URL</p>
@@ -195,6 +201,10 @@ export function ProductDetailPage() {
           <div className="flex items-baseline gap-3">
             <h2 className="text-base font-semibold tracking-tight">Components of this product</h2>
             <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">On hand: {onHand}</span>
+            {product.reorder_point != null && onHand < product.reorder_point && (
+              <Badge variant="destructive" className="text-xs">Low stock</Badge>
+            )}
           </div>
           {canDecideRequests && (
             <Button size="sm" onClick={() => setShowAddComp(true)}>

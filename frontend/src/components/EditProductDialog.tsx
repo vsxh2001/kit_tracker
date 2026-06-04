@@ -28,6 +28,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [model, setModel] = useState(product.model ?? "");
   const [description, setDescription] = useState(product.description ?? "");
   const [url, setUrl] = useState(product.url ?? "");
+  const [reorderPoint, setReorderPoint] = useState(product.reorder_point != null ? String(product.reorder_point) : "");
   const [specs, setSpecs] = useState(product.specs ?? "");
   const [isSerialized, setIsSerialized] = useState(product.is_serialized ?? true);
   const [trackInStatus, setTrackInStatus] = useState(product.track_in_status ?? false);
@@ -45,6 +46,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         setModel(product.model ?? "");
         setDescription(product.description ?? "");
         setUrl(product.url ?? "");
+        setReorderPoint(product.reorder_point != null ? String(product.reorder_point) : "");
         setSpecs(product.specs ?? "");
         setIsSerialized(product.is_serialized ?? true);
         setTrackInStatus(product.track_in_status ?? false);
@@ -75,6 +77,13 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
       setError("Name is required.");
       return;
     }
+    if (reorderPoint !== "") {
+      const n = Number(reorderPoint);
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+        setError("Reorder point must be a non-negative whole number.");
+        return;
+      }
+    }
     if (specs.trim()) {
       try {
         JSON.parse(specs.trim());
@@ -97,6 +106,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
         specs: specs.trim() || "",
         is_serialized: isSerialized,
         track_in_status: trackInStatus,
+        reorder_point: reorderPoint !== "" ? Number(reorderPoint) : null,
       });
       toast({ title: "Product updated", description: name.trim(), variant: "success" });
       onSuccess();
@@ -174,6 +184,19 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/datasheet"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-prod-reorder-point">Reorder point (optional)</Label>
+            <Input
+              id="edit-prod-reorder-point"
+              type="number"
+              min={0}
+              step={1}
+              value={reorderPoint}
+              onChange={(e) => setReorderPoint(e.target.value)}
+              placeholder="e.g. 5"
+            />
+            <p className="text-xs text-muted-foreground">Alert when active on-hand falls below this number. Leave blank to disable.</p>
           </div>
           <div className="flex items-center gap-3">
             <input

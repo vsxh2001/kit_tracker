@@ -114,6 +114,7 @@ export interface Product {
   url?: string;
   is_serialized: boolean;
   track_in_status: boolean;
+  reorder_point?: number | null;
   is_active: boolean;
   created: string;
   updated: string;

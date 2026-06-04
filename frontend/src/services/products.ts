@@ -24,7 +24,7 @@ export async function createProduct(data: Partial<Product>): Promise<Product> {
   // Always send is_active and is_serialized explicitly. The PB hook can't
   // distinguish "field absent" from "field=false", so the service layer owns
   // the defaults.
-  return pb.collection("products").create<Product>({ is_active: true, is_serialized: true, track_in_status: false, ...data });
+  return pb.collection("products").create<Product>({ is_active: true, is_serialized: true, track_in_status: false, reorder_point: null, ...data });
 }
 
 export async function updateProduct(id: string, data: Partial<Product>): Promise<Product> {
@@ -58,6 +58,16 @@ export async function getComponentCountsByProduct(): Promise<Record<string, numb
     if (c.product) map[c.product] = (map[c.product] || 0) + 1;
   }
   return map;
+}
+
+export async function getOnHandForProduct(productId: string, isSerialized: boolean): Promise<number> {
+  const arr = await pb.collection("components").getFullList<Component>({
+    filter: pb.filter("product = {:productId} && is_active = true", { productId }),
+    fields: "id,is_bulk,quantity",
+    requestKey: `on-hand-${productId}`,
+  });
+  if (isSerialized) return arr.length;
+  return arr.reduce((s, c) => s + (c.quantity ?? 0), 0);
 }
 
 export async function listComponentsForProduct(productId: string): Promise<Component[]> {
