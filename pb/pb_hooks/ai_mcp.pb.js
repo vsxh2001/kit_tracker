@@ -197,7 +197,7 @@ routerAdd("POST", "/api/mcp", function(c) {
             description: { type: "string", description: "Optional description" },
             url: { type: "string", description: "Optional URL (product page, datasheet)" },
             specs: { type: "string", description: "Optional specs (JSON string or plain text)" },
-            reorder_point: { type: "number", description: "Optional low-stock threshold (>=0, integer). Surfaces low-stock badge on product detail when on-hand below this." },
+            reorder_point: { type: "number", description: "Optional low-stock threshold (>=0, integer). Surfaces low-stock badge on product detail when on-hand below this. 0 or omitted = no threshold." },
             is_consumable: { type: "boolean", description: "Optional flag for one-way inventory (tape, screws, adhesives) — components consumed not returned." }
           },
           required: ["name"]
