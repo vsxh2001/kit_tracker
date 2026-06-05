@@ -41,6 +41,7 @@ export function ProductsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [showInactive, setShowInactive] = useState(false);
   const lowStockOnly = searchParams.get("lowStock") === "true";
+  const consumableOnly = searchParams.get("consumable") === "true";
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -149,6 +150,7 @@ export function ProductsPage() {
     if (lowStockOnly && !(product.reorder_point != null && onHand < product.reorder_point)) {
       return false;
     }
+    if (consumableOnly && !product.is_consumable) return false;
     return true;
   });
 
@@ -157,6 +159,15 @@ export function ProductsPage() {
       const params = new URLSearchParams(prev);
       if (next) params.set("lowStock", "true");
       else params.delete("lowStock");
+      return params;
+    });
+  }
+
+  function toggleConsumableOnly(next: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("consumable", "true");
+      else params.delete("consumable");
       return params;
     });
   }
@@ -234,6 +245,15 @@ export function ProductsPage() {
             className="h-4 w-4"
           />
           Low stock only
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={consumableOnly}
+            onChange={(e) => toggleConsumableOnly(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Consumable only
         </label>
       </div>
 
