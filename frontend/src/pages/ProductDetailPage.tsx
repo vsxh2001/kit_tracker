@@ -231,6 +231,9 @@ export function ProductDetailPage() {
                         {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
                       </div>
                       <div className="flex items-center gap-1">
+                        {comp.bin_code && (
+                          <span className="font-mono text-xs text-indigo-700">Bin: {comp.bin_code}</span>
+                        )}
                         {comp.is_bulk && <Badge variant="secondary" className="text-xs">Bulk × {comp.quantity}</Badge>}
                         {!comp.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
@@ -253,6 +256,7 @@ export function ProductDetailPage() {
                       {!product.is_serialized && (
                         <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bulk</th>
                       )}
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bin</th>
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="px-4 py-2.5" />
                     </tr>
@@ -275,6 +279,9 @@ export function ProductDetailPage() {
                               : <span className="text-muted-foreground opacity-40">—</span>}
                           </td>
                         )}
+                        <td className="px-4 py-3 font-mono text-xs text-indigo-700">
+                          {comp.bin_code || <span className="text-muted-foreground opacity-40">—</span>}
+                        </td>
                         <td className="px-4 py-3">
                           {comp.is_active
                             ? <Badge variant="outline" className="text-xs">Active</Badge>
