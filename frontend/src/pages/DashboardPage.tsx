@@ -14,7 +14,7 @@ import { maintenanceStatus, expiryStatus } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
-import { cn, formatDate } from "../lib/utils";
+import { cn, formatDate, formatDateOnly } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import { getSmtpStatus } from "../services/health";
 
@@ -134,9 +134,9 @@ export function DashboardPage() {
 
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
-  const todayISO = new Date().toLocaleDateString("en-CA");
+  const todayLocal = new Date().toLocaleDateString("en-CA");
   const overdueDeliveriesCount = requests.filter(
-    (r) => (r.status === "open" || r.status === "approved") && r.delivery_date.slice(0, 10) < todayISO,
+    (r) => (r.status === "open" || r.status === "approved") && formatDateOnly(r.delivery_date) < todayLocal,
   ).length;
 
   function oncallLabel(): string {
