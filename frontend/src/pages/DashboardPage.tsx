@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Package, FileText, CheckCircle, Clock, Wrench, Users, AlertTriangle } from "lucide-react";
+import { Package, FileText, CheckCircle, Clock, Wrench, Users, AlertTriangle, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
@@ -9,7 +9,8 @@ import { requestsCreatedLast7Days } from "../services/stats";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { listShifts } from "../services/oncall";
 import { listProducts, getOnHandByProduct } from "../services/products";
-import { maintenanceStatus } from "../lib/utils";
+import { listComponents } from "../services/components";
+import { maintenanceStatus, expiryStatus } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
@@ -26,6 +27,7 @@ export function DashboardPage() {
   const [reqSparkline, setReqSparkline] = useState<DailyCount[]>([]);
   const [overdueMaintenanceCount, setOverdueMaintenanceCount] = useState(0);
   const [belowReorderCount, setBelowReorderCount] = useState(0);
+  const [expiringSoonCount, setExpiringSoonCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [oncallShifts, setOncallShifts] = useState<OnCallShift[]>([]);
   const [oncallLoading, setOncallLoading] = useState(true);
@@ -110,6 +112,26 @@ export function DashboardPage() {
     });
   }, [canDecideRequests]);
 
+  useEffect(() => {
+    if (!canDecideRequests) return;
+    startTransition(() => {
+      async function loadExpiring() {
+        try {
+          const components = await listComponents({ activeOnly: true, requestKey: "dashboard-expiring" });
+          setExpiringSoonCount(
+            components.filter((c) => {
+              const s = expiryStatus(c.expires_at);
+              return s === "expired" || s === "expiring-soon";
+            }).length,
+          );
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        }
+      }
+      loadExpiring();
+    });
+  }, [canDecideRequests]);
+
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
 
@@ -186,6 +208,13 @@ export function DashboardPage() {
                 value={belowReorderCount}
                 color={belowReorderCount > 0 ? "red" : "slate"}
                 onClick={() => navigate("/products?lowStock=true")}
+              />
+              <StatCard
+                icon={CalendarClock}
+                label="Expiring soon"
+                value={expiringSoonCount}
+                color={expiringSoonCount > 0 ? "amber" : "slate"}
+                onClick={() => navigate("/components?expiringSoon=true")}
               />
             </div>
           )}
