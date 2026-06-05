@@ -234,6 +234,7 @@ export function ComponentsPage() {
   const [kitFilter, setKitFilter] = useState("__all__");
   const [showInactive, setShowInactive] = useState(false);
   const expiringSoonOnly = searchParams.get("expiringSoon") === "true";
+  const consumableOnly = searchParams.get("consumable") === "true";
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -314,8 +315,20 @@ export function ComponentsPage() {
       if (s !== "expired" && s !== "expiring-soon") return false;
     }
 
+    // Consumable-only filter — gates on the parent product's is_consumable flag
+    if (consumableOnly && !component.expand?.product?.is_consumable) return false;
+
     return true;
   });
+
+  function toggleConsumableOnly(next: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("consumable", "true");
+      else params.delete("consumable");
+      return params;
+    });
+  }
 
   function toggleExpiringSoonOnly(next: boolean) {
     setSearchParams((prev) => {
@@ -414,6 +427,15 @@ export function ComponentsPage() {
             className="h-4 w-4"
           />
           Expiring soon only
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={consumableOnly}
+            onChange={(e) => toggleConsumableOnly(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Consumable only
         </label>
       </div>
 
