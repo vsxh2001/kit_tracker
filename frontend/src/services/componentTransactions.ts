@@ -72,6 +72,7 @@ export async function listComponentsAtEntity(entityId: string): Promise<Componen
   const [allComponents, latestByComponent] = await Promise.all([
     pb.collection("components").getFullList<Component>({
       filter: "is_active = true",
+      expand: "product",
       requestKey: "components-for-entity-list",
     }),
     getLatestTxPerComponent(),

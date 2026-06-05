@@ -269,9 +269,12 @@ export function EntityDetailPage() {
               {standaloneComponents.map((comp) => (
                 <div key={comp.id} className="rounded-lg border bg-card px-4 py-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
-                      {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
+                      {comp.expand?.product?.is_consumable && (
+                        <Badge variant="outline" className="text-xs">Consumable</Badge>
+                      )}
+                      {comp.serial && <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
@@ -317,7 +320,12 @@ export function EntityDetailPage() {
                     {standaloneComponents.map((comp) => (
                       <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3">
-                          <div className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
+                            {comp.expand?.product?.is_consumable && (
+                              <Badge variant="outline" className="text-xs">Consumable</Badge>
+                            )}
+                          </div>
                           {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-xs">{comp.is_bulk ? comp.quantity : <span className="text-muted-foreground opacity-40">—</span>}</td>
