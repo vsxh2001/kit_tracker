@@ -286,13 +286,17 @@ export function ComponentsPage() {
     // Active toggle — default hides inactive
     if (!showInactive && !component.is_active) return false;
 
-    // Search (serial OR product name)
+    // Search (serial OR product name OR bin code OR lot code)
     if (search) {
       const q = search.toLowerCase();
       const productName = component.expand?.product?.name ?? "";
+      const binCode = component.bin_code ?? "";
+      const lotCode = component.lot_code ?? "";
       const matches =
         component.serial.toLowerCase().includes(q) ||
-        productName.toLowerCase().includes(q);
+        productName.toLowerCase().includes(q) ||
+        binCode.toLowerCase().includes(q) ||
+        lotCode.toLowerCase().includes(q);
       if (!matches) return false;
     }
 
@@ -366,7 +370,7 @@ export function ComponentsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <Input
-          placeholder="Search by serial or product…"
+          placeholder="Search by serial, product, bin or lot…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-xs"

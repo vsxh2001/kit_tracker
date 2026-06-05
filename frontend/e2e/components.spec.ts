@@ -1462,7 +1462,7 @@ test.describe("T-UI-CREATE: Add Component dialog UI @smoke", () => {
 
     // New component must appear in the serialized table
     // Search to isolate from other test data
-    await page.getByPlaceholder(/search by serial or product/i).fill(SERIAL);
+    await page.getByPlaceholder(/search by serial/i).fill(SERIAL);
     await expect(
       page.getByRole("cell", { name: new RegExp(SERIAL) }),
       `Created component serial '${SERIAL}' must appear in components table`
