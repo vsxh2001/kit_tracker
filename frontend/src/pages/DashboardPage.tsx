@@ -38,23 +38,18 @@ export function DashboardPage() {
       async function load() {
         setLoading(true);
         try {
-          const [k, r, t, reqDaily, schedules, products, onHandMap] = await Promise.all([
+          const [k, r, t, reqDaily, schedules] = await Promise.all([
             listKits(),
             listRequests(),
             listRecentTransactions(8),
             requestsCreatedLast7Days(),
             listAllActiveSchedules(),
-            listProducts(),
-            getOnHandByProduct(),
           ]);
           setKits(k);
           setRequests(r);
           setRecentTx(t.items.filter((tx) => !tx.expand?.kit?.serial?.startsWith("_deleted_")));
           setReqSparkline(reqDaily);
           setOverdueMaintenanceCount(schedules.filter((s) => maintenanceStatus(s.next_due_at) === "overdue").length);
-          setBelowReorderCount(
-            products.filter((p) => p.reorder_point != null && (onHandMap[p.id] ?? 0) < p.reorder_point).length,
-          );
         } catch (err: unknown) {
           if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
         } finally {
@@ -97,6 +92,23 @@ export function DashboardPage() {
       loadSmtp();
     });
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!canDecideRequests) return;
+    startTransition(() => {
+      async function loadLowStock() {
+        try {
+          const [products, onHandMap] = await Promise.all([listProducts(), getOnHandByProduct()]);
+          setBelowReorderCount(
+            products.filter((p) => p.reorder_point != null && (onHandMap[p.id] ?? 0) < p.reorder_point).length,
+          );
+        } catch (err: unknown) {
+          if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
+        }
+      }
+      loadLowStock();
+    });
+  }, [canDecideRequests]);
 
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
