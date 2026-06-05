@@ -91,7 +91,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                     {comp.expand?.product?.is_consumable && (
                       <Badge variant="outline" className="text-xs">Consumable</Badge>
                     )}
-                    {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
+                    {comp.serial && <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>}
                   </div>
                   <div className="flex items-center gap-2">
                     {comp.is_bulk && <span className="text-xs text-muted-foreground">Qty: {comp.quantity}</span>}
