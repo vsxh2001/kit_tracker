@@ -80,13 +80,16 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
             {components.map((comp) => (
               <div key={comp.id} className="rounded-lg border bg-card px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {comp.expand?.product ? (
                       <Link to={`/products/${comp.expand.product.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
                         {comp.expand.product.name}
                       </Link>
                     ) : (
                       <span className="text-xs font-medium text-muted-foreground">—</span>
+                    )}
+                    {comp.expand?.product?.is_consumable && (
+                      <Badge variant="outline" className="text-xs">Consumable</Badge>
                     )}
                     {comp.serial && <span className="font-mono text-xs text-indigo-700 ml-2">{comp.serial}</span>}
                   </div>
@@ -130,13 +133,18 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                   {components.map((comp) => (
                     <tr key={comp.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
                       <td className="px-4 py-3">
-                        {comp.expand?.product ? (
-                          <Link to={`/products/${comp.expand.product.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
-                            {comp.expand.product.name}
-                          </Link>
-                        ) : (
-                          <div className="text-xs font-medium text-muted-foreground">—</div>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {comp.expand?.product ? (
+                            <Link to={`/products/${comp.expand.product.id}`} className="text-xs font-medium text-indigo-600 hover:underline">
+                              {comp.expand.product.name}
+                            </Link>
+                          ) : (
+                            <span className="text-xs font-medium text-muted-foreground">—</span>
+                          )}
+                          {comp.expand?.product?.is_consumable && (
+                            <Badge variant="outline" className="text-xs">Consumable</Badge>
+                          )}
+                        </div>
                         {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-xs">{comp.quantity}</td>
