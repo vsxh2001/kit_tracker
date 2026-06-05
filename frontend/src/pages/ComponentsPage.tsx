@@ -91,9 +91,14 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                       Qty × {component.quantity}
                     </Badge>
                   )}
-                  {product && (
-                    <Badge variant="outline" className="text-xs">{product.name}</Badge>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {product && (
+                      <Badge variant="outline" className="text-xs">{product.name}</Badge>
+                    )}
+                    {product?.is_consumable && (
+                      <Badge variant="outline" className="text-xs">Consumable</Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -149,16 +154,21 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     onClick={() => navigate(`/components/${component.id}`)}
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      {product ? (
-                        <Link
-                          to={`/products/${product.id}`}
-                          className="text-indigo-600 hover:underline font-medium text-xs"
-                        >
-                          {productLabel(component)}
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {product ? (
+                          <Link
+                            to={`/products/${product.id}`}
+                            className="text-indigo-600 hover:underline font-medium text-xs"
+                          >
+                            {productLabel(component)}
+                          </Link>
+                        ) : (
+                          <span className="font-medium text-xs text-muted-foreground">—</span>
+                        )}
+                        {product?.is_consumable && (
+                          <Badge variant="outline" className="text-xs">Consumable</Badge>
+                        )}
+                      </div>
                     </td>
                     {isSerializedSection ? (
                       <td className="px-4 py-3 font-mono text-xs text-indigo-700 tabular-nums">
