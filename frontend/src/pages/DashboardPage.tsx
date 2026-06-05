@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Package, FileText, CheckCircle, Clock, Wrench, Users, AlertTriangle, CalendarClock } from "lucide-react";
+import { Package, FileText, CheckCircle, Clock, Wrench, Users, AlertTriangle, CalendarClock, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
@@ -14,7 +14,7 @@ import { maintenanceStatus, expiryStatus } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
-import { cn, formatDate } from "../lib/utils";
+import { cn, formatDate, formatDateOnly } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import { getSmtpStatus } from "../services/health";
 
@@ -134,6 +134,10 @@ export function DashboardPage() {
 
   const openRequests = requests.filter((r) => r.status === "open").length;
   const approvedRequests = requests.filter((r) => r.status === "approved").length;
+  const todayLocal = new Date().toLocaleDateString("en-CA");
+  const overdueDeliveriesCount = requests.filter(
+    (r) => (r.status === "open" || r.status === "approved") && formatDateOnly(r.delivery_date) < todayLocal,
+  ).length;
 
   function oncallLabel(): string {
     if (oncallShifts.length === 0) return "No one";
@@ -215,6 +219,13 @@ export function DashboardPage() {
                 value={expiringSoonCount}
                 color={expiringSoonCount > 0 ? "amber" : "slate"}
                 onClick={() => navigate("/components?expiringSoon=true")}
+              />
+              <StatCard
+                icon={AlertCircle}
+                label="Overdue deliveries"
+                value={overdueDeliveriesCount}
+                color={overdueDeliveriesCount > 0 ? "red" : "slate"}
+                onClick={() => navigate("/requests?delivery=overdue")}
               />
             </div>
           )}
