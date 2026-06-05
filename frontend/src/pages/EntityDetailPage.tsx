@@ -12,9 +12,19 @@ import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { useAuth } from "../context/AuthContext";
-import { formatDate } from "../lib/utils";
+import { formatDate, expiryStatus, daysUntilExpiry } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
+
+function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
+  const status = expiryStatus(expiresAt);
+  if (status === "none" || status === "ok") return null;
+  const days = daysUntilExpiry(expiresAt);
+  if (status === "expired") {
+    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
+  }
+  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
+}
 
 export function EntityDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -257,7 +267,7 @@ export function EntityDetailPage() {
             {/* Mobile */}
             <div className="md:hidden space-y-2">
               {standaloneComponents.map((comp) => (
-                <div key={comp.id} className="rounded-lg border bg-card px-4 py-3">
+                <div key={comp.id} className="rounded-lg border bg-card px-4 py-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
@@ -275,6 +285,17 @@ export function EntityDetailPage() {
                       )}
                     </div>
                   </div>
+                  {(comp.bin_code || comp.lot_code || comp.expires_at) && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {comp.bin_code && (
+                        <span className="font-mono text-xs text-indigo-700">Bin: {comp.bin_code}</span>
+                      )}
+                      {comp.lot_code && (
+                        <span className="font-mono text-xs text-indigo-700">Lot: {comp.lot_code}</span>
+                      )}
+                      <ExpiryBadge expiresAt={comp.expires_at} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -286,6 +307,9 @@ export function EntityDetailPage() {
                     <tr className="border-b bg-slate-50/80">
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Type / Serial</th>
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bin</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Lot</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Expiry</th>
                       <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
@@ -297,6 +321,23 @@ export function EntityDetailPage() {
                           {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
                         <td className="px-4 py-3 tabular-nums text-xs">{comp.is_bulk ? comp.quantity : <span className="text-muted-foreground opacity-40">—</span>}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-indigo-700">
+                          {comp.bin_code || <span className="text-muted-foreground opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-indigo-700">
+                          {comp.lot_code || <span className="text-muted-foreground opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {comp.expires_at ? (
+                            expiryStatus(comp.expires_at) === "ok" ? (
+                              <span className="text-xs text-muted-foreground">{comp.expires_at.slice(0, 10)}</span>
+                            ) : (
+                              <ExpiryBadge expiresAt={comp.expires_at} />
+                            )
+                          ) : (
+                            <span className="text-muted-foreground opacity-40">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           {canTransferKits && (
                             <button
