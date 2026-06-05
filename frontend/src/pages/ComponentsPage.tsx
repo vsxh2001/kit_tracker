@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -217,11 +217,13 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
 export function ComponentsPage() {
   const navigate = useNavigate();
   const { canDecideRequests } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<ComponentRow[]>([]);
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState("__all__");
   const [kitFilter, setKitFilter] = useState("__all__");
   const [showInactive, setShowInactive] = useState(false);
+  const expiringSoonOnly = searchParams.get("expiringSoon") === "true";
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -292,8 +294,23 @@ export function ComponentsPage() {
       if (currentKitId(latestTx) !== kitFilter) return false;
     }
 
+    // Expiring-soon filter (covers expired + expiring-soon, drops ok + none)
+    if (expiringSoonOnly) {
+      const s = expiryStatus(component.expires_at);
+      if (s !== "expired" && s !== "expiring-soon") return false;
+    }
+
     return true;
   });
+
+  function toggleExpiringSoonOnly(next: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("expiringSoon", "true");
+      else params.delete("expiringSoon");
+      return params;
+    });
+  }
 
   // Sort: product name asc, then serial/quantity asc
   const sortedFiltered = [...filtered].sort((a, b) => {
@@ -374,6 +391,15 @@ export function ComponentsPage() {
             className="h-4 w-4"
           />
           Show inactive
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={expiringSoonOnly}
+            onChange={(e) => toggleExpiringSoonOnly(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Expiring soon only
         </label>
       </div>
 
