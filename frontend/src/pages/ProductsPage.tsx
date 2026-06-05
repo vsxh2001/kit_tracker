@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -34,11 +34,13 @@ type BulkAction = "retire" | "activate";
 export function ProductsPage() {
   const navigate = useNavigate();
   const { canDecideRequests } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("__all__");
   const [typeFilter, setTypeFilter] = useState("all");
   const [showInactive, setShowInactive] = useState(false);
+  const lowStockOnly = searchParams.get("lowStock") === "true";
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -129,7 +131,7 @@ export function ProductsPage() {
     new Set(rows.map((r) => r.product.category).filter((c): c is string => Boolean(c)))
   ).sort();
 
-  const filtered = rows.filter(({ product }) => {
+  const filtered = rows.filter(({ product, onHand }) => {
     if (search) {
       const q = search.toLowerCase();
       const matches =
@@ -144,8 +146,20 @@ export function ProductsPage() {
       if (typeFilter === "serial" && !isSerial) return false;
       if (typeFilter === "bulk" && isSerial) return false;
     }
+    if (lowStockOnly && !(product.reorder_point != null && onHand < product.reorder_point)) {
+      return false;
+    }
     return true;
   });
+
+  function toggleLowStockOnly(next: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("lowStock", "true");
+      else params.delete("lowStock");
+      return params;
+    });
+  }
 
   const filteredIds = filtered.map((r) => r.product.id);
   const allVisibleSelected = filteredIds.length > 0 && filteredIds.every((id) => selected.has(id));
@@ -211,6 +225,15 @@ export function ProductsPage() {
             className="h-4 w-4"
           />
           Show inactive
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={lowStockOnly}
+            onChange={(e) => toggleLowStockOnly(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Low stock only
         </label>
       </div>
 
