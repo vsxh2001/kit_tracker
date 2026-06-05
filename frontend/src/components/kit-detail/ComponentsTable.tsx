@@ -1,15 +1,27 @@
 import { useEffect, useState, startTransition } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "../ui/card";
+import { Badge } from "../ui/badge";
 import { AddComponentDialog } from "../AddComponentDialog";
 import { MoveComponentDialog } from "../MoveComponentDialog";
 import { listComponentsInKit } from "../../services/componentTransactions";
+import { expiryStatus, daysUntilExpiry } from "../../lib/utils";
 import type { Component } from "../../types";
 
 interface ComponentsTableProps {
   kitId: string;
   canEdit: boolean;
   canTransferKits: boolean;
+}
+
+function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
+  const status = expiryStatus(expiresAt);
+  if (status === "none" || status === "ok") return null;
+  const days = daysUntilExpiry(expiresAt);
+  if (status === "expired") {
+    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
+  }
+  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
 }
 
 export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsTableProps) {
@@ -86,6 +98,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                     {comp.lot_code && (
                       <span className="font-mono text-xs text-indigo-700">Lot: {comp.lot_code}</span>
                     )}
+                    <ExpiryBadge expiresAt={comp.expires_at} />
                     {canTransferKits && (
                       <button
                         onClick={() => setMovingComponent(comp)}
@@ -109,6 +122,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Qty</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bin</th>
                     <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Lot</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Expiry</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -131,6 +145,17 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-indigo-700">
                         {comp.lot_code || <span className="text-muted-foreground opacity-40">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {comp.expires_at ? (
+                          expiryStatus(comp.expires_at) === "ok" ? (
+                            <span className="text-xs text-muted-foreground">{comp.expires_at.slice(0, 10)}</span>
+                          ) : (
+                            <ExpiryBadge expiresAt={comp.expires_at} />
+                          )
+                        ) : (
+                          <span className="text-muted-foreground opacity-40">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {canTransferKits && (
