@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Package, FileText, CheckCircle, Clock, Wrench, Users } from "lucide-react";
+import { Package, FileText, CheckCircle, Clock, Wrench, Users, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { listKits } from "../services/kits";
 import { listRequests } from "../services/requests";
@@ -8,6 +8,7 @@ import { listRecentTransactions } from "../services/transactions";
 import { requestsCreatedLast7Days } from "../services/stats";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { listShifts } from "../services/oncall";
+import { listProducts, getOnHandByProduct } from "../services/products";
 import { maintenanceStatus } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
@@ -24,6 +25,7 @@ export function DashboardPage() {
   const [recentTx, setRecentTx] = useState<Transaction[]>([]);
   const [reqSparkline, setReqSparkline] = useState<DailyCount[]>([]);
   const [overdueMaintenanceCount, setOverdueMaintenanceCount] = useState(0);
+  const [belowReorderCount, setBelowReorderCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [oncallShifts, setOncallShifts] = useState<OnCallShift[]>([]);
   const [oncallLoading, setOncallLoading] = useState(true);
@@ -36,18 +38,23 @@ export function DashboardPage() {
       async function load() {
         setLoading(true);
         try {
-          const [k, r, t, reqDaily, schedules] = await Promise.all([
+          const [k, r, t, reqDaily, schedules, products, onHandMap] = await Promise.all([
             listKits(),
             listRequests(),
             listRecentTransactions(8),
             requestsCreatedLast7Days(),
             listAllActiveSchedules(),
+            listProducts(),
+            getOnHandByProduct(),
           ]);
           setKits(k);
           setRequests(r);
           setRecentTx(t.items.filter((tx) => !tx.expand?.kit?.serial?.startsWith("_deleted_")));
           setReqSparkline(reqDaily);
           setOverdueMaintenanceCount(schedules.filter((s) => maintenanceStatus(s.next_due_at) === "overdue").length);
+          setBelowReorderCount(
+            products.filter((p) => p.reorder_point != null && (onHandMap[p.id] ?? 0) < p.reorder_point).length,
+          );
         } catch (err: unknown) {
           if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
         } finally {
@@ -160,6 +167,13 @@ export function DashboardPage() {
                 value={overdueMaintenanceCount}
                 color={overdueMaintenanceCount > 0 ? "red" : "slate"}
                 onClick={() => navigate("/maintenance")}
+              />
+              <StatCard
+                icon={AlertTriangle}
+                label="Below reorder"
+                value={belowReorderCount}
+                color={belowReorderCount > 0 ? "red" : "slate"}
+                onClick={() => navigate("/products?lowStock=true")}
               />
             </div>
           )}
