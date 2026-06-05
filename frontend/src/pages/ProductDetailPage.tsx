@@ -19,9 +19,19 @@ import {
 import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { getProduct, listComponentsForProduct, softDeleteProduct, restoreProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
-import { formatDate } from "../lib/utils";
+import { formatDate, expiryStatus, daysUntilExpiry } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import type { Component, Product } from "../types";
+
+function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
+  const status = expiryStatus(expiresAt);
+  if (status === "none" || status === "ok") return null;
+  const days = daysUntilExpiry(expiresAt);
+  if (status === "expired") {
+    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
+  }
+  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
+}
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -237,6 +247,7 @@ export function ProductDetailPage() {
                         {comp.lot_code && (
                           <span className="font-mono text-xs text-indigo-700">Lot: {comp.lot_code}</span>
                         )}
+                        <ExpiryBadge expiresAt={comp.expires_at} />
                         {comp.is_bulk && <Badge variant="secondary" className="text-xs">Bulk × {comp.quantity}</Badge>}
                         {!comp.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
@@ -261,6 +272,7 @@ export function ProductDetailPage() {
                       )}
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Bin</th>
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Lot</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Expiry</th>
                       <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
                       <th className="px-4 py-2.5" />
                     </tr>
@@ -288,6 +300,17 @@ export function ProductDetailPage() {
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-indigo-700">
                           {comp.lot_code || <span className="text-muted-foreground opacity-40">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {comp.expires_at ? (
+                            expiryStatus(comp.expires_at) === "ok" ? (
+                              <span className="text-xs text-muted-foreground">{comp.expires_at.slice(0, 10)}</span>
+                            ) : (
+                              <ExpiryBadge expiresAt={comp.expires_at} />
+                            )
+                          ) : (
+                            <span className="text-muted-foreground opacity-40">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {comp.is_active
