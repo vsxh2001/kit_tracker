@@ -225,6 +225,26 @@ test.describe("Maintenance page", () => {
     expect(headers.join(",")).toContain("Type");
     expect(headers.join(",")).toContain("Next due");
   });
+
+  test("/maintenance?status=overdue activates Overdue chip and roundtrips via URL", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/maintenance?status=overdue");
+
+    // Heading present, page loaded
+    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible();
+
+    // Overdue chip is the active one (selected style = bg-indigo-600)
+    const overdueChip = page.getByRole("button", { name: "Overdue" });
+    await expect(overdueChip).toHaveClass(/bg-indigo-600/);
+
+    // Other chips are NOT the active one
+    await expect(page.getByRole("button", { name: "All" })).not.toHaveClass(/bg-indigo-600/);
+
+    // Clicking "All" clears the status param from the URL
+    await page.getByRole("button", { name: "All" }).click();
+    await expect(page).not.toHaveURL(/status=/);
+    await expect(page.getByRole("button", { name: "All" })).toHaveClass(/bg-indigo-600/);
+  });
 });
 
 // ---------------------------------------------------------------------------

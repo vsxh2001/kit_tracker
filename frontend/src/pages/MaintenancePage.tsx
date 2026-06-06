@@ -1,5 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -18,14 +18,20 @@ import type { KitMaintenanceSchedule } from "../types";
 
 type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
 
+const STATUS_VALUES: StatusFilter[] = ["all", "overdue", "due-soon", "ok"];
+
 export function MaintenancePage() {
   const { user, canDecideRequests, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const rawStatus = searchParams.get("status") ?? "all";
+  const statusFilter: StatusFilter = (STATUS_VALUES as string[]).includes(rawStatus)
+    ? (rawStatus as StatusFilter)
+    : "all";
+  const typeFilter = searchParams.get("type") ?? "all";
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [snoozeSchedule, setSnoozeSchedule] = useState<KitMaintenanceSchedule | null>(null);
@@ -62,6 +68,24 @@ export function MaintenancePage() {
 
   if (authLoading) return null;
   if (!canDecideRequests) return <Navigate to="/dashboard" replace />;
+
+  function setStatusFilter(next: StatusFilter) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next === "all") params.delete("status");
+      else params.set("status", next);
+      return params;
+    });
+  }
+
+  function setTypeFilter(next: string) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next === "all") params.delete("type");
+      else params.set("type", next);
+      return params;
+    });
+  }
 
   const allTypes = Array.from(new Set(schedules.map((s) => s.type))).sort();
 
