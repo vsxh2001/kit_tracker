@@ -99,7 +99,7 @@ export function ComponentDetailPage() {
     if (!deactivatingSched) return;
     try {
       await updateSchedule(deactivatingSched.id, { is_active: false });
-      toast({ title: "Schedule deactivated", description: deactivatingSched.type, variant: "success" });
+      toast({ title: "Schedule deactivated", description: maintenanceTypeLabel(deactivatingSched.type), variant: "success" });
       setDeactivatingSched(null);
       loadSchedules();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -494,7 +494,7 @@ export function ComponentDetailPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Deactivate schedule?</AlertDialogTitle>
               <AlertDialogDescription>
-                "{deactivatingSched?.type}" will be removed from active maintenance tracking.
+                "{deactivatingSched ? maintenanceTypeLabel(deactivatingSched.type) : ""}" will be removed from active maintenance tracking.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
