@@ -8,6 +8,7 @@ import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AddProductDialog } from "../components/AddProductDialog";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { LowStockBadge } from "../components/LowStockBadge";
 import { listProducts, getComponentCountsByProduct, getOnHandByProduct, updateProduct, softDeleteProduct } from "../services/products";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -283,9 +284,7 @@ export function ProductsPage() {
                           {product.is_serialized !== false ? "Serial" : "Bulk"}
                         </Badge>
                         <ConsumableBadge isConsumable={product.is_consumable} />
-                        {product.reorder_point != null && onHand < product.reorder_point && (
-                          <Badge variant="destructive" className="text-xs">Low stock</Badge>
-                        )}
+                        <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
                         {!product.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
                       </div>
                     </div>
@@ -378,7 +377,6 @@ export function ProductsPage() {
                     <tbody>
                       {filtered.map(({ product, componentCount, onHand }) => {
                         const isChecked = selected.has(product.id);
-                        const lowStock = product.reorder_point != null && onHand < product.reorder_point;
                         return (
                           <tr key={product.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => navigate(`/products/${product.id}`)}>
                             {canDecideRequests && (
@@ -414,7 +412,7 @@ export function ProductsPage() {
                                 {product.is_active
                                   ? <Badge variant="outline" className="text-xs">Active</Badge>
                                   : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
-                                {lowStock && <Badge variant="destructive" className="text-xs">Low stock</Badge>}
+                                <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
                               </div>
                             </td>
                             <td className="px-4 py-3">

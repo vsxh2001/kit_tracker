@@ -22,6 +22,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDate, expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { LowStockBadge } from "../components/LowStockBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Component, Product } from "../types";
 
@@ -206,9 +207,7 @@ export function ProductDetailPage() {
             <h2 className="text-base font-semibold tracking-tight">Components of this product</h2>
             <span className="text-xs text-muted-foreground">{components.length} component{components.length !== 1 ? "s" : ""}</span>
             <span className="text-xs text-muted-foreground">On hand: {onHand}</span>
-            {product.reorder_point != null && onHand < product.reorder_point && (
-              <Badge variant="destructive" className="text-xs">Low stock</Badge>
-            )}
+            <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
           </div>
           {canDecideRequests && (
             <Button size="sm" onClick={() => setShowAddComp(true)}>
