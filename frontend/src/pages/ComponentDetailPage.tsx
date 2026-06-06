@@ -30,6 +30,7 @@ import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
+import { InactiveBadge } from "../components/InactiveBadge";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 export function ComponentDetailPage() {
@@ -188,7 +189,7 @@ export function ComponentDetailPage() {
               ? <span className="font-mono tracking-wide text-indigo-700">{component.serial}</span>
               : <span>{productName}</span>}
           </h1>
-          {!component.is_active && <Badge variant="destructive">Inactive</Badge>}
+          <InactiveBadge isActive={component.is_active} size="md" />
           {component.is_bulk && <Badge variant="secondary">Bulk</Badge>}
           <ConsumableBadge isConsumable={component.expand?.product?.is_consumable} size="md" />
         </div>

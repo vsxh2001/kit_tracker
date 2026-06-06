@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { InactiveBadge } from "../components/InactiveBadge";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
 interface ComponentRow {
@@ -105,9 +106,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    {!component.is_active && (
-                      <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                    )}
+                    <InactiveBadge isActive={component.is_active} />
                     <ExpiryBadge expiresAt={component.expires_at} />
                   </div>
                 </div>

@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDate, expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { InactiveBadge } from "../components/InactiveBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
 
@@ -83,7 +84,7 @@ export function EntityDetailPage() {
         </Button>
         <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-semibold tracking-tight">{entity.name}</h1>
-          {!entity.is_active && <Badge variant="destructive">Inactive</Badge>}
+          <InactiveBadge isActive={entity.is_active} size="md" />
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowSnapshot(true)}>
