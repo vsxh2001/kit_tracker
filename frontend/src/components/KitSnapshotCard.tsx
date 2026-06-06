@@ -8,6 +8,7 @@ import { listComponentTransactionsForKit } from "../services/componentTransactio
 import { listAllActiveSchedules } from "../services/maintenance";
 import { holderAt, componentsAt, schedulesAt, endOfDayIso } from "../lib/snapshot";
 import { formatDateOnly } from "../lib/utils";
+import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { Transaction, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 interface Props {
@@ -159,7 +160,7 @@ export function KitSnapshotCard({ kitId, atDate }: Props) {
                 const overdueDays = Math.floor((snap - due) / 86400000);
                 return (
                   <li key={s.id} className="text-xs flex items-center gap-2">
-                    <span>{s.type}</span>
+                    <span>{maintenanceTypeLabel(s.type)}</span>
                     {overdueDays > 0 && (
                       <span className="text-red-600 font-medium">{overdueDays}d overdue</span>
                     )}

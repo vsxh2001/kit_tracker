@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { updateSchedule } from "../services/maintenance";
+import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { toast } from "./ui/use-toast";
 import type { KitMaintenanceSchedule } from "../types";
 
@@ -124,7 +125,7 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-sm text-muted-foreground">
-            Move <span className="font-medium text-foreground">{schedule?.type}</span> next due date forward.
+            Move <span className="font-medium text-foreground">{schedule ? maintenanceTypeLabel(schedule.type) : ""}</span> next due date forward.
             Current: <span className="font-medium text-foreground">{schedule?.next_due_at?.slice(0, 10) ?? "—"}</span>
           </p>
 
