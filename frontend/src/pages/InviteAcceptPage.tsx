@@ -30,21 +30,22 @@ export function InviteAcceptPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  async function loadPreview() {
-    if (!token) { setPreviewError("Missing token."); setLoadingPreview(false); return; }
-    setLoadingPreview(true);
-    try {
-      const data = await previewInvite(token);
-      setPreview(data);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      setPreviewError(err?.message ?? "Invalid invite link.");
-    } finally {
-      setLoadingPreview(false);
+  useEffect(() => {
+    async function loadPreview() {
+      if (!token) { setPreviewError("Missing token."); setLoadingPreview(false); return; }
+      setLoadingPreview(true);
+      try {
+        const data = await previewInvite(token);
+        setPreview(data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        setPreviewError(err?.message ?? "Invalid invite link.");
+      } finally {
+        setLoadingPreview(false);
+      }
     }
-  }
-
-  useEffect(() => { startTransition(() => loadPreview()); }, [token]);
+    startTransition(() => loadPreview());
+  }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
