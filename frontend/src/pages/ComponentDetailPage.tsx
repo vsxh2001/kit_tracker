@@ -23,12 +23,13 @@ import { countComponentsForProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus, expiryStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
-import type { MaintStatus, ExpiryStatus } from "../lib/utils";
+import type { ExpiryStatus } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 export function ComponentDetailPage() {
@@ -397,7 +398,7 @@ export function ComponentDetailPage() {
                   <div key={sched.id} className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold">{maintenanceTypeLabel(sched.type)}</span>
-                      <CompMaintStatusPill status={status} />
+                      <MaintenanceStatusBadge status={status} />
                     </div>
                     {sched.description && <p className="text-xs text-muted-foreground">{sched.description}</p>}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -457,7 +458,7 @@ export function ComponentDetailPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">{sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
-                              <CompMaintStatusPill status={status} />
+                              <MaintenanceStatusBadge status={status} />
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -647,12 +648,6 @@ export function ComponentDetailPage() {
       />
     </div>
   );
-}
-
-function CompMaintStatusPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }
 
 function ExpiryStatusPill({ expiresAt }: { expiresAt: string }) {

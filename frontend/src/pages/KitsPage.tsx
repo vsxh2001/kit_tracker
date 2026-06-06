@@ -27,7 +27,7 @@ import {
 import { toast } from "../components/ui/use-toast";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
-import type { MaintStatus } from "../lib/utils";
+import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import type { Kit, Transaction, KitMaintenanceSchedule } from "../types";
 
 interface KitRow {
@@ -437,7 +437,7 @@ export function KitsPage() {
                       {nextMaint && (
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-xs text-muted-foreground">Maint: {formatDateOnly(nextMaint)}</span>
-                          <KitMaintPill status={maintenanceStatus(nextMaint)} />
+                          <MaintenanceStatusBadge status={maintenanceStatus(nextMaint)} size="sm" />
                         </div>
                       )}
                       {parseTags(kit.tags).length > 0 && (
@@ -606,7 +606,7 @@ export function KitsPage() {
                                 return (
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-xs text-muted-foreground tabular-nums">{formatDateOnly(nextDue)}</span>
-                                    <KitMaintPill status={status} />
+                                    <MaintenanceStatusBadge status={status} size="sm" />
                                   </div>
                                 );
                               })()}
@@ -707,8 +707,3 @@ export function KitsPage() {
   );
 }
 
-function KitMaintPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
-}

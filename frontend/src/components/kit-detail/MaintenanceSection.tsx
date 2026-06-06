@@ -8,7 +8,7 @@ import { listSchedulesForKit, updateSchedule } from "../../services/maintenance"
 import { useAuth } from "../../context/AuthContext";
 import { formatDateOnly, maintenanceStatus } from "../../lib/utils";
 import { maintenanceTypeLabel } from "../../lib/maintenance-types";
-import type { MaintStatus } from "../../lib/utils";
+import { MaintenanceStatusBadge } from "../MaintenanceStatusBadge";
 import { toast } from "../ui/use-toast";
 import {
   AlertDialog,
@@ -95,7 +95,7 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                 <div key={sched.id} className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold">{maintenanceTypeLabel(sched.type)}</span>
-                    <MaintStatusPill status={status} />
+                    <MaintenanceStatusBadge status={status} />
                   </div>
                   {sched.description && <p className="text-xs text-muted-foreground">{sched.description}</p>}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -163,7 +163,7 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">{sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
-                            <MaintStatusPill status={status} />
+                            <MaintenanceStatusBadge status={status} />
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -234,8 +234,3 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
   );
 }
 
-function MaintStatusPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
-}
