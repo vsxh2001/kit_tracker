@@ -204,7 +204,7 @@ export function DashboardPage() {
                 label="Overdue maintenance"
                 value={overdueMaintenanceCount}
                 color={overdueMaintenanceCount > 0 ? "red" : "slate"}
-                onClick={() => navigate("/maintenance")}
+                onClick={() => navigate(overdueMaintenanceCount > 0 ? "/maintenance?status=overdue" : "/maintenance")}
               />
               <StatCard
                 icon={AlertTriangle}
