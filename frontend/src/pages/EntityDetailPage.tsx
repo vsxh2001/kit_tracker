@@ -12,19 +12,10 @@ import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { useAuth } from "../context/AuthContext";
-import { formatDate, expiryStatus, daysUntilExpiry } from "../lib/utils";
+import { formatDate, expiryStatus } from "../lib/utils";
+import { ExpiryBadge } from "../components/ExpiryBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
-
-function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
-  const status = expiryStatus(expiresAt);
-  if (status === "none" || status === "ok") return null;
-  const days = daysUntilExpiry(expiresAt);
-  if (status === "expired") {
-    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
-  }
-  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
-}
 
 export function EntityDetailPage() {
   const { id } = useParams<{ id: string }>();

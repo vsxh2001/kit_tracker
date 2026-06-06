@@ -11,7 +11,8 @@ import { listComponents } from "../services/components";
 import { listAllComponentTransactions } from "../services/componentTransactions";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
-import { expiryStatus, daysUntilExpiry } from "../lib/utils";
+import { expiryStatus } from "../lib/utils";
+import { ExpiryBadge } from "../components/ExpiryBadge";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
 interface ComponentRow {
@@ -44,16 +45,6 @@ function th(label: string) {
       {label}
     </th>
   );
-}
-
-function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
-  const status = expiryStatus(expiresAt);
-  if (status === "none" || status === "ok") return null;
-  const days = daysUntilExpiry(expiresAt);
-  if (status === "expired") {
-    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
-  }
-  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
 }
 
 interface SectionTableProps {
