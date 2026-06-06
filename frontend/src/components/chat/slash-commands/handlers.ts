@@ -9,6 +9,7 @@ import { getCurrentOnCallUsers } from "../../../services/oncall";
 import { listTransactionsByToEntity, createTransaction } from "../../../services/transactions";
 import { getComponentBySerial } from "../../../services/components";
 import { formatDateOnly, maintenanceStatus } from "../../../lib/utils";
+import { maintenanceTypeLabel } from "../../../lib/maintenance-types";
 import type { Kit, Entity, Component, Transaction } from "../../../types";
 
 type SlashResult = { ok: true; text: string } | { ok: false; error: string };
@@ -65,7 +66,7 @@ export async function handleKit(args: string[]): Promise<SlashResult> {
       const due = new Date(s.next_due_at.slice(0, 10) + "T00:00:00").getTime();
       const days = Math.round((due - today) / 86400000);
       const label = days < 0 ? `${Math.abs(days)}d overdue` : `due in ${days}d`;
-      return `- ${s.type || s.description} (${label})`;
+      return `- ${s.type ? maintenanceTypeLabel(s.type) : s.description} (${label})`;
     });
     maintLines = `\n**Open maintenance:** ${openMaint.length}\n${items.join("\n")}`;
   }
@@ -329,7 +330,7 @@ export async function handleDue(): Promise<SlashResult> {
     const dueDate = s.next_due_at.slice(0, 10);
     const days = Math.round((new Date(dueDate + "T00:00:00").getTime() - today) / 86400000);
     const label = days < 0 ? `${Math.abs(days)}d overdue` : `${days}d`;
-    return `- \`${kitSerial}\` — ${s.type || s.description} (${label}) due ${dueDate}`;
+    return `- \`${kitSerial}\` — ${s.type ? maintenanceTypeLabel(s.type) : s.description} (${label}) due ${dueDate}`;
   });
   if (rest > 0) items.push(`- +${rest} more`);
 
