@@ -13,6 +13,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
+import { ConsumableBadge } from "../components/ConsumableBadge";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
 interface ComponentRow {
@@ -86,9 +87,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     {product && (
                       <Badge variant="outline" className="text-xs">{product.name}</Badge>
                     )}
-                    {product?.is_consumable && (
-                      <Badge variant="outline" className="text-xs">Consumable</Badge>
-                    )}
+                    <ConsumableBadge isConsumable={product?.is_consumable} />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -156,9 +155,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                         ) : (
                           <span className="font-medium text-xs text-muted-foreground">—</span>
                         )}
-                        {product?.is_consumable && (
-                          <Badge variant="outline" className="text-xs">Consumable</Badge>
-                        )}
+                        <ConsumableBadge isConsumable={product?.is_consumable} />
                       </div>
                     </td>
                     {isSerializedSection ? (

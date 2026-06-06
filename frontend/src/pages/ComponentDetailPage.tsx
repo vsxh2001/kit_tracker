@@ -28,6 +28,7 @@ import { toast } from "../components/ui/use-toast";
 import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { EmptyState } from "../components/EmptyState";
+import { ConsumableBadge } from "../components/ConsumableBadge";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 export function ComponentDetailPage() {
@@ -188,7 +189,7 @@ export function ComponentDetailPage() {
           </h1>
           {!component.is_active && <Badge variant="destructive">Inactive</Badge>}
           {component.is_bulk && <Badge variant="secondary">Bulk</Badge>}
-          {component.expand?.product?.is_consumable && <Badge variant="outline">Consumable</Badge>}
+          <ConsumableBadge isConsumable={component.expand?.product?.is_consumable} size="md" />
         </div>
       </div>
 
