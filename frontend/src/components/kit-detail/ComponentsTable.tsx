@@ -1,12 +1,12 @@
 import { useEffect, useState, startTransition } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "../ui/card";
-import { Badge } from "../ui/badge";
 import { AddComponentDialog } from "../AddComponentDialog";
 import { MoveComponentDialog } from "../MoveComponentDialog";
 import { listComponentsInKit } from "../../services/componentTransactions";
 import { expiryStatus } from "../../lib/utils";
 import { ExpiryBadge } from "../ExpiryBadge";
+import { ConsumableBadge } from "../ConsumableBadge";
 import type { Component } from "../../types";
 
 interface ComponentsTableProps {
@@ -79,9 +79,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                     ) : (
                       <span className="text-xs font-medium text-muted-foreground">—</span>
                     )}
-                    {comp.expand?.product?.is_consumable && (
-                      <Badge variant="outline" className="text-xs">Consumable</Badge>
-                    )}
+                    <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
                     {comp.serial && <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>}
                   </div>
                   <div className="flex items-center gap-2">
@@ -132,9 +130,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                           ) : (
                             <span className="text-xs font-medium text-muted-foreground">—</span>
                           )}
-                          {comp.expand?.product?.is_consumable && (
-                            <Badge variant="outline" className="text-xs">Consumable</Badge>
-                          )}
+                          <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
                         </div>
                         {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                       </td>

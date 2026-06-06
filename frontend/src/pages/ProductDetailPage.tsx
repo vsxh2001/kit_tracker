@@ -21,6 +21,7 @@ import { getProduct, listComponentsForProduct, softDeleteProduct, restoreProduct
 import { useAuth } from "../context/AuthContext";
 import { formatDate, expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
+import { ConsumableBadge } from "../components/ConsumableBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Component, Product } from "../types";
 
@@ -125,7 +126,7 @@ export function ProductDetailPage() {
           {product.is_serialized
             ? <Badge variant="outline">Serialized</Badge>
             : <Badge variant="secondary">Bulk</Badge>}
-          {product.is_consumable && <Badge variant="outline">Consumable</Badge>}
+          <ConsumableBadge isConsumable={product.is_consumable} size="md" />
           {!product.is_active && <Badge variant="destructive">Inactive</Badge>}
         </div>
       </div>

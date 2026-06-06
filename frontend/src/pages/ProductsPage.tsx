@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AddProductDialog } from "../components/AddProductDialog";
+import { ConsumableBadge } from "../components/ConsumableBadge";
 import { listProducts, getComponentCountsByProduct, getOnHandByProduct, updateProduct, softDeleteProduct } from "../services/products";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -281,7 +282,7 @@ export function ProductsPage() {
                         <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
                           {product.is_serialized !== false ? "Serial" : "Bulk"}
                         </Badge>
-                        {product.is_consumable && <Badge variant="outline" className="text-xs">Consumable</Badge>}
+                        <ConsumableBadge isConsumable={product.is_consumable} />
                         {product.reorder_point != null && onHand < product.reorder_point && (
                           <Badge variant="destructive" className="text-xs">Low stock</Badge>
                         )}
@@ -402,7 +403,7 @@ export function ProductsPage() {
                                 <Badge variant={product.is_serialized !== false ? "secondary" : "purple"} className="text-xs">
                                   {product.is_serialized !== false ? "Serial" : "Bulk"}
                                 </Badge>
-                                {product.is_consumable && <Badge variant="outline" className="text-xs">Consumable</Badge>}
+                                <ConsumableBadge isConsumable={product.is_consumable} />
                               </div>
                             </td>
                             <td className="px-4 py-3 text-xs text-muted-foreground">{product.manufacturer || <span className="opacity-40">—</span>}</td>
