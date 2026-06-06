@@ -184,11 +184,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1 items-start">
-                        {component.is_active ? (
-                          <Badge variant="outline" className="text-xs">Active</Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">Inactive</Badge>
-                        )}
+                        <InactiveBadge isActive={component.is_active} showActiveLabel />
                         <ExpiryBadge expiresAt={component.expires_at} />
                       </div>
                     </td>

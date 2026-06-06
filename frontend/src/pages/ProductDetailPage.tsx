@@ -305,9 +305,7 @@ export function ProductDetailPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {comp.is_active
-                            ? <Badge variant="outline" className="text-xs">Active</Badge>
-                            : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                          <InactiveBadge isActive={comp.is_active} showActiveLabel />
                         </td>
                         <td className="px-4 py-3">
                           <Link to={`/components/${comp.id}`} className="text-indigo-600 hover:underline text-xs">View</Link>
