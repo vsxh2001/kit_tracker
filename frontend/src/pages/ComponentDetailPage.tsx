@@ -187,6 +187,7 @@ export function ComponentDetailPage() {
           </h1>
           {!component.is_active && <Badge variant="destructive">Inactive</Badge>}
           {component.is_bulk && <Badge variant="secondary">Bulk</Badge>}
+          {component.expand?.product?.is_consumable && <Badge variant="outline">Consumable</Badge>}
         </div>
       </div>
 
