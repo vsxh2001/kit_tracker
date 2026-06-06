@@ -696,7 +696,7 @@ test.describe("Maintenance — schedule detail page @smoke", () => {
     await page.waitForURL(`**/maintenance/${schedId}`, { timeout: 10_000 });
 
     // Page header shows the schedule type
-    await expect(page.locator("h1")).toContainText("calibration", { timeout: 5_000 });
+    await expect(page.locator("h1")).toContainText("Calibration", { timeout: 5_000 });
 
     // Metadata card: interval displayed
     await expect(page.getByText("90 days")).toBeVisible();

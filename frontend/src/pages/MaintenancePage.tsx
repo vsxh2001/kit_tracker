@@ -13,6 +13,7 @@ import { listAllActiveSchedules } from "../services/maintenance";
 import { getSmtpStatus } from "../services/health";
 import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, maintenanceStatus } from "../lib/utils";
+import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { MaintStatus } from "../lib/utils";
 import type { KitMaintenanceSchedule } from "../types";
 
@@ -145,7 +146,7 @@ export function MaintenancePage() {
           >
             <option value="all">All types</option>
             {allTypes.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>{maintenanceTypeLabel(t)}</option>
             ))}
           </select>
         )}
@@ -178,7 +179,7 @@ export function MaintenancePage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <span className="text-xs font-semibold">{sched.type}</span>
+                      <span className="text-xs font-semibold">{maintenanceTypeLabel(sched.type)}</span>
                       {sched.expand?.kit?.serial && (
                         <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand.kit.serial}</span>
                       )}
@@ -245,7 +246,7 @@ export function MaintenancePage() {
                             <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs font-medium">{sched.type}</td>
+                        <td className="px-4 py-3 text-xs font-medium">{maintenanceTypeLabel(sched.type)}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
                           {sched.last_done_at ? formatDateOnly(sched.last_done_at) : <span className="opacity-30">—</span>}
                         </td>
