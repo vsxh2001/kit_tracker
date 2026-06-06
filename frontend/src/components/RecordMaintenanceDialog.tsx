@@ -14,6 +14,7 @@ import { createMaintenanceRecord } from "../services/maintenance";
 import { toast } from "./ui/use-toast";
 import type { KitMaintenanceSchedule } from "../types";
 import { pb } from "../lib/pocketbase";
+import { maintenanceTypeLabel } from "../lib/maintenance-types";
 
 interface Props {
   schedule: KitMaintenanceSchedule;
@@ -64,7 +65,7 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
         fd.append("certificate", certFile);
       }
       await createMaintenanceRecord(fd);
-      toast({ title: "Maintenance recorded", description: `${schedule.type} — next due ${nextDue}`, variant: "success" });
+      toast({ title: "Maintenance recorded", description: `${maintenanceTypeLabel(schedule.type)} — next due ${nextDue}`, variant: "success" });
       reset();
       onRecorded();
       onClose();
@@ -84,7 +85,7 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record Maintenance — {schedule.type}</DialogTitle>
+          <DialogTitle>Record Maintenance — {maintenanceTypeLabel(schedule.type)}</DialogTitle>
           <DialogDescription className="sr-only">
             Record that maintenance was performed on this schedule.
           </DialogDescription>
