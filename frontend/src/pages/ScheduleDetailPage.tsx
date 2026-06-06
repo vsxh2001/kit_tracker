@@ -12,6 +12,7 @@ import { getSchedule, listRecordsForSchedule } from "../services/maintenance";
 import { baseUrl } from "../services/admin";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
+import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { MaintStatus } from "../lib/utils";
 import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 
@@ -73,7 +74,7 @@ export function ScheduleDetailPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Maintenance</p>
-              <h1 className="text-2xl font-semibold tracking-tight">{schedule.type}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">{maintenanceTypeLabel(schedule.type)}</h1>
               {schedule.description && (
                 <p className="text-sm text-muted-foreground mt-0.5">{schedule.description}</p>
               )}
