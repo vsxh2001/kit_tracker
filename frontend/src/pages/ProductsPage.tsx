@@ -410,9 +410,7 @@ export function ProductsPage() {
                             <td className="px-4 py-3 tabular-nums text-xs">{componentCount}</td>
                             <td className="px-4 py-3">
                               <div className="flex flex-col gap-1 items-start">
-                                {product.is_active
-                                  ? <Badge variant="outline" className="text-xs">Active</Badge>
-                                  : <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                                <InactiveBadge isActive={product.is_active} showActiveLabel />
                                 <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
                               </div>
                             </td>
