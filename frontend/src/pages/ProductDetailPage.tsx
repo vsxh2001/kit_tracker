@@ -23,6 +23,7 @@ import { formatDate, expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
+import { InactiveBadge } from "../components/InactiveBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Component, Product } from "../types";
 
@@ -128,7 +129,7 @@ export function ProductDetailPage() {
             ? <Badge variant="outline">Serialized</Badge>
             : <Badge variant="secondary">Bulk</Badge>}
           <ConsumableBadge isConsumable={product.is_consumable} size="md" />
-          {!product.is_active && <Badge variant="destructive">Inactive</Badge>}
+          <InactiveBadge isActive={product.is_active} size="md" />
         </div>
       </div>
 
@@ -240,7 +241,7 @@ export function ProductDetailPage() {
                         )}
                         <ExpiryBadge expiresAt={comp.expires_at} />
                         {comp.is_bulk && <Badge variant="secondary" className="text-xs">Bulk × {comp.quantity}</Badge>}
-                        {!comp.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                        <InactiveBadge isActive={comp.is_active} />
                       </div>
                     </div>
                   </div>

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { AddProductDialog } from "../components/AddProductDialog";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
+import { InactiveBadge } from "../components/InactiveBadge";
 import { listProducts, getComponentCountsByProduct, getOnHandByProduct, updateProduct, softDeleteProduct } from "../services/products";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -285,7 +286,7 @@ export function ProductsPage() {
                         </Badge>
                         <ConsumableBadge isConsumable={product.is_consumable} />
                         <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
-                        {!product.is_active && <Badge variant="destructive" className="text-xs">Inactive</Badge>}
+                        <InactiveBadge isActive={product.is_active} />
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
