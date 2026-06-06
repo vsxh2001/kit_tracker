@@ -14,7 +14,7 @@ import { getSmtpStatus } from "../services/health";
 import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
-import type { MaintStatus } from "../lib/utils";
+import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import type { KitMaintenanceSchedule } from "../types";
 
 type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
@@ -187,7 +187,7 @@ export function MaintenancePage() {
                         <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand?.component?.serial ?? sched.component} <span className="font-sans font-normal text-muted-foreground">(component)</span></span>
                       )}
                     </div>
-                    <MaintStatusPill status={status} />
+                    <MaintenanceStatusBadge status={status} />
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>Last: {sched.last_done_at ? formatDateOnly(sched.last_done_at) : "—"}</span>
@@ -253,7 +253,7 @@ export function MaintenancePage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">{sched.next_due_at ? formatDateOnly(sched.next_due_at) : "—"}</span>
-                            <MaintStatusPill status={status} />
+                            <MaintenanceStatusBadge status={status} />
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -322,8 +322,3 @@ export function MaintenancePage() {
   );
 }
 
-function MaintStatusPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
-}

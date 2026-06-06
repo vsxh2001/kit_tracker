@@ -13,6 +13,7 @@ import { baseUrl } from "../services/admin";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
+import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import type { MaintStatus } from "../lib/utils";
 import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 
@@ -133,7 +134,7 @@ export function ScheduleDetailPage() {
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Next due</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span>{schedule.next_due_at ? formatDateOnly(schedule.next_due_at) : "—"}</span>
-                  <MaintStatusPill status={status} />
+                  <MaintenanceStatusBadge status={status} />
                 </div>
               </div>
             </CardContent>
@@ -264,8 +265,3 @@ export function ScheduleDetailPage() {
   );
 }
 
-function MaintStatusPill({ status }: { status: MaintStatus }) {
-  if (status === "overdue") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">Overdue</span>;
-  if (status === "due-soon") return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">Due soon</span>;
-  return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
-}
