@@ -22,6 +22,7 @@ import { listSchedulesForComponent, updateSchedule } from "../services/maintenan
 import { countComponentsForProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus, expiryStatus } from "../lib/utils";
+import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { MaintStatus, ExpiryStatus } from "../lib/utils";
 import { toast } from "../components/ui/use-toast";
 import { AddScheduleDialog } from "../components/AddScheduleDialog";
@@ -394,7 +395,7 @@ export function ComponentDetailPage() {
                 return (
                   <div key={sched.id} className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold">{sched.type}</span>
+                      <span className="text-xs font-semibold">{maintenanceTypeLabel(sched.type)}</span>
                       <CompMaintStatusPill status={status} />
                     </div>
                     {sched.description && <p className="text-xs text-muted-foreground">{sched.description}</p>}
@@ -444,7 +445,7 @@ export function ComponentDetailPage() {
                       const status = maintenanceStatus(sched.next_due_at);
                       return (
                         <tr key={sched.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
-                          <td className="px-4 py-3 font-medium text-xs">{sched.type}</td>
+                          <td className="px-4 py-3 font-medium text-xs">{maintenanceTypeLabel(sched.type)}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px]">
                             <span className="line-clamp-2">{sched.description || <span className="opacity-30">—</span>}</span>
                           </td>
