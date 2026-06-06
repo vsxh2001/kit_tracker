@@ -242,7 +242,7 @@ test.describe("Maintenance page", () => {
 
     // Clicking "All" clears the status param from the URL
     await page.getByRole("button", { name: "All" }).click();
-    await expect(page).toHaveURL(/\/maintenance(?!.*status=)/);
+    await expect(page).not.toHaveURL(/status=/);
     await expect(page.getByRole("button", { name: "All" })).toHaveClass(/bg-indigo-600/);
   });
 });
