@@ -5,23 +5,14 @@ import { Badge } from "../ui/badge";
 import { AddComponentDialog } from "../AddComponentDialog";
 import { MoveComponentDialog } from "../MoveComponentDialog";
 import { listComponentsInKit } from "../../services/componentTransactions";
-import { expiryStatus, daysUntilExpiry } from "../../lib/utils";
+import { expiryStatus } from "../../lib/utils";
+import { ExpiryBadge } from "../ExpiryBadge";
 import type { Component } from "../../types";
 
 interface ComponentsTableProps {
   kitId: string;
   canEdit: boolean;
   canTransferKits: boolean;
-}
-
-function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
-  const status = expiryStatus(expiresAt);
-  if (status === "none" || status === "ok") return null;
-  const days = daysUntilExpiry(expiresAt);
-  if (status === "expired") {
-    return <Badge variant="destructive" className="text-xs">Expired {Math.abs(days)}d ago</Badge>;
-  }
-  return <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">Expires in {days}d</Badge>;
 }
 
 export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsTableProps) {
