@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { TrackedBadge } from "../components/TrackedBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
@@ -89,6 +90,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                       <Badge variant="outline" className="text-xs">{product.name}</Badge>
                     )}
                     <ConsumableBadge isConsumable={product?.is_consumable} />
+                    <TrackedBadge tracked={product?.track_in_status} />
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -155,6 +157,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                           <span className="font-medium text-xs text-muted-foreground">—</span>
                         )}
                         <ConsumableBadge isConsumable={product?.is_consumable} />
+                        <TrackedBadge tracked={product?.track_in_status} />
                       </div>
                     </td>
                     {isSerializedSection ? (
