@@ -8,6 +8,7 @@ import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { listComponents } from "../services/components";
+import { getOnHandByProduct } from "../services/products";
 import { listAllComponentTransactions } from "../services/componentTransactions";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +16,7 @@ import { expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
+import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
@@ -55,9 +57,10 @@ interface SectionTableProps {
   isSerializedSection: boolean;
   navigate: ReturnType<typeof useNavigate>;
   emptyMessage: string;
+  onHandByProduct: Record<string, number>;
 }
 
-function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: SectionTableProps) {
+function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHandByProduct }: SectionTableProps) {
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground text-sm py-6 text-center">{emptyMessage}</p>
@@ -91,6 +94,12 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                     )}
                     <ConsumableBadge isConsumable={product?.is_consumable} />
                     <TrackedBadge tracked={product?.track_in_status} />
+                    {product && (
+                      <LowStockBadge
+                        reorderPoint={product.reorder_point}
+                        onHand={onHandByProduct[product.id] ?? 0}
+                      />
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -158,6 +167,12 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage }: Sec
                         )}
                         <ConsumableBadge isConsumable={product?.is_consumable} />
                         <TrackedBadge tracked={product?.track_in_status} />
+                        {product && (
+                          <LowStockBadge
+                            reorderPoint={product.reorder_point}
+                            onHand={onHandByProduct[product.id] ?? 0}
+                          />
+                        )}
                       </div>
                     </td>
                     {isSerializedSection ? (
@@ -215,6 +230,7 @@ export function ComponentsPage() {
   const { canDecideRequests } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<ComponentRow[]>([]);
+  const [onHandByProduct, setOnHandByProduct] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [productFilter, setProductFilter] = useState("__all__");
   const [kitFilter, setKitFilter] = useState("__all__");
@@ -228,9 +244,10 @@ export function ComponentsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [components, allTxs] = await Promise.all([
+      const [components, allTxs, onHandMap] = await Promise.all([
         listComponents({ requestKey: "list-components-page" }),
         listAllComponentTransactions(),
+        getOnHandByProduct(),
       ]);
       // Dedupe latest tx per component
       const latestByComponent = new Map<string, ComponentTransaction>();
@@ -238,6 +255,7 @@ export function ComponentsPage() {
         if (!latestByComponent.has(tx.component)) latestByComponent.set(tx.component, tx);
       }
       setRows(components.map((c) => ({ component: c, latestTx: latestByComponent.get(c.id) })));
+      setOnHandByProduct(onHandMap);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
@@ -478,6 +496,7 @@ export function ComponentsPage() {
                   isSerializedSection={true}
                   navigate={navigate}
                   emptyMessage="No serialized components match"
+                  onHandByProduct={onHandByProduct}
                 />
               </div>
 
@@ -489,6 +508,7 @@ export function ComponentsPage() {
                   isSerializedSection={false}
                   navigate={navigate}
                   emptyMessage="No bulk components match"
+                  onHandByProduct={onHandByProduct}
                 />
               </div>
             </>
