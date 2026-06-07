@@ -418,7 +418,10 @@ export function KitsPage() {
                   <Link key={kit.id} to={`/kits/${kit.id}`}>
                     <div className="rounded-lg border bg-card px-4 py-3 hover:bg-slate-50/60 transition-colors">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</span>
+                          {!kit.is_active && <Badge variant="destructive" className="text-xs">Retired</Badge>}
+                        </div>
                         {latest?.expand?.to_entity?.name ? (
                           <Badge variant="secondary">{latest.expand.to_entity.name}</Badge>
                         ) : (
@@ -580,7 +583,12 @@ export function KitsPage() {
                                 />
                               </td>
                             )}
-                            <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</td>
+                            <td className="px-4 py-3 text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-medium tracking-wide text-indigo-700">{kit.serial}</span>
+                                {!kit.is_active && <Badge variant="destructive" className="text-xs">Retired</Badge>}
+                              </div>
+                            </td>
                             <td className="px-4 py-3">
                               {latest?.expand?.to_entity?.name ? (
                                 <Badge variant="secondary">{latest.expand.to_entity.name}</Badge>
