@@ -33,6 +33,7 @@ import { LowStockBadge } from "../components/LowStockBadge";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
+import { ExpiryBadge } from "../components/ExpiryBadge";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 export function ComponentDetailPage() {
@@ -200,6 +201,7 @@ export function ComponentDetailPage() {
           {component.is_bulk && <Badge variant="secondary">Bulk</Badge>}
           <ConsumableBadge isConsumable={component.expand?.product?.is_consumable} size="md" />
           <TrackedBadge tracked={component.expand?.product?.track_in_status} size="md" />
+          <ExpiryBadge expiresAt={component.expires_at} />
         </div>
       </div>
 
