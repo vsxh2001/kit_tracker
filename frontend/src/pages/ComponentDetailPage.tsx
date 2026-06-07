@@ -19,7 +19,7 @@ import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
 import { getComponent, updateComponent } from "../services/components";
 import { listTransactionsForComponent } from "../services/componentTransactions";
 import { listSchedulesForComponent, updateSchedule } from "../services/maintenance";
-import { countComponentsForProduct } from "../services/products";
+import { countComponentsForProduct, getOnHandForProduct } from "../services/products";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus, expiryStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
@@ -29,6 +29,7 @@ import { AddScheduleDialog } from "../components/AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { EmptyState } from "../components/EmptyState";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { LowStockBadge } from "../components/LowStockBadge";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
@@ -40,6 +41,7 @@ export function ComponentDetailPage() {
   const [component, setComponent] = useState<Component | null>(null);
   const [history, setHistory] = useState<ComponentTransaction[]>([]);
   const [productInstanceCount, setProductInstanceCount] = useState<number | null>(null);
+  const [productOnHand, setProductOnHand] = useState<number | null>(null);
   const [showMove, setShowMove] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -71,8 +73,12 @@ export function ComponentDetailPage() {
         countComponentsForProduct(c.product)
           .then(setProductInstanceCount)
           .catch(() => {});
+        getOnHandForProduct(c.product, c.expand?.product?.is_serialized ?? true)
+          .then(setProductOnHand)
+          .catch(() => {});
       } else {
         setProductInstanceCount(null);
+        setProductOnHand(null);
       }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -237,6 +243,12 @@ export function ComponentDetailPage() {
               <p className="text-xs text-muted-foreground">
                 {component.expand.product.is_serialized ? "Serialized component" : "Bulk component"}
               </p>
+              {productOnHand !== null && component.expand.product.reorder_point != null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">On hand: {productOnHand}</span>
+                  <LowStockBadge reorderPoint={component.expand.product.reorder_point} onHand={productOnHand} />
+                </div>
+              )}
               {productInstanceCount !== null && (
                 <Link
                   to={`/products/${component.expand.product.id}`}
