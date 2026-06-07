@@ -7,6 +7,7 @@ import { listComponentsInKit } from "../../services/componentTransactions";
 import { expiryStatus } from "../../lib/utils";
 import { ExpiryBadge } from "../ExpiryBadge";
 import { ConsumableBadge } from "../ConsumableBadge";
+import { TrackedBadge } from "../TrackedBadge";
 import type { Component } from "../../types";
 
 interface ComponentsTableProps {
@@ -80,6 +81,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                       <span className="text-xs font-medium text-muted-foreground">—</span>
                     )}
                     <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
+                    <TrackedBadge tracked={comp.expand?.product?.track_in_status} />
                     {comp.serial && <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>}
                   </div>
                   <div className="flex items-center gap-2">
@@ -131,6 +133,7 @@ export function ComponentsTable({ kitId, canEdit, canTransferKits }: ComponentsT
                             <span className="text-xs font-medium text-muted-foreground">—</span>
                           )}
                           <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
+                          <TrackedBadge tracked={comp.expand?.product?.track_in_status} />
                         </div>
                         {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                       </td>
