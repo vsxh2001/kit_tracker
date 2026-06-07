@@ -29,6 +29,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
   const [reorderPoint, setReorderPoint] = useState("");
   const [specs, setSpecs] = useState("");
   const [isSerialized, setIsSerialized] = useState(true);
+  const [trackInStatus, setTrackInStatus] = useState(false);
   const [isConsumable, setIsConsumable] = useState(false);
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
@@ -44,6 +45,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     setReorderPoint("");
     setSpecs("");
     setIsSerialized(true);
+    setTrackInStatus(false);
     setIsConsumable(false);
     setError("");
     setSpecsError("");
@@ -87,6 +89,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
         url: url.trim() || "",
         specs: specs.trim() || "",
         is_serialized: isSerialized,
+        track_in_status: trackInStatus,
         is_consumable: isConsumable,
         reorder_point: reorderPoint !== "" ? Number(reorderPoint) : null,
       });
@@ -191,6 +194,19 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
               className="h-4 w-4"
             />
             <Label htmlFor="prod-serialized">Serialized (one unit per component)</Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="prod-track-in-status"
+              checked={trackInStatus}
+              onChange={(e) => setTrackInStatus(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <div>
+              <Label htmlFor="prod-track-in-status">Track in kit status</Label>
+              <p className="text-xs text-muted-foreground">Show this product&apos;s presence in /kit status</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <input
