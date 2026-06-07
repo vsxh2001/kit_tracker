@@ -24,6 +24,7 @@ import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
+import { TrackedBadge } from "../components/TrackedBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Component, Product } from "../types";
 
@@ -129,7 +130,7 @@ export function ProductDetailPage() {
             ? <Badge variant="outline">Serialized</Badge>
             : <Badge variant="secondary">Bulk</Badge>}
           <ConsumableBadge isConsumable={product.is_consumable} size="md" />
-          {product.track_in_status && <Badge variant="secondary">Tracked</Badge>}
+          <TrackedBadge tracked={product.track_in_status} size="md" />
           <InactiveBadge isActive={product.is_active} size="md" />
         </div>
       </div>
