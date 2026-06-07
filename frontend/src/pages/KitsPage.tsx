@@ -583,9 +583,9 @@ export function KitsPage() {
                                 />
                               </td>
                             )}
-                            <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
+                            <td className="px-4 py-3 text-xs">
                               <div className="flex items-center gap-1.5">
-                                <span>{kit.serial}</span>
+                                <span className="font-mono font-medium tracking-wide text-indigo-700">{kit.serial}</span>
                                 {!kit.is_active && <Badge variant="destructive" className="text-xs">Retired</Badge>}
                               </div>
                             </td>
