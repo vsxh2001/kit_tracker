@@ -307,6 +307,7 @@ export function ProductsPage() {
                           {product.is_serialized !== false ? "Serial" : "Bulk"}
                         </Badge>
                         <ConsumableBadge isConsumable={product.is_consumable} />
+                        <TrackedBadge tracked={product.track_in_status} />
                         <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
                         <InactiveBadge isActive={product.is_active} />
                       </div>
