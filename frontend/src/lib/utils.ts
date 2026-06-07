@@ -69,3 +69,7 @@ export function daysUntilExpiry(expiresAt: string): number {
   const today = new Date(new Date().toLocaleDateString("en-CA") + "T00:00:00").getTime();
   return Math.floor((exp - today) / 86400000);
 }
+
+export function isLowStock(reorderPoint: number | null | undefined, onHand: number): boolean {
+  return reorderPoint != null && onHand < reorderPoint;
+}

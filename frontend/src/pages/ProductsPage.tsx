@@ -12,6 +12,7 @@ import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
 import { listProducts, getComponentCountsByProduct, getOnHandByProduct, updateProduct, softDeleteProduct } from "../services/products";
+import { isLowStock } from "../lib/utils";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../components/ui/use-toast";
@@ -151,7 +152,7 @@ export function ProductsPage() {
       if (typeFilter === "serial" && !isSerial) return false;
       if (typeFilter === "bulk" && isSerial) return false;
     }
-    if (lowStockOnly && !(product.reorder_point != null && onHand < product.reorder_point)) {
+    if (lowStockOnly && !isLowStock(product.reorder_point, onHand)) {
       return false;
     }
     if (consumableOnly && !product.is_consumable) return false;

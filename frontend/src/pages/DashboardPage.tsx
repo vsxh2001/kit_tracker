@@ -10,7 +10,7 @@ import { listAllActiveSchedules } from "../services/maintenance";
 import { listShifts } from "../services/oncall";
 import { listProducts, getOnHandByProduct } from "../services/products";
 import { listComponents } from "../services/components";
-import { maintenanceStatus, expiryStatus } from "../lib/utils";
+import { maintenanceStatus, expiryStatus, isLowStock } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
@@ -102,7 +102,7 @@ export function DashboardPage() {
         try {
           const [products, onHandMap] = await Promise.all([listProducts(), getOnHandByProduct()]);
           setBelowReorderCount(
-            products.filter((p) => p.reorder_point != null && (onHandMap[p.id] ?? 0) < p.reorder_point).length,
+            products.filter((p) => isLowStock(p.reorder_point, onHandMap[p.id] ?? 0)).length,
           );
         } catch (err: unknown) {
           if (!(err as { isAbort?: boolean })?.isAbort) console.error(err);
