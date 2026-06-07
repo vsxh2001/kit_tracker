@@ -1,4 +1,5 @@
 import { Badge } from "./ui/badge";
+import { isLowStock } from "../lib/utils";
 
 export function LowStockBadge({
   reorderPoint,
@@ -7,6 +8,6 @@ export function LowStockBadge({
   reorderPoint?: number | null;
   onHand: number;
 }) {
-  if (reorderPoint == null || onHand >= reorderPoint) return null;
+  if (!isLowStock(reorderPoint, onHand)) return null;
   return <Badge variant="destructive" className="text-xs">Low stock</Badge>;
 }
