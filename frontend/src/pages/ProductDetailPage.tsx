@@ -132,6 +132,7 @@ export function ProductDetailPage() {
           <ConsumableBadge isConsumable={product.is_consumable} size="md" />
           <TrackedBadge tracked={product.track_in_status} size="md" />
           <InactiveBadge isActive={product.is_active} size="md" />
+          <LowStockBadge reorderPoint={product.reorder_point} onHand={onHand} />
         </div>
       </div>
 
