@@ -8,6 +8,7 @@ import { EntityFormDialog } from "../components/EntityFormDialog";
 import { EntitySnapshotDialog } from "../components/EntitySnapshotDialog";
 import { getEntity, getEntityTransactions } from "../services/entities";
 import { listComponentsAtEntity } from "../services/componentTransactions";
+import { getOnHandByProduct } from "../services/products";
 import { MoveComponentDialog } from "../components/MoveComponentDialog";
 import { AddComponentDialog } from "../components/AddComponentDialog";
 import { CascadeDeleteDialog } from "../components/CascadeDeleteDialog";
@@ -16,6 +17,7 @@ import { formatDate, expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
+import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
@@ -30,6 +32,7 @@ export function EntityDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [standaloneComponents, setStandaloneComponents] = useState<Component[]>([]);
+  const [onHandByProduct, setOnHandByProduct] = useState<Record<string, number>>({});
   const [showAddComp, setShowAddComp] = useState(false);
   const [movingComponent, setMovingComponent] = useState<Component | null>(null);
   const [showCascadeDelete, setShowCascadeDelete] = useState(false);
@@ -40,13 +43,15 @@ export function EntityDetailPage() {
     setLoading(true);
     let aborted = false;
     try {
-      const [e, txs, comps] = await Promise.all([
+      const [e, txs, comps, onHandMap] = await Promise.all([
         getEntity(id),
         getEntityTransactions(id),
         listComponentsAtEntity(id),
+        getOnHandByProduct(),
       ]);
       setEntity(e);
       setHistory(txs);
+      setOnHandByProduct(onHandMap);
 
       // Derive current kits: for each kit, take latest tx; if to_entity = this entity → kit is here
       const latestByKit = new Map<string, Transaction>();
@@ -267,6 +272,12 @@ export function EntityDetailPage() {
                       <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
                       <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
                       <TrackedBadge tracked={comp.expand?.product?.track_in_status} />
+                      {comp.expand?.product && (
+                        <LowStockBadge
+                          reorderPoint={comp.expand.product.reorder_point}
+                          onHand={onHandByProduct[comp.expand.product.id] ?? 0}
+                        />
+                      )}
                       {comp.serial && <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -317,6 +328,12 @@ export function EntityDetailPage() {
                             <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
                             <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
                             <TrackedBadge tracked={comp.expand?.product?.track_in_status} />
+                            {comp.expand?.product && (
+                              <LowStockBadge
+                                reorderPoint={comp.expand.product.reorder_point}
+                                onHand={onHandByProduct[comp.expand.product.id] ?? 0}
+                              />
+                            )}
                           </div>
                           {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
