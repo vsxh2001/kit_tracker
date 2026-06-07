@@ -10,6 +10,7 @@ import { AddProductDialog } from "../components/AddProductDialog";
 import { ConsumableBadge } from "../components/ConsumableBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
+import { TrackedBadge } from "../components/TrackedBadge";
 import { listProducts, getComponentCountsByProduct, getOnHandByProduct, updateProduct, softDeleteProduct } from "../services/products";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -416,7 +417,7 @@ export function ProductsPage() {
                             </td>
                             <td className="px-4 py-3">
                               {product.track_in_status
-                                ? <Badge variant="secondary" className="text-xs">Tracked</Badge>
+                                ? <TrackedBadge tracked />
                                 : <span className="text-muted-foreground opacity-40">—</span>}
                             </td>
                           </tr>
