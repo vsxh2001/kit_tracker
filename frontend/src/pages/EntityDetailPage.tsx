@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDate, expiryStatus } from "../lib/utils";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { ConsumableBadge } from "../components/ConsumableBadge";
+import { TrackedBadge } from "../components/TrackedBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
@@ -265,6 +266,7 @@ export function EntityDetailPage() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
                       <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
+                      <TrackedBadge tracked={comp.expand?.product?.track_in_status} />
                       {comp.serial && <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -314,6 +316,7 @@ export function EntityDetailPage() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-medium">{comp.expand?.product?.name ?? "—"}</span>
                             <ConsumableBadge isConsumable={comp.expand?.product?.is_consumable} />
+                            <TrackedBadge tracked={comp.expand?.product?.track_in_status} />
                           </div>
                           {comp.serial && <div className="font-mono text-xs text-indigo-700 mt-0.5">{comp.serial}</div>}
                         </td>
