@@ -1,4 +1,5 @@
 import { useEffect, useState, startTransition } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Wrench } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { AddScheduleDialog } from "../AddScheduleDialog";
@@ -29,6 +30,7 @@ interface MaintenanceSectionProps {
 
 export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) {
   const { canTransferKits } = useAuth();
+  const navigate = useNavigate();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [showAddSched, setShowAddSched] = useState(false);
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
@@ -92,7 +94,11 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
             {schedules.map((sched) => {
               const status = maintenanceStatus(sched.next_due_at);
               return (
-                <div key={sched.id} className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
+                <div
+                  key={sched.id}
+                  onClick={() => navigate(`/maintenance/${sched.id}`)}
+                  className="rounded-lg border bg-card px-4 py-3 space-y-1.5 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold">{maintenanceTypeLabel(sched.type)}</span>
                     <MaintenanceStatusBadge status={status} />
@@ -106,27 +112,19 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {canTransferKits && (
                       <button
-                        onClick={() => setRecordingSchedule(sched)}
+                        onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                         className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
                       >
                         Record done
                       </button>
                     )}
                     {canEdit && (
-                      <>
-                        <button
-                          onClick={() => setShowAddSched(true)}
-                          className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setDeactivatingSched(sched)}
-                          className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          Deactivate
-                        </button>
-                      </>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeactivatingSched(sched); }}
+                        className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        Deactivate
+                      </button>
                     )}
                   </div>
                 </div>
@@ -151,7 +149,11 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                   {schedules.map((sched) => {
                     const status = maintenanceStatus(sched.next_due_at);
                     return (
-                      <tr key={sched.id} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors">
+                      <tr
+                        key={sched.id}
+                        onClick={() => navigate(`/maintenance/${sched.id}`)}
+                        className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                      >
                         <td className="px-4 py-3 font-medium text-xs">{maintenanceTypeLabel(sched.type)}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px]">
                           <span className="line-clamp-2">{sched.description || <span className="opacity-30">—</span>}</span>
@@ -170,21 +172,19 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                           <div className="flex items-center gap-1.5 justify-end">
                             {canTransferKits && (
                               <button
-                                onClick={() => setRecordingSchedule(sched)}
+                                onClick={(e) => { e.stopPropagation(); setRecordingSchedule(sched); }}
                                 className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
                               >
                                 Record done
                               </button>
                             )}
                             {canEdit && (
-                              <>
-                                <button
-                                  onClick={() => setDeactivatingSched(sched)}
-                                  className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                  Deactivate
-                                </button>
-                              </>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeactivatingSched(sched); }}
+                                className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                Deactivate
+                              </button>
                             )}
                           </div>
                         </td>
