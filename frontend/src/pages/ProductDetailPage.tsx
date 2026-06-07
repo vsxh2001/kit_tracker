@@ -129,6 +129,7 @@ export function ProductDetailPage() {
             ? <Badge variant="outline">Serialized</Badge>
             : <Badge variant="secondary">Bulk</Badge>}
           <ConsumableBadge isConsumable={product.is_consumable} size="md" />
+          {product.track_in_status && <Badge variant="secondary">Tracked</Badge>}
           <InactiveBadge isActive={product.is_active} size="md" />
         </div>
       </div>
@@ -147,6 +148,7 @@ export function ProductDetailPage() {
             <Row label="Description" value={product.description || "—"} />
             <Row label="Reorder point" value={product.reorder_point != null ? String(product.reorder_point) : "—"} />
             <Row label="Consumable" value={product.is_consumable ? "Yes" : "No"} />
+            <Row label="Tracked in status" value={product.track_in_status ? "Yes" : "No"} />
             {product.url && (
               <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
                 <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">URL</p>
