@@ -221,6 +221,7 @@ export function ComponentsPage() {
   const [showInactive, setShowInactive] = useState(false);
   const expiringSoonOnly = searchParams.get("expiringSoon") === "true";
   const consumableOnly = searchParams.get("consumable") === "true";
+  const trackedOnly = searchParams.get("tracked") === "true";
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -304,6 +305,9 @@ export function ComponentsPage() {
     // Consumable-only filter — gates on the parent product's is_consumable flag
     if (consumableOnly && !component.expand?.product?.is_consumable) return false;
 
+    // Tracked-only filter — gates on the parent product's track_in_status flag
+    if (trackedOnly && !component.expand?.product?.track_in_status) return false;
+
     return true;
   });
 
@@ -312,6 +316,15 @@ export function ComponentsPage() {
       const params = new URLSearchParams(prev);
       if (next) params.set("consumable", "true");
       else params.delete("consumable");
+      return params;
+    });
+  }
+
+  function toggleTrackedOnly(next: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("tracked", "true");
+      else params.delete("tracked");
       return params;
     });
   }
@@ -422,6 +435,15 @@ export function ComponentsPage() {
             className="h-4 w-4"
           />
           Consumable only
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={trackedOnly}
+            onChange={(e) => toggleTrackedOnly(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Tracked only
         </label>
       </div>
 

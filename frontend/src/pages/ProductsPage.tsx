@@ -47,6 +47,7 @@ export function ProductsPage() {
   const [showInactive, setShowInactive] = useState(false);
   const lowStockOnly = searchParams.get("lowStock") === "true";
   const consumableOnly = searchParams.get("consumable") === "true";
+  const trackedOnly = searchParams.get("tracked") === "true";
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -156,6 +157,7 @@ export function ProductsPage() {
       return false;
     }
     if (consumableOnly && !product.is_consumable) return false;
+    if (trackedOnly && !product.track_in_status) return false;
     return true;
   });
 
@@ -173,6 +175,15 @@ export function ProductsPage() {
       const params = new URLSearchParams(prev);
       if (next) params.set("consumable", "true");
       else params.delete("consumable");
+      return params;
+    });
+  }
+
+  function toggleTrackedOnly(next: boolean) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next) params.set("tracked", "true");
+      else params.delete("tracked");
       return params;
     });
   }
@@ -259,6 +270,15 @@ export function ProductsPage() {
             className="h-4 w-4"
           />
           Consumable only
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={trackedOnly}
+            onChange={(e) => toggleTrackedOnly(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Tracked only
         </label>
       </div>
 
