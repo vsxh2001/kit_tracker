@@ -202,7 +202,7 @@ export function RequestDetailPage() {
               value={
                 request.expand?.designated_kit?.serial ? (
                   <div className="flex flex-wrap items-center justify-end gap-2">
-                    <span className="font-mono">{request.expand.designated_kit.serial}</span>
+                    <span className="font-mono text-indigo-700 font-medium">{request.expand.designated_kit.serial}</span>
                     <KitTagList tags={request.expand.designated_kit.tags} />
                   </div>
                 ) : (
