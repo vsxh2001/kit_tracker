@@ -19,6 +19,7 @@ import { TrackedBadge } from "../components/TrackedBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { RetiredBadge } from "../components/RetiredBadge";
+import { KitTagList } from "../components/KitTagList";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
 
@@ -125,7 +126,10 @@ export function EntityDetailPage() {
                   onClick={() => navigate(`/kits/${kit.id}`)}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</span>
+                      <KitTagList tags={kit.tags} />
+                    </div>
                     <RetiredBadge isActive={kit.is_active} showActiveLabel />
                   </div>
                   {kit.notes && <p className="text-xs text-muted-foreground mt-1">{kit.notes}</p>}
@@ -151,7 +155,12 @@ export function EntityDetailPage() {
                         className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer"
                         onClick={() => navigate(`/kits/${kit.id}`)}
                       >
-                        <td className="px-4 py-3 font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</span>
+                            <KitTagList tags={kit.tags} />
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">{kit.notes ?? <span className="opacity-30">—</span>}</td>
                         <td className="px-4 py-3">
                           <RetiredBadge isActive={kit.is_active} showActiveLabel />
