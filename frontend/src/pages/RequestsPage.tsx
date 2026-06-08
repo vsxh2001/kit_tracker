@@ -7,6 +7,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Input } from "../components/ui/input";
 import { RequestFormDialog } from "../components/RequestFormDialog";
+import { KitTagList } from "../components/KitTagList";
 import { listRequests } from "../services/requests";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import { Skeleton } from "../components/ui/skeleton";
@@ -229,7 +230,10 @@ export function RequestsPage() {
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                       {r.expand?.designated_kit?.serial && (
-                        <span className="font-mono text-indigo-700">{r.expand.designated_kit.serial}</span>
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-indigo-700">{r.expand.designated_kit.serial}</span>
+                          <KitTagList tags={r.expand.designated_kit.tags} />
+                        </span>
                       )}
                       {r.expand?.target_entity?.name && (
                         <span>{r.expand.target_entity.name}</span>
@@ -269,8 +273,15 @@ export function RequestsPage() {
                         <td className="px-4 py-3">
                           <Badge variant={REQUEST_STATUS_VARIANTS[r.status]}>{r.status}</Badge>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs text-indigo-700 font-medium">
-                          {r.expand?.designated_kit?.serial ?? <span className="opacity-40 font-normal font-sans text-muted-foreground">—</span>}
+                        <td className="px-4 py-3">
+                          {r.expand?.designated_kit?.serial ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-xs text-indigo-700 font-medium">{r.expand.designated_kit.serial}</span>
+                              <KitTagList tags={r.expand.designated_kit.tags} />
+                            </div>
+                          ) : (
+                            <span className="opacity-40 text-muted-foreground">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">{r.expand?.target_entity?.name ?? <span className="opacity-40">—</span>}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
