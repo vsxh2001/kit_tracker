@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { RetiredBadge } from "../RetiredBadge";
+import { KitTagList } from "../KitTagList";
 import type { Kit } from "../../types";
 
 interface KitDetailHeaderProps {
@@ -16,9 +17,10 @@ export function KitDetailHeader({ kit }: KitDetailHeaderProps) {
       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => navigate("/kits")}>
         <ArrowLeft className="h-4 w-4" />
       </Button>
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="text-2xl font-semibold font-mono tracking-wide">{kit.serial}</h1>
         <RetiredBadge isActive={kit.is_active} size="md" />
+        <KitTagList tags={kit.tags} />
       </div>
     </div>
   );
