@@ -8,6 +8,7 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { RetiredBadge } from "./RetiredBadge";
 import { getEntityHoldingsAt } from "../services/timeMachine";
 import type { KitHolding } from "../services/timeMachine";
 import { formatDate } from "../lib/utils";
@@ -144,10 +145,8 @@ export function EntitySnapshotDialog({
                       </span>
                       {kit.serial === "(deleted kit)" ? (
                         <Badge variant="destructive" className="text-xs">Deleted</Badge>
-                      ) : kit.is_active ? (
-                        <Badge variant="outline" className="text-xs">Active</Badge>
                       ) : (
-                        <Badge variant="destructive" className="text-xs">Retired</Badge>
+                        <RetiredBadge isActive={kit.is_active} showActiveLabel />
                       )}
                     </div>
                     {kit.notes && (
@@ -204,10 +203,8 @@ export function EntitySnapshotDialog({
                         <td className="px-4 py-3">
                           {kit.serial === "(deleted kit)" ? (
                             <Badge variant="destructive" className="text-xs">Deleted</Badge>
-                          ) : kit.is_active ? (
-                            <Badge variant="outline" className="text-xs">Active</Badge>
                           ) : (
-                            <Badge variant="destructive" className="text-xs">Retired</Badge>
+                            <RetiredBadge isActive={kit.is_active} showActiveLabel />
                           )}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground tabular-nums text-xs">

@@ -28,6 +28,7 @@ import { toast } from "../components/ui/use-toast";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
+import { RetiredBadge } from "../components/RetiredBadge";
 import type { Kit, Transaction, KitMaintenanceSchedule } from "../types";
 
 interface KitRow {
@@ -420,7 +421,7 @@ export function KitsPage() {
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">{kit.serial}</span>
-                          {!kit.is_active && <Badge variant="destructive" className="text-xs">Retired</Badge>}
+                          <RetiredBadge isActive={kit.is_active} />
                         </div>
                         {latest?.expand?.to_entity?.name ? (
                           <Badge variant="secondary">{latest.expand.to_entity.name}</Badge>
@@ -586,7 +587,7 @@ export function KitsPage() {
                             <td className="px-4 py-3 text-xs">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-mono font-medium tracking-wide text-indigo-700">{kit.serial}</span>
-                                {!kit.is_active && <Badge variant="destructive" className="text-xs">Retired</Badge>}
+                                <RetiredBadge isActive={kit.is_active} />
                               </div>
                             </td>
                             <td className="px-4 py-3">
