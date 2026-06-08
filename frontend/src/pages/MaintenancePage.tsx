@@ -248,11 +248,11 @@ export function MaintenancePage() {
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span className="font-mono font-medium tracking-wide text-indigo-700">
                               {sched.expand?.kit?.serial ?? (sched.kit ? sched.kit : null) ?? (sched.expand?.component?.serial ? sched.expand.component.serial : sched.component ?? "—")}
+                              {sched.component && !sched.kit && (
+                                <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
+                              )}
                             </span>
-                            {sched.expand?.kit?.tags && <KitTagList tags={sched.expand.kit.tags} />}
-                            {sched.component && !sched.kit && (
-                              <span className="font-sans font-normal text-muted-foreground">(component)</span>
-                            )}
+                            <KitTagList tags={sched.expand?.kit?.tags} />
                           </div>
                         </td>
                         <td className="px-4 py-3 text-xs font-medium">{maintenanceTypeLabel(sched.type)}</td>
