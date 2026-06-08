@@ -150,12 +150,12 @@ export function KitTimeline({ kitId }: Props) {
                 );
                 const durationLabel =
                   durationDays === 1 ? "1 day" : `${durationDays} days`;
-                const tooltipText = `${seg.entityName} · ${durationLabel} (${formatDateOnly(new Date(seg.start).toISOString())} → ${formatDateOnly(new Date(seg.end).toISOString())})`;
+                const tooltipText = `${seg.entityName} · ${durationLabel} (${formatDate(new Date(seg.start).toISOString())} → ${formatDate(new Date(seg.end).toISOString())})`;
                 return (
                   <div
                     key={i}
                     className={`absolute top-0 h-full flex items-center justify-center text-xs font-medium text-white overflow-hidden ${seg.color}`}
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%`, minWidth: "2px" }}
                     title={tooltipText}
                     data-testid="timeline-segment"
                     data-entity={seg.entityName}

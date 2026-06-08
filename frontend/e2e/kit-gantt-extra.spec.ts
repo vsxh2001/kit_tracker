@@ -356,29 +356,3 @@ test.describe("Delivery sort descending: no-delivery kits float to top", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Test 7: (DOCUMENTED BUG P2) Tooltip time precision — skipped, bug surfaces finding
-// ---------------------------------------------------------------------------
-
-test.skip("P2 BUG: intra-day segment tooltip loses time precision", async ({ page }) => {
-  // TODO: KitTimeline.tsx uses formatDateOnly() for tooltip start/end dates.
-  // For segments spanning < 1 day (e.g., Kit with moves at 15:00, 15:19, 15:26),
-  // the tooltip shows "EntityName · 08/05/2026 → 08/05/2026" which is misleading.
-  // Fix: use formatDate() (includes time) instead of formatDateOnly() for tooltip.
-  // File: frontend/src/components/KitTimeline.tsx line 89
-  void page;
-});
-
-// ---------------------------------------------------------------------------
-// Test 8: (DOCUMENTED BUG P2) Sub-pixel hairline segments invisible
-// ---------------------------------------------------------------------------
-
-test.skip("P2 BUG: sub-pixel hairline segments are invisible in browser", async ({ page }) => {
-  // TODO: When multiple transactions occur within a short timespan relative to the
-  // full history span, segments can be < 1px wide and invisible.
-  // E.g., KIT-001 (7 transactions spanning 10 days): segments 2-4 are 0.05-0.14% wide
-  // = sub-pixel. Browser rounds to 0px, segment is not visible.
-  // Fix: enforce minimum width (e.g., min-w-[2px]) on timeline-segment divs.
-  // File: frontend/src/components/KitTimeline.tsx line 93
-  void page;
-});
