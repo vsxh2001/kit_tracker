@@ -20,6 +20,7 @@ import {
 import { createSchedule, bulkCreateSchedules } from "../services/maintenance";
 import { listKits } from "../services/kits";
 import { toast } from "./ui/use-toast";
+import { KitTagList } from "./KitTagList";
 import { MAINTENANCE_TYPES, maintenanceTypeLabel } from "../lib/maintenance-types";
 import type { Kit, MaintenanceType } from "../types";
 
@@ -257,7 +258,10 @@ export function NewMaintenanceScheduleDialog({ open, onClose, onSaved }: Props) 
                         className="h-4 w-4 rounded border-input accent-indigo-600"
                         data-kit-id={k.id}
                       />
-                      <span className="font-mono text-xs tracking-wide text-indigo-700">{k.serial}</span>
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-mono text-xs tracking-wide text-indigo-700">{k.serial}</span>
+                        <KitTagList tags={k.tags} />
+                      </div>
                     </label>
                   ))
                 )}
