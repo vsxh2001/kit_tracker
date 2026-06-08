@@ -230,10 +230,10 @@ export function RequestsPage() {
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                       {r.expand?.designated_kit?.serial && (
-                        <span className="inline-flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-indigo-700">{r.expand.designated_kit.serial}</span>
                           <KitTagList tags={r.expand.designated_kit.tags} />
-                        </span>
+                        </div>
                       )}
                       {r.expand?.target_entity?.name && (
                         <span>{r.expand.target_entity.name}</span>
