@@ -9,6 +9,7 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { RetiredBadge } from "./RetiredBadge";
+import { KitTagList } from "./KitTagList";
 import { getEntityHoldingsAt } from "../services/timeMachine";
 import type { KitHolding } from "../services/timeMachine";
 import { formatDate } from "../lib/utils";
@@ -140,9 +141,14 @@ export function EntitySnapshotDialog({
                     }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-xs tracking-wide text-indigo-700">
-                        {kit.serial}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs tracking-wide text-indigo-700">
+                          {kit.serial}
+                        </span>
+                        {kit.serial !== "(deleted kit)" && (
+                          <KitTagList tags={kit.tags} />
+                        )}
+                      </div>
                       {kit.serial === "(deleted kit)" ? (
                         <Badge variant="destructive" className="text-xs">Deleted</Badge>
                       ) : (
@@ -192,8 +198,15 @@ export function EntitySnapshotDialog({
                           }
                         }}
                       >
-                        <td className="px-4 py-3 font-mono text-xs tracking-wide text-indigo-700">
-                          {kit.serial}
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs tracking-wide text-indigo-700">
+                              {kit.serial}
+                            </span>
+                            {kit.serial !== "(deleted kit)" && (
+                              <KitTagList tags={kit.tags} />
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {kit.notes ?? (
