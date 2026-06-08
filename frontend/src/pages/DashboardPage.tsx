@@ -13,6 +13,7 @@ import { listComponents } from "../services/components";
 import { maintenanceStatus, expiryStatus, isLowStock } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
+import { KitTagList } from "../components/KitTagList";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
 import { cn, formatDate, formatDateOnly } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
@@ -261,11 +262,14 @@ export function DashboardPage() {
                       className="rounded-lg border bg-card px-4 py-3 cursor-pointer hover:bg-indigo-50/40 transition-colors"
                       onClick={() => navigate(`/kits/${tx.expand?.kit?.id ?? tx.kit}`)}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">
-                          {tx.expand?.kit?.serial ?? tx.kit}
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                          <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">
+                            {tx.expand?.kit?.serial ?? tx.kit}
+                          </span>
+                          <KitTagList tags={tx.expand?.kit?.tags} />
+                        </div>
+                        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatDate(tx.timestamp)}</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
@@ -297,8 +301,13 @@ export function DashboardPage() {
                           <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs tabular-nums">
                             {formatDate(tx.timestamp)}
                           </td>
-                          <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700 hover:underline">
-                            {tx.expand?.kit?.serial ?? tx.kit}
+                          <td className="px-4 py-3 text-xs">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="font-mono font-medium tracking-wide text-indigo-700 hover:underline">
+                                {tx.expand?.kit?.serial ?? tx.kit}
+                              </span>
+                              <KitTagList tags={tx.expand?.kit?.tags} />
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}
