@@ -280,7 +280,7 @@ export function RequestsPage() {
                               <KitTagList tags={r.expand.designated_kit.tags} />
                             </div>
                           ) : (
-                            <span className="opacity-40 text-muted-foreground">—</span>
+                            <span className="opacity-40 text-xs text-muted-foreground">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3">{r.expand?.target_entity?.name ?? <span className="opacity-40">—</span>}</td>
