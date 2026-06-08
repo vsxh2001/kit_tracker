@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition, type ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, FileX } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
@@ -14,6 +14,7 @@ import { listEntities } from "../services/entities";
 import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import { RequestFormDialog } from "../components/RequestFormDialog";
+import { KitTagList } from "../components/KitTagList";
 import { toast } from "../components/ui/use-toast";
 import {
   AlertDialog,
@@ -196,7 +197,19 @@ export function RequestDetailPage() {
             <Row label="Requester" value={request.expand?.requester?.name ?? request.expand?.requester?.email ?? "—"} />
             <Row label="Date" value={formatDateOnly(request.date)} />
             <Row label="Status" value={request.status} />
-            <Row label="Designated kit" value={request.expand?.designated_kit?.serial ?? "—"} />
+            <Row
+              label="Designated kit"
+              value={
+                request.expand?.designated_kit?.serial ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <span className="font-mono">{request.expand.designated_kit.serial}</span>
+                    <KitTagList tags={request.expand.designated_kit.tags} />
+                  </div>
+                ) : (
+                  "—"
+                )
+              }
+            />
             <Row label="Target entity" value={request.expand?.target_entity?.name ?? "—"} />
             <Row label="Expected return" value={request.expected_return ? formatDateOnly(request.expected_return) : "—"} />
             <Row label="Delivery date" value={formatDateOnly(request.delivery_date)} />
@@ -376,11 +389,11 @@ export function RequestDetailPage() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
       <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">{label}</p>
-      <p className="text-sm text-right break-all">{value}</p>
+      <div className="text-sm text-right break-all">{value}</div>
     </div>
   );
 }
