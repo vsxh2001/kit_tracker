@@ -2,7 +2,6 @@ import { useEffect, useState, startTransition } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Pencil, Clock } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { EntitySnapshotDialog } from "../components/EntitySnapshotDialog";
@@ -19,6 +18,7 @@ import { ConsumableBadge } from "../components/ConsumableBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
+import { RetiredBadge } from "../components/RetiredBadge";
 import { toast } from "../components/ui/use-toast";
 import type { Entity, Transaction, Kit, Component } from "../types";
 
@@ -126,9 +126,7 @@ export function EntityDetailPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</span>
-                    {kit.is_active
-                      ? <Badge variant="outline" className="text-xs">Active</Badge>
-                      : <Badge variant="destructive" className="text-xs">Retired</Badge>}
+                    <RetiredBadge isActive={kit.is_active} showActiveLabel />
                   </div>
                   {kit.notes && <p className="text-xs text-muted-foreground mt-1">{kit.notes}</p>}
                 </div>
@@ -156,9 +154,7 @@ export function EntityDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs tracking-wide text-indigo-700">{kit.serial}</td>
                         <td className="px-4 py-3 text-muted-foreground">{kit.notes ?? <span className="opacity-30">—</span>}</td>
                         <td className="px-4 py-3">
-                          {kit.is_active
-                            ? <Badge variant="outline" className="text-xs">Active</Badge>
-                            : <Badge variant="destructive" className="text-xs">Retired</Badge>}
+                          <RetiredBadge isActive={kit.is_active} showActiveLabel />
                         </td>
                       </tr>
                     ))}
