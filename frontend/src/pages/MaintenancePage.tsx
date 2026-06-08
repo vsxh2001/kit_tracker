@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
+import { KitTagList } from "../components/KitTagList";
 import type { KitMaintenanceSchedule } from "../types";
 
 type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
@@ -178,13 +179,16 @@ export function MaintenancePage() {
                   className="rounded-lg border bg-card px-4 py-3 space-y-1.5 cursor-pointer hover:bg-slate-50/60 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-xs font-semibold">{maintenanceTypeLabel(sched.type)}</span>
                       {sched.expand?.kit?.serial && (
-                        <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand.kit.serial}</span>
+                        <>
+                          <span className="font-mono text-xs text-indigo-700">{sched.expand.kit.serial}</span>
+                          <KitTagList tags={sched.expand.kit.tags} />
+                        </>
                       )}
                       {!sched.kit && sched.component && (
-                        <span className="font-mono text-xs text-indigo-700 ml-2">{sched.expand?.component?.serial ?? sched.component} <span className="font-sans font-normal text-muted-foreground">(component)</span></span>
+                        <span className="font-mono text-xs text-indigo-700">{sched.expand?.component?.serial ?? sched.component} <span className="font-sans font-normal text-muted-foreground">(component)</span></span>
                       )}
                     </div>
                     <MaintenanceStatusBadge status={status} />
@@ -240,11 +244,16 @@ export function MaintenancePage() {
                     const status = maintenanceStatus(sched.next_due_at);
                     return (
                       <tr key={sched.id} onClick={() => navigate(`/maintenance/${sched.id}`)} className="border-b last:border-0 hover:bg-slate-50/60 transition-colors cursor-pointer">
-                        <td className="px-4 py-3 font-mono font-medium text-xs tracking-wide text-indigo-700">
-                          {sched.expand?.kit?.serial ?? (sched.kit ? sched.kit : null) ?? (sched.expand?.component?.serial ? sched.expand.component.serial : sched.component ?? "—")}
-                          {sched.component && !sched.kit && (
-                            <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
-                          )}
+                        <td className="px-4 py-3 text-xs">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="font-mono font-medium tracking-wide text-indigo-700">
+                              {sched.expand?.kit?.serial ?? (sched.kit ? sched.kit : null) ?? (sched.expand?.component?.serial ? sched.expand.component.serial : sched.component ?? "—")}
+                              {sched.component && !sched.kit && (
+                                <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
+                              )}
+                            </span>
+                            <KitTagList tags={sched.expand?.kit?.tags} />
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-xs font-medium">{maintenanceTypeLabel(sched.type)}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
