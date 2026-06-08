@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
+import { KitTagList } from "../components/KitTagList";
 import type { MaintStatus } from "../lib/utils";
 import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 
@@ -94,16 +95,19 @@ export function ScheduleDetailPage() {
                 {schedule.kit ? (
                   <>
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Kit</p>
-                    {schedule.expand?.kit ? (
-                      <Link
-                        to={`/kits/${schedule.kit}`}
-                        className="font-mono font-medium text-indigo-700 hover:underline"
-                      >
-                        {schedule.expand.kit.serial}
-                      </Link>
-                    ) : (
-                      <span className="font-mono text-xs">{schedule.kit}</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {schedule.expand?.kit ? (
+                        <Link
+                          to={`/kits/${schedule.kit}`}
+                          className="font-mono font-medium text-indigo-700 hover:underline"
+                        >
+                          {schedule.expand.kit.serial}
+                        </Link>
+                      ) : (
+                        <span className="font-mono text-xs">{schedule.kit}</span>
+                      )}
+                      <KitTagList tags={schedule.expand?.kit?.tags} />
+                    </div>
                   </>
                 ) : schedule.component ? (
                   <>
