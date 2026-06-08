@@ -1,6 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { Button } from "../components/ui/button";
@@ -159,7 +159,7 @@ export function ScheduleDetailPage() {
 
           {records.length === 0 ? (
             <EmptyState
-              icon={ArrowLeft}
+              icon={Wrench}
               heading="No maintenance recorded yet"
               body={canDecideRequests ? "Use the button above to record the first maintenance event." : "No maintenance events have been recorded for this schedule."}
             />
