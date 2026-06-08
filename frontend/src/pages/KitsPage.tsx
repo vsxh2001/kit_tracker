@@ -29,6 +29,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { RetiredBadge } from "../components/RetiredBadge";
+import { KitTagList } from "../components/KitTagList";
 import type { Kit, Transaction, KitMaintenanceSchedule } from "../types";
 
 interface KitRow {
@@ -444,15 +445,7 @@ export function KitsPage() {
                           <MaintenanceStatusBadge status={maintenanceStatus(nextMaint)} size="sm" />
                         </div>
                       )}
-                      {parseTags(kit.tags).length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {[...parseTags(kit.tags)].sort().map((tag) => (
-                            <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <KitTagList tags={kit.tags} className="mt-1.5" />
                       {isAdmin && (
                         <div className="mt-2" onClick={(e) => e.preventDefault()}>
                           <button
@@ -622,13 +615,7 @@ export function KitsPage() {
                             </td>
                             <td className="px-4 py-3">
                               {parseTags(kit.tags).length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {[...parseTags(kit.tags)].sort().map((tag) => (
-                                    <span key={tag} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
+                                <KitTagList tags={kit.tags} />
                               ) : (
                                 <span className="text-muted-foreground opacity-40">—</span>
                               )}
