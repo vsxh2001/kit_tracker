@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Input } from "../components/ui/input";
 import { RequestFormDialog } from "../components/RequestFormDialog";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import { listRequests } from "../services/requests";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import { Skeleton } from "../components/ui/skeleton";
@@ -232,6 +233,7 @@ export function RequestsPage() {
                       {r.expand?.designated_kit?.serial && (
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-indigo-700">{r.expand.designated_kit.serial}</span>
+                          <RetiredBadge isActive={r.expand.designated_kit.is_active} />
                           <KitTagList tags={r.expand.designated_kit.tags} />
                         </div>
                       )}
@@ -277,6 +279,7 @@ export function RequestsPage() {
                           {r.expand?.designated_kit?.serial ? (
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-mono text-xs text-indigo-700 font-medium">{r.expand.designated_kit.serial}</span>
+                              <RetiredBadge isActive={r.expand.designated_kit.is_active} />
                               <KitTagList tags={r.expand.designated_kit.tags} />
                             </div>
                           ) : (
