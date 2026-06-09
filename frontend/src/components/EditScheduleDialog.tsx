@@ -21,6 +21,7 @@ import { updateSchedule } from "../services/maintenance";
 import { toast } from "./ui/use-toast";
 import { MAINTENANCE_TYPES, maintenanceTypeLabel } from "../lib/maintenance-types";
 import { KitTagList } from "./KitTagList";
+import { RetiredBadge } from "./RetiredBadge";
 import type { KitMaintenanceSchedule, MaintenanceType } from "../types";
 
 interface Props {
@@ -90,10 +91,15 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
     <Dialog open={!!schedule} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Edit Maintenance Schedule
-            {schedule?.expand?.kit?.serial && (
-              <> — <span className="font-mono">{schedule.expand.kit.serial}</span></>
+          <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              Edit Maintenance Schedule
+              {schedule?.expand?.kit?.serial && (
+                <> — <span className="font-mono">{schedule.expand.kit.serial}</span></>
+              )}
+            </span>
+            {schedule?.expand?.kit && (
+              <RetiredBadge isActive={schedule.expand.kit.is_active} />
             )}
           </DialogTitle>
           <DialogDescription className="sr-only">
