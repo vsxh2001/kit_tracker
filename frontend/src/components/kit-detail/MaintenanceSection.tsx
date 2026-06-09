@@ -4,6 +4,7 @@ import { Plus, Wrench } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { AddScheduleDialog } from "../AddScheduleDialog";
 import { RecordMaintenanceDialog } from "../RecordMaintenanceDialog";
+import { EditScheduleDialog } from "../EditScheduleDialog";
 import { EmptyState } from "../EmptyState";
 import { listSchedulesForKit, updateSchedule } from "../../services/maintenance";
 import { useAuth } from "../../context/AuthContext";
@@ -34,6 +35,7 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [showAddSched, setShowAddSched] = useState(false);
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [deactivatingSched, setDeactivatingSched] = useState<KitMaintenanceSchedule | null>(null);
 
   async function load() {
@@ -120,6 +122,14 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                     )}
                     {canEdit && (
                       <button
+                        onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
+                        className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
                         onClick={(e) => { e.stopPropagation(); setDeactivatingSched(sched); }}
                         className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                       >
@@ -180,6 +190,14 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                             )}
                             {canEdit && (
                               <button
+                                onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
+                                className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {canEdit && (
+                              <button
                                 onClick={(e) => { e.stopPropagation(); setDeactivatingSched(sched); }}
                                 className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
                               >
@@ -230,6 +248,12 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
           onRecorded={() => { setRecordingSchedule(null); load(); }}
         />
       )}
+
+      <EditScheduleDialog
+        schedule={editingSchedule}
+        onClose={() => setEditingSchedule(null)}
+        onSaved={() => { setEditingSchedule(null); load(); }}
+      />
     </div>
   );
 }
