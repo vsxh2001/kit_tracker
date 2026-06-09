@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition, type ReactNode } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, Plus, Wrench } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -34,6 +34,7 @@ import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
 import { ExpiryBadge } from "../components/ExpiryBadge";
+import { KitTagList } from "../components/KitTagList";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 export function ComponentDetailPage() {
@@ -165,8 +166,13 @@ export function ComponentDetailPage() {
     }
   }
 
-  function locationLabel(tx: ComponentTransaction): string {
-    if (tx.expand?.to_kit) return `Kit: ${tx.expand.to_kit.serial}`;
+  function locationLabel(tx: ComponentTransaction): ReactNode {
+    if (tx.expand?.to_kit) return (
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span>Kit: {tx.expand.to_kit.serial}</span>
+        <KitTagList tags={tx.expand.to_kit.tags} />
+      </span>
+    );
     if (tx.expand?.to_entity) return `Entity: ${tx.expand.to_entity.name}`;
     if (tx.to_kit) return `Kit: ${tx.to_kit}`;
     if (tx.to_entity) return `Entity: ${tx.to_entity}`;
@@ -305,8 +311,13 @@ export function ComponentDetailPage() {
             {/* Mobile */}
             <div className="md:hidden space-y-2">
               {history.map((tx) => {
-                const fromLabel = tx.expand?.from_kit
-                  ? `Kit: ${tx.expand.from_kit.serial}`
+                const fromLabel: ReactNode = tx.expand?.from_kit
+                  ? (
+                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>Kit: {tx.expand.from_kit.serial}</span>
+                      <KitTagList tags={tx.expand.from_kit.tags} />
+                    </span>
+                  )
                   : tx.expand?.from_entity
                   ? `Entity: ${tx.expand.from_entity.name}`
                   : tx.from_kit || tx.from_entity || "—";
@@ -342,8 +353,13 @@ export function ComponentDetailPage() {
                   </thead>
                   <tbody>
                     {history.map((tx) => {
-                      const fromLabel = tx.expand?.from_kit
-                        ? `Kit: ${tx.expand.from_kit.serial}`
+                      const fromLabel: ReactNode = tx.expand?.from_kit
+                        ? (
+                          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span>Kit: {tx.expand.from_kit.serial}</span>
+                            <KitTagList tags={tx.expand.from_kit.tags} />
+                          </span>
+                        )
                         : tx.expand?.from_entity
                         ? `Entity: ${tx.expand.from_entity.name}`
                         : tx.from_kit || tx.from_entity || null;
@@ -678,7 +694,7 @@ function ExpiryStatusPill({ expiresAt }: { expiresAt: string }) {
   return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">OK</span>;
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
     <div className="flex items-start justify-between py-2.5 border-b border-border/50 last:border-0 gap-4">
       <p className="text-xs font-medium text-muted-foreground shrink-0 w-28">{label}</p>
