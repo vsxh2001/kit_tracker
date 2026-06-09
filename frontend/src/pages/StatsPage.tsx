@@ -4,9 +4,12 @@ import { BarChart3, Package, Users, TrendingUp, Clock, AlertTriangle, Wrench, Cp
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { KitTagList } from "../components/KitTagList";
+import { ConsumableBadge } from "../components/ConsumableBadge";
+import { TrackedBadge } from "../components/TrackedBadge";
+import { LowStockBadge } from "../components/LowStockBadge";
 import { computeStats } from "../services/stats";
 import { listAllActiveSchedules } from "../services/maintenance";
-import { listProducts, getComponentCountsByProduct } from "../services/products";
+import { listProducts, getComponentCountsByProduct, getOnHandByProduct } from "../services/products";
 import { maintenanceStatus } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
 import type { UtilizationStats } from "../services/stats";
@@ -15,6 +18,7 @@ import type { RequestStatus, Product } from "../types";
 interface ProductUsage {
   product: Product;
   count: number;
+  onHand: number;
 }
 
 const STATUS_COLORS: Record<RequestStatus, string> = {
@@ -45,15 +49,16 @@ export function StatsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [s, scheds, prods, counts] = await Promise.all([
+      const [s, scheds, prods, counts, onHandMap] = await Promise.all([
         computeStats(),
         listAllActiveSchedules(),
         listProducts({ includeInactive: false }),
         getComponentCountsByProduct(),
+        getOnHandByProduct(),
       ]);
       setStats(s);
       setOverdueMaintenanceCount(scheds.filter((sc) => maintenanceStatus(sc.next_due_at) === "overdue").length);
-      const usage: ProductUsage[] = prods.map((p) => ({ product: p, count: counts[p.id] ?? 0 }));
+      const usage: ProductUsage[] = prods.map((p) => ({ product: p, count: counts[p.id] ?? 0, onHand: onHandMap[p.id] ?? 0 }));
       usage.sort((a, b) => b.count - a.count);
       setTopProducts(usage.slice(0, 5));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -289,7 +294,12 @@ export function StatsPage() {
                   {topProducts.map((r, i) => (
                     <li key={r.product.id} className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground shrink-0 w-4">{i + 1}.</span>
-                      <span className="text-sm truncate flex-1 min-w-0">{r.product.name}</span>
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
+                        <span className="text-sm truncate">{r.product.name}</span>
+                        <ConsumableBadge isConsumable={r.product.is_consumable} />
+                        <TrackedBadge tracked={r.product.track_in_status} />
+                        <LowStockBadge reorderPoint={r.product.reorder_point} onHand={r.onHand} />
+                      </span>
                       <span className="text-xs font-semibold tabular-nums text-indigo-600">{r.count}</span>
                     </li>
                   ))}
