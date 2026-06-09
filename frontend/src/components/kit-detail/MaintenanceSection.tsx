@@ -30,7 +30,7 @@ interface MaintenanceSectionProps {
 }
 
 export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) {
-  const { canTransferKits } = useAuth();
+  const { canTransferKits, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [showAddSched, setShowAddSched] = useState(false);
@@ -120,7 +120,7 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                         Record done
                       </button>
                     )}
-                    {canEdit && (
+                    {isAdmin && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
                         className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors"
@@ -188,7 +188,7 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
                                 Record done
                               </button>
                             )}
-                            {canEdit && (
+                            {isAdmin && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setEditingSchedule(sched); }}
                                 className="text-xs px-2 py-1 rounded border border-border hover:bg-slate-50 transition-colors whitespace-nowrap"
