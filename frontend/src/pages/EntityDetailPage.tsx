@@ -190,13 +190,17 @@ export function EntityDetailPage() {
               {history.map((tx) => (
                 <div key={tx.id} className="rounded-lg border bg-card px-4 py-3">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span
-                      className="font-mono text-xs text-indigo-700 cursor-pointer hover:underline"
-                      onClick={() => navigate(`/kits/${tx.kit}`)}
-                    >
-                      {tx.expand?.kit?.serial ?? tx.kit}
-                    </span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{formatDate(tx.timestamp)}</span>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                      <span
+                        className="font-mono text-xs text-indigo-700 cursor-pointer hover:underline"
+                        onClick={() => navigate(`/kits/${tx.kit}`)}
+                      >
+                        {tx.expand?.kit?.serial ?? tx.kit}
+                      </span>
+                      {tx.expand?.kit && <RetiredBadge isActive={tx.expand.kit.is_active} />}
+                      <KitTagList tags={tx.expand?.kit?.tags} />
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatDate(tx.timestamp)}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {tx.expand?.from_entity?.name ?? "—"} → {tx.expand?.to_entity?.name ?? tx.to_entity}
@@ -228,10 +232,16 @@ export function EntityDetailPage() {
                           {formatDate(tx.timestamp)}
                         </td>
                         <td
-                          className="px-4 py-3 font-mono text-xs text-indigo-700 cursor-pointer hover:underline"
+                          className="px-4 py-3 text-xs cursor-pointer"
                           onClick={() => navigate(`/kits/${tx.kit}`)}
                         >
-                          {tx.expand?.kit?.serial ?? tx.kit}
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="font-mono text-indigo-700 hover:underline">
+                              {tx.expand?.kit?.serial ?? tx.kit}
+                            </span>
+                            {tx.expand?.kit && <RetiredBadge isActive={tx.expand.kit.is_active} />}
+                            <KitTagList tags={tx.expand?.kit?.tags} />
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{tx.expand?.from_entity?.name ?? <span className="opacity-30">—</span>}</td>
                         <td className="px-4 py-3 font-medium">{tx.expand?.to_entity?.name ?? tx.to_entity}</td>
