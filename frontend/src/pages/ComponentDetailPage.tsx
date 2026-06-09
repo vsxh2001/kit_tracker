@@ -35,6 +35,7 @@ import { InactiveBadge } from "../components/InactiveBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
 import { ExpiryBadge } from "../components/ExpiryBadge";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import type { Component, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 export function ComponentDetailPage() {
@@ -170,6 +171,7 @@ export function ComponentDetailPage() {
     if (tx.expand?.to_kit) return (
       <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>Kit: {tx.expand.to_kit.serial}</span>
+        <RetiredBadge isActive={tx.expand.to_kit.is_active} />
         <KitTagList tags={tx.expand.to_kit.tags} />
       </span>
     );
@@ -315,6 +317,7 @@ export function ComponentDetailPage() {
                   ? (
                     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span>Kit: {tx.expand.from_kit.serial}</span>
+                      <RetiredBadge isActive={tx.expand.from_kit.is_active} />
                       <KitTagList tags={tx.expand.from_kit.tags} />
                     </span>
                   )
@@ -357,6 +360,7 @@ export function ComponentDetailPage() {
                         ? (
                           <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span>Kit: {tx.expand.from_kit.serial}</span>
+                            <RetiredBadge isActive={tx.expand.from_kit.is_active} />
                             <KitTagList tags={tx.expand.from_kit.tags} />
                           </span>
                         )

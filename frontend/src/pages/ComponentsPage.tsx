@@ -19,6 +19,7 @@ import { TrackedBadge } from "../components/TrackedBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
 interface ComponentRow {
@@ -47,6 +48,10 @@ function currentKitId(latestTx?: ComponentTransaction): string | null {
 
 function currentKitTags(latestTx?: ComponentTransaction): string | undefined {
   return latestTx?.expand?.to_kit?.tags;
+}
+
+function currentKitIsActive(latestTx?: ComponentTransaction): boolean | undefined {
+  return latestTx?.expand?.to_kit?.is_active;
 }
 
 function th(label: string) {
@@ -80,6 +85,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
           const kitSerial = currentKitSerial(latestTx);
           const kitId = currentKitId(latestTx);
           const kitTags = currentKitTags(latestTx);
+          const kitIsActive = currentKitIsActive(latestTx);
           const product = component.expand?.product;
           return (
             <Link key={component.id} to={`/components/${component.id}`}>
@@ -113,6 +119,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
                     {kitSerial && kitId ? (
                       <>
                         <span>Kit: {kitSerial}</span>
+                        {latestTx?.expand?.to_kit && <RetiredBadge isActive={kitIsActive} />}
                         <KitTagList tags={kitTags} />
                       </>
                     ) : (
@@ -156,6 +163,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
                 const kitSerial = currentKitSerial(latestTx);
                 const kitId = currentKitId(latestTx);
                 const kitTags = currentKitTags(latestTx);
+                const kitIsActive = currentKitIsActive(latestTx);
                 const product = component.expand?.product;
                 return (
                   <tr
@@ -201,6 +209,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
                           >
                             {kitSerial}
                           </Link>
+                          {latestTx?.expand?.to_kit && <RetiredBadge isActive={kitIsActive} />}
                           <KitTagList tags={kitTags} />
                         </div>
                       ) : (
