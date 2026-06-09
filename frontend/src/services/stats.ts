@@ -45,7 +45,7 @@ export interface UtilizationStats {
   kitsOut: number;
   kitsInStorage: number;
   topRequesters: { email: string; count: number }[];
-  topMovedKits: { serial: string; count: number }[];
+  topMovedKits: { serial: string; tags?: string; count: number }[];
   statusBreakdown: Record<RequestStatus, number>;
   overdueCount: number;
   avgFulfillmentDays: number | null;
@@ -137,6 +137,7 @@ export async function computeStats(): Promise<UtilizationStats> {
   const topMovedKits = Array.from(kitMoveCounts.entries())
     .map(([kitId, count]) => ({
       serial: kitMap.get(kitId)?.serial ?? kitId,
+      tags: kitMap.get(kitId)?.tags,
       count,
     }))
     .sort((a, b) => b.count - a.count)

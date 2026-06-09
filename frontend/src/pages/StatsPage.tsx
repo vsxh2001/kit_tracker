@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { BarChart3, Package, Users, TrendingUp, Clock, AlertTriangle, Wrench, Cpu } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
+import { KitTagList } from "../components/KitTagList";
 import { computeStats } from "../services/stats";
 import { listAllActiveSchedules } from "../services/maintenance";
 import { listProducts, getComponentCountsByProduct } from "../services/products";
@@ -159,7 +160,10 @@ export function StatsPage() {
                   {stats.topMovedKits.map((k, i) => (
                     <li key={k.serial} className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground shrink-0 w-4">{i + 1}.</span>
-                      <span className="font-mono text-sm text-indigo-700 truncate flex-1 min-w-0">{k.serial}</span>
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0">
+                        <span className="font-mono text-sm text-indigo-700 truncate">{k.serial}</span>
+                        <KitTagList tags={k.tags} />
+                      </span>
                       <span className="text-xs font-semibold tabular-nums text-indigo-600">{k.count}</span>
                     </li>
                   ))}
