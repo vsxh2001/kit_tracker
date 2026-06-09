@@ -13,6 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { listEntities } from "../services/entities";
 import { createTransaction } from "../services/transactions";
+import { KitTagList } from "./KitTagList";
 import type { Entity, Kit } from "../types";
 
 interface Props {
@@ -79,6 +80,7 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
           <DialogDescription className="sr-only">
             Transfer this kit to another entity. Creates a transaction record.
           </DialogDescription>
+          <KitTagList tags={kit.tags} className="mt-1" />
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div>
