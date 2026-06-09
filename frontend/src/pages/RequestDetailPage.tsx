@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { formatDateOnly, REQUEST_STATUS_VARIANTS } from "../lib/utils";
 import { RequestFormDialog } from "../components/RequestFormDialog";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import { toast } from "../components/ui/use-toast";
 import {
   AlertDialog,
@@ -203,6 +204,7 @@ export function RequestDetailPage() {
                 request.expand?.designated_kit?.serial ? (
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <span className="font-mono text-indigo-700 font-medium">{request.expand.designated_kit.serial}</span>
+                    <RetiredBadge isActive={request.expand.designated_kit.is_active} />
                     <KitTagList tags={request.expand.designated_kit.tags} />
                   </div>
                 ) : (
