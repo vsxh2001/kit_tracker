@@ -16,6 +16,7 @@ import { formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import type { KitMaintenanceSchedule } from "../types";
 
 type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
@@ -184,6 +185,7 @@ export function MaintenancePage() {
                       {sched.expand?.kit?.serial && (
                         <>
                           <span className="font-mono text-xs text-indigo-700">{sched.expand.kit.serial}</span>
+                          <RetiredBadge isActive={sched.expand.kit.is_active} />
                           <KitTagList tags={sched.expand.kit.tags} />
                         </>
                       )}
@@ -252,6 +254,7 @@ export function MaintenancePage() {
                                 <span className="ml-1 font-sans font-normal text-muted-foreground">(component)</span>
                               )}
                             </span>
+                            {sched.expand?.kit && <RetiredBadge isActive={sched.expand.kit.is_active} />}
                             <KitTagList tags={sched.expand?.kit?.tags} />
                           </div>
                         </td>
