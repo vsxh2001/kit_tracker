@@ -13,6 +13,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { listEntities } from "../services/entities";
 import { bulkCreateTransfer } from "../services/transactions";
+import { KitTagList } from "./KitTagList";
 import type { Entity, Kit } from "../types";
 
 interface Props {
@@ -135,7 +136,7 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
   }
 
   const entityName = entities.find((e) => e.id === toEntityId)?.name ?? toEntityId;
-  const previewSerials = kits.slice(0, 5).map((k) => k.serial);
+  const previewKits = kits.slice(0, 5);
   const overflowCount = kits.length - 5;
 
   return (
@@ -162,9 +163,12 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
               This creates {kits.length} transaction record{kits.length !== 1 ? "s" : ""} that cannot be deleted.
             </p>
             <div className="rounded-md border bg-muted/40 px-3 py-2 space-y-1">
-              <ul className="text-xs font-mono space-y-0.5 text-muted-foreground">
-                {previewSerials.map((serial) => (
-                  <li key={serial}>{serial}</li>
+              <ul className="text-xs space-y-0.5 text-muted-foreground">
+                {previewKits.map((k) => (
+                  <li key={k.id} className="flex flex-wrap items-center gap-2 min-w-0">
+                    <span className="font-mono">{k.serial}</span>
+                    <KitTagList tags={k.tags} />
+                  </li>
                 ))}
               </ul>
               {overflowCount > 0 && (
@@ -213,9 +217,14 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
                 </p>
                 <ul className="text-xs text-destructive space-y-0.5">
                   {failedKits.map(({ kitId, error: err }) => {
-                    const serial = kits.find((k) => k.id === kitId)?.serial ?? kitId;
+                    const failedKit = kits.find((k) => k.id === kitId);
+                    const serial = failedKit?.serial ?? kitId;
                     return (
-                      <li key={kitId} className="font-mono">{serial}: {err}</li>
+                      <li key={kitId} className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-mono">{serial}</span>
+                        <KitTagList tags={failedKit?.tags} />
+                        <span>: {err}</span>
+                      </li>
                     );
                   })}
                 </ul>
