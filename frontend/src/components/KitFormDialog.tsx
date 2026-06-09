@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
   const [tagsInput, setTagsInput] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -40,11 +41,15 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
   }, [open, kit]);
 
   async function handleSave() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     if (!serial.trim()) { setError("Serial is required."); return; }
     const rawTags = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
     if (rawTags.length > 10) { setError("Maximum 10 tags allowed."); return; }
     const tags = serializeTags(rawTags);
     setError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       if (kit) {
@@ -61,6 +66,7 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Failed to save kit.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
