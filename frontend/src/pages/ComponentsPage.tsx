@@ -18,6 +18,7 @@ import { ConsumableBadge } from "../components/ConsumableBadge";
 import { TrackedBadge } from "../components/TrackedBadge";
 import { LowStockBadge } from "../components/LowStockBadge";
 import { InactiveBadge } from "../components/InactiveBadge";
+import { KitTagList } from "../components/KitTagList";
 import type { Component, ComponentTransaction, Kit } from "../types";
 
 interface ComponentRow {
@@ -42,6 +43,10 @@ function currentKitSerial(latestTx?: ComponentTransaction): string | null {
 function currentKitId(latestTx?: ComponentTransaction): string | null {
   if (!latestTx?.to_kit) return null;
   return latestTx.to_kit;
+}
+
+function currentKitTags(latestTx?: ComponentTransaction): string | undefined {
+  return latestTx?.expand?.to_kit?.tags;
 }
 
 function th(label: string) {
@@ -74,6 +79,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
         {rows.map(({ component, latestTx }) => {
           const kitSerial = currentKitSerial(latestTx);
           const kitId = currentKitId(latestTx);
+          const kitTags = currentKitTags(latestTx);
           const product = component.expand?.product;
           return (
             <Link key={component.id} to={`/components/${component.id}`}>
@@ -103,9 +109,12 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {kitSerial && kitId ? (
-                      <span>Kit: {kitSerial}</span>
+                      <>
+                        <span>Kit: {kitSerial}</span>
+                        <KitTagList tags={kitTags} />
+                      </>
                     ) : (
                       <span>—</span>
                     )}
@@ -146,6 +155,7 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
               {rows.map(({ component, latestTx }) => {
                 const kitSerial = currentKitSerial(latestTx);
                 const kitId = currentKitId(latestTx);
+                const kitTags = currentKitTags(latestTx);
                 const product = component.expand?.product;
                 return (
                   <tr
@@ -184,12 +194,15 @@ function SectionTable({ rows, isSerializedSection, navigate, emptyMessage, onHan
                     )}
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       {kitSerial && kitId ? (
-                        <Link
-                          to={`/kits/${kitId}`}
-                          className="text-indigo-600 hover:underline text-xs"
-                        >
-                          {kitSerial}
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            to={`/kits/${kitId}`}
+                            className="text-indigo-600 hover:underline text-xs"
+                          >
+                            {kitSerial}
+                          </Link>
+                          <KitTagList tags={kitTags} />
+                        </div>
                       ) : (
                         <span className="text-muted-foreground opacity-40">—</span>
                       )}
