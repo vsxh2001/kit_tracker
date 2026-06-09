@@ -15,6 +15,7 @@ import { toast } from "./ui/use-toast";
 import type { KitMaintenanceSchedule } from "../types";
 import { pb } from "../lib/pocketbase";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
+import { KitTagList } from "./KitTagList";
 
 interface Props {
   schedule: KitMaintenanceSchedule;
@@ -85,10 +86,16 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record Maintenance — {maintenanceTypeLabel(schedule.type)}</DialogTitle>
+          <DialogTitle>
+            Record Maintenance — {maintenanceTypeLabel(schedule.type)}
+            {schedule.expand?.kit?.serial && (
+              <> · <span className="font-mono">{schedule.expand.kit.serial}</span></>
+            )}
+          </DialogTitle>
           <DialogDescription className="sr-only">
             Record that maintenance was performed on this schedule.
           </DialogDescription>
+          <KitTagList tags={schedule.expand?.kit?.tags} className="mt-1" />
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
