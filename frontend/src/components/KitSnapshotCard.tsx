@@ -9,6 +9,8 @@ import { listAllActiveSchedules } from "../services/maintenance";
 import { holderAt, componentsAt, schedulesAt, endOfDayIso } from "../lib/snapshot";
 import { formatDateOnly } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
+import { ConsumableBadge } from "./ConsumableBadge";
+import { TrackedBadge } from "./TrackedBadge";
 import type { Transaction, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 interface Props {
@@ -124,7 +126,7 @@ export function KitSnapshotCard({ kitId, atDate }: Props) {
                 const comp = ct.expand?.component;
                 const product = comp?.expand?.product;
                 return (
-                  <li key={ct.component} className="text-xs">
+                  <li key={ct.component} className="text-xs flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                     {product ? (
                       <Link
                         to={`/components/${ct.component}`}
@@ -135,8 +137,10 @@ export function KitSnapshotCard({ kitId, atDate }: Props) {
                     ) : (
                       <span className="text-muted-foreground">{ct.component}</span>
                     )}
+                    <ConsumableBadge isConsumable={product?.is_consumable} />
+                    <TrackedBadge tracked={product?.track_in_status} />
                     {comp?.serial && (
-                      <span className="font-mono text-xs text-indigo-700 ml-1.5">{comp.serial}</span>
+                      <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>
                     )}
                   </li>
                 );
