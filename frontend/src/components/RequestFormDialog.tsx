@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { KitTagList } from "./KitTagList";
 import { createRequest, updateRequest } from "../services/requests";
 import { listKits } from "../services/kits";
 import { listEntities } from "../services/entities";
@@ -118,7 +119,12 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
                 <SelectContent>
                   <SelectItem value="none">Any kit</SelectItem>
                   {kits.map((k) => (
-                    <SelectItem key={k.id} value={k.id}>{k.serial}</SelectItem>
+                    <SelectItem key={k.id} value={k.id} textValue={k.serial}>
+                      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>{k.serial}</span>
+                        <KitTagList tags={k.tags} />
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
