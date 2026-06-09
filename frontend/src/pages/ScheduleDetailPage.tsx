@@ -15,6 +15,7 @@ import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import type { MaintStatus } from "../lib/utils";
 import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 
@@ -106,6 +107,7 @@ export function ScheduleDetailPage() {
                       ) : (
                         <span className="font-mono text-xs">{schedule.kit}</span>
                       )}
+                      {schedule.expand?.kit && <RetiredBadge isActive={schedule.expand.kit.is_active} />}
                       <KitTagList tags={schedule.expand?.kit?.tags} />
                     </div>
                   </>
