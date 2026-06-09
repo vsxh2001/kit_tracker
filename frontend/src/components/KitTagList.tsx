@@ -11,7 +11,7 @@ export function KitTagList({
   const parsed = parseTags(tags);
   if (parsed.length === 0) return null;
   return (
-    <div className={cn("flex flex-wrap gap-1", className)}>
+    <span className={cn("inline-flex flex-wrap gap-1", className)}>
       {[...parsed].sort().map((tag) => (
         <span
           key={tag}
@@ -20,6 +20,6 @@ export function KitTagList({
           {tag}
         </span>
       ))}
-    </div>
+    </span>
   );
 }
