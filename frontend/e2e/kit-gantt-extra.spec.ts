@@ -356,3 +356,83 @@ test.describe("Delivery sort descending: no-delivery kits float to top", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Test 7: Rapid-move kit — 2px min-width + time-precise tooltip
+// Regression test for PR #304: KitTimeline.tsx:153 (formatDate, not formatDateOnly)
+// and KitTimeline.tsx:158 (minWidth: "2px"). A kit moved 3 times in one day
+// would previously render two invisible (sub-pixel) segments with date-only
+// tooltips. The fix clamps segment width to 2px and includes time in tooltips.
+// ---------------------------------------------------------------------------
+
+test.describe("Rapid-move kit: 2px min-width + time-precise tooltip", () => {
+  let kitId: string;
+  let entity1Id: string;
+  let entity2Id: string;
+  let entity3Id: string;
+
+  test.beforeAll(async () => {
+    const kit = await createTestKit(`${TS}-RAPID`);
+    kitId = kit.id;
+    const e1 = await createTestEntity(`${TS}-E-R1`);
+    entity1Id = e1.id;
+    const e2 = await createTestEntity(`${TS}-E-R2`);
+    entity2Id = e2.id;
+    const e3 = await createTestEntity(`${TS}-E-R3`);
+    entity3Id = e3.id;
+
+    // 3 transactions ~1 minute apart, all today. Each segment ends up <0.01%
+    // of the total span — would render at 0px width without the minWidth clamp.
+    // Wide overall span: first tx 30 days ago at e1, then two rapid moves today.
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+    const now = new Date().toISOString();
+
+    await createTxAt(kitId, entity1Id, thirtyDaysAgo);
+    await createTxAt(kitId, entity2Id, oneMinuteAgo, entity1Id);
+    await createTxAt(kitId, entity3Id, now, entity2Id);
+  });
+
+  test.afterAll(async () => {
+    await deleteKit(kitId);
+    await deactivateEntity(entity1Id);
+    await deactivateEntity(entity2Id);
+    await deactivateEntity(entity3Id);
+  });
+
+  test("every segment renders at >= 2px even when temporally tiny", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByText("Location history"), { message: "Timeline card must load" }).toBeVisible({ timeout: 10_000 });
+
+    const segments = page.locator('[data-testid="timeline-segment"]');
+    await expect(segments, { message: "3 segments expected for 3 transactions" }).toHaveCount(3, { timeout: 8_000 });
+
+    const count = await segments.count();
+    for (let i = 0; i < count; i++) {
+      const seg = segments.nth(i);
+      const bb = await seg.boundingBox();
+      expect(bb, { message: `Segment ${i} must have a bounding box` }).not.toBeNull();
+      // minWidth: "2px" guarantees this even for ~0% duration segments
+      expect(bb!.width, { message: `Segment ${i} width must be >= 2px (got ${bb!.width.toFixed(2)}px)` }).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test("tooltip includes time (not just date) for intra-day segments", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto(`/kits/${kitId}`);
+    await expect(page.getByText("Location history"), { message: "Timeline card must load" }).toBeVisible({ timeout: 10_000 });
+
+    const segments = page.locator('[data-testid="timeline-segment"]');
+    await expect(segments).toHaveCount(3, { timeout: 8_000 });
+
+    // Inspect the last segment — it's the "today, 1 min wide" one whose
+    // tooltip would have been "MM/DD/YYYY → MM/DD/YYYY" before the fix.
+    const lastSeg = segments.last();
+    const title = await lastSeg.getAttribute("title");
+    expect(title, { message: "Segment must have a title attribute" }).toBeTruthy();
+    // formatDate output includes time (HH:MM) — formatDateOnly does not. The
+    // ":" colon is unambiguous: dates use slashes / dashes, never colons.
+    expect(title!, { message: `Tooltip must include time (':') for intra-day segment, got: ${title}` }).toContain(":");
+  });
+});
+
