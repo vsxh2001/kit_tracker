@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { listEntities } from "../services/entities";
 import { bulkCreateTransfer } from "../services/transactions";
 import { KitTagList } from "./KitTagList";
+import { RetiredBadge } from "./RetiredBadge";
 import type { Entity, Kit } from "../types";
 
 interface Props {
@@ -167,6 +168,7 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
                 {previewKits.map((k) => (
                   <li key={k.id} className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="font-mono">{k.serial}</span>
+                    <RetiredBadge isActive={k.is_active} />
                     <KitTagList tags={k.tags} />
                   </li>
                 ))}
@@ -222,6 +224,7 @@ export function BulkTransferDialog({ kits, open, onClose, onTransferred }: Props
                     return (
                       <li key={kitId} className="flex flex-wrap items-center gap-2 min-w-0">
                         <span className="font-mono">{serial}</span>
+                        {failedKit && <RetiredBadge isActive={failedKit.is_active} />}
                         <KitTagList tags={failedKit?.tags} />
                         <span>: {err}</span>
                       </li>
