@@ -17,6 +17,8 @@ import { listEntities } from "../services/entities";
 import { createComponentTransaction, splitAndMoveBulk } from "../services/componentTransactions";
 import { pb } from "../lib/pocketbase";
 import { ExpiryBadge } from "./ExpiryBadge";
+import { ConsumableBadge } from "./ConsumableBadge";
+import { TrackedBadge } from "./TrackedBadge";
 import { expiryStatus } from "../lib/utils";
 import type { Component, Kit, Entity } from "../types";
 
@@ -107,11 +109,17 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
           <DialogDescription className="sr-only">
             Move this component to a kit or entity. Creates a transaction record.
           </DialogDescription>
-          {(component.bin_code || component.lot_code || ["expired", "expiring-soon"].includes(expiryStatus(component.expires_at))) && (
+          {(component.bin_code
+            || component.lot_code
+            || ["expired", "expiring-soon"].includes(expiryStatus(component.expires_at))
+            || component.expand?.product?.is_consumable
+            || component.expand?.product?.track_in_status) && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
               {component.bin_code && <span>Bin <span className="font-mono text-foreground">{component.bin_code}</span></span>}
               {component.lot_code && <span>Lot <span className="font-mono text-foreground">{component.lot_code}</span></span>}
               <ExpiryBadge expiresAt={component.expires_at} />
+              <ConsumableBadge isConsumable={component.expand?.product?.is_consumable} />
+              <TrackedBadge tracked={component.expand?.product?.track_in_status} />
             </div>
           )}
         </DialogHeader>
