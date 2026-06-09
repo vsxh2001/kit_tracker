@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { listEntities } from "../services/entities";
 import { createTransaction } from "../services/transactions";
 import { KitTagList } from "./KitTagList";
+import { RetiredBadge } from "./RetiredBadge";
 import type { Entity, Kit } from "../types";
 
 interface Props {
@@ -76,7 +77,10 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Move Kit — {kit.serial}</DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>Move Kit — {kit.serial}</span>
+            <RetiredBadge isActive={kit.is_active} />
+          </DialogTitle>
           <DialogDescription className="sr-only">
             Transfer this kit to another entity. Creates a transaction record.
           </DialogDescription>
