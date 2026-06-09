@@ -20,6 +20,7 @@ import {
 import { updateSchedule } from "../services/maintenance";
 import { toast } from "./ui/use-toast";
 import { MAINTENANCE_TYPES, maintenanceTypeLabel } from "../lib/maintenance-types";
+import { KitTagList } from "./KitTagList";
 import type { KitMaintenanceSchedule, MaintenanceType } from "../types";
 
 interface Props {
@@ -89,10 +90,16 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
     <Dialog open={!!schedule} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Maintenance Schedule</DialogTitle>
+          <DialogTitle>
+            Edit Maintenance Schedule
+            {schedule?.expand?.kit?.serial && (
+              <> — <span className="font-mono">{schedule.expand.kit.serial}</span></>
+            )}
+          </DialogTitle>
           <DialogDescription className="sr-only">
             Edit the maintenance schedule details. The kit cannot be changed.
           </DialogDescription>
+          <KitTagList tags={schedule?.expand?.kit?.tags} className="mt-1" />
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
