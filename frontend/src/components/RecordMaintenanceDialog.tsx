@@ -16,6 +16,7 @@ import type { KitMaintenanceSchedule } from "../types";
 import { pb } from "../lib/pocketbase";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { KitTagList } from "./KitTagList";
+import { RetiredBadge } from "./RetiredBadge";
 
 interface Props {
   schedule: KitMaintenanceSchedule;
@@ -86,10 +87,15 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Record Maintenance — {maintenanceTypeLabel(schedule.type)}
-            {schedule.expand?.kit?.serial && (
-              <> · <span className="font-mono">{schedule.expand.kit.serial}</span></>
+          <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              Record Maintenance — {maintenanceTypeLabel(schedule.type)}
+              {schedule.expand?.kit?.serial && (
+                <> · <span className="font-mono">{schedule.expand.kit.serial}</span></>
+              )}
+            </span>
+            {schedule.expand?.kit && (
+              <RetiredBadge isActive={schedule.expand.kit.is_active} />
             )}
           </DialogTitle>
           <DialogDescription className="sr-only">
