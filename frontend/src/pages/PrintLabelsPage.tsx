@@ -1,5 +1,6 @@
 import { useEffect, useState, startTransition } from "react";
 import { KitQR } from "../components/KitQR";
+import { KitTagList } from "../components/KitTagList";
 import { listKits } from "../services/kits";
 import type { Kit } from "../types";
 
@@ -47,6 +48,7 @@ export function PrintLabelsPage() {
             >
               <KitQR kitId={kit.id} size={128} />
               <p className="font-mono text-sm">{kit.serial}</p>
+              <KitTagList tags={kit.tags} className="justify-center" />
             </div>
           ))}
         </div>
