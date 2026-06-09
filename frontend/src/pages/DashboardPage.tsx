@@ -14,6 +14,7 @@ import { maintenanceStatus, expiryStatus, isLowStock } from "../lib/utils";
 import type { DailyCount } from "../services/stats";
 import { Sparkline } from "../components/Sparkline";
 import { KitTagList } from "../components/KitTagList";
+import { RetiredBadge } from "../components/RetiredBadge";
 import type { Kit, KitRequest, Transaction, OnCallShift } from "../types";
 import { cn, formatDate, formatDateOnly } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
@@ -267,6 +268,7 @@ export function DashboardPage() {
                           <span className="font-mono font-medium text-xs tracking-wide text-indigo-700">
                             {tx.expand?.kit?.serial ?? tx.kit}
                           </span>
+                          {tx.expand?.kit && <RetiredBadge isActive={tx.expand.kit.is_active} />}
                           <KitTagList tags={tx.expand?.kit?.tags} />
                         </div>
                         <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatDate(tx.timestamp)}</span>
@@ -306,6 +308,7 @@ export function DashboardPage() {
                               <span className="font-mono font-medium tracking-wide text-indigo-700 hover:underline">
                                 {tx.expand?.kit?.serial ?? tx.kit}
                               </span>
+                              {tx.expand?.kit && <RetiredBadge isActive={tx.expand.kit.is_active} />}
                               <KitTagList tags={tx.expand?.kit?.tags} />
                             </div>
                           </td>
