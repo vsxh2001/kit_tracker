@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   function resetForm() {
     setName("");
@@ -57,6 +58,9 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
   }
 
   async function handleSubmit() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     if (!name.trim()) {
       setError("Name is required.");
       return;
@@ -78,6 +82,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     }
     setError("");
     setSpecsError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       const prod = await createProduct({
@@ -102,6 +107,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Failed to create product.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
