@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
   const [category, setCategory] = useState<EntityCategory>("field");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -41,8 +42,10 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
   }, [open, entity]);
 
   async function handleSave() {
+    if (submittingRef.current) return;
     if (!name.trim()) { setError("Name is required."); return; }
     setError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       if (entity) {
@@ -59,6 +62,7 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Failed to save entity.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
