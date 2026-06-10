@@ -52,6 +52,7 @@ export function InviteDialog({ open, onClose }: Props) {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const revokingRef = useRef(false);
 
   async function loadInvites() {
     setLoadingInvites(true);
@@ -134,6 +135,12 @@ export function InviteDialog({ open, onClose }: Props) {
   }
 
   async function handleRevoke(inv: Invite) {
+    // Synchronous guard against double-click: setRevoking is async so disabled={revoking === inv.id}
+    // doesn't propagate before a second click in the same tick. A double-click here would
+    // DELETE /api/.../invites/:id twice — the second call 4xx's (already revoked), but an
+    // audit log row is still written and a network round-trip wasted.
+    if (revokingRef.current) return;
+    revokingRef.current = true;
     setRevoking(inv.id);
     try {
       await revokeInvite(inv.id);
@@ -143,6 +150,7 @@ export function InviteDialog({ open, onClose }: Props) {
     } catch (err: any) {
       toast({ title: "Failed to revoke", description: err?.message, variant: "destructive" });
     } finally {
+      revokingRef.current = false;
       setRevoking(null);
     }
   }
