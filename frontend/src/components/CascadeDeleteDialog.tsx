@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useRef, useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,7 @@ export function CascadeDeleteDialog({
   const [preview, setPreview] = useState<CascadePreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [confirmInput, setConfirmInput] = useState("");
+  const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,7 +69,14 @@ export function CascadeDeleteDialog({
   }, [open, collection, recordId]);
 
   async function handleDelete() {
+    // Synchronous guard against double-click: setSubmitting is async so disabled={submitting}
+    // doesn't propagate before a second click in the same tick. A double-click here would
+    // POST the cascade-delete twice — the first cascades and the second 404s, but the
+    // audit log records both attempts and the race window is open against any concurrent
+    // re-creation of the same identifier_value.
+    if (submittingRef.current) return;
     if (!preview || confirmInput !== preview.identifier_value) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -80,6 +88,7 @@ export function CascadeDeleteDialog({
     } catch (err: any) {
       setError(err?.message ?? "Delete failed.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
