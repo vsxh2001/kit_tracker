@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,7 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   function reset() {
     setType("none");
@@ -80,12 +81,16 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
   }
 
   async function handleSave() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     const resolvedKitId = kitId ?? selectedKitId;
     if (showKitPicker && !resolvedKitId) { setError("Kit is required."); return; }
     if (type === "none") { setError("Type is required."); return; }
     const interval = parseInt(intervalDays, 10);
     if (!interval || interval < 1) { setError("Interval must be at least 1 day."); return; }
     setError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       const payload: Record<string, unknown> = {
@@ -112,6 +117,7 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
     } catch (e: any) {
       setError(e?.message ?? "Failed to create schedule.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
