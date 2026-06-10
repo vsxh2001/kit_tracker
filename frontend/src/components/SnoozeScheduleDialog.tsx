@@ -12,6 +12,8 @@ import { Label } from "./ui/label";
 import { updateSchedule } from "../services/maintenance";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { toast } from "./ui/use-toast";
+import { KitTagList } from "./KitTagList";
+import { RetiredBadge } from "./RetiredBadge";
 import type { KitMaintenanceSchedule } from "../types";
 
 interface Props {
@@ -118,10 +120,21 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Snooze Schedule</DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              Snooze Schedule
+              {schedule?.expand?.kit?.serial && (
+                <> — <span className="font-mono">{schedule.expand.kit.serial}</span></>
+              )}
+            </span>
+            {schedule?.expand?.kit && (
+              <RetiredBadge isActive={schedule.expand.kit.is_active} />
+            )}
+          </DialogTitle>
           <DialogDescription className="sr-only">
             Push the next due date forward without recording maintenance.
           </DialogDescription>
+          <KitTagList tags={schedule?.expand?.kit?.tags} className="mt-1" />
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-sm text-muted-foreground">
