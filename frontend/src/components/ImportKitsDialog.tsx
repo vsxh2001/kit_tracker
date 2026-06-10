@@ -18,6 +18,7 @@ interface Props {
 
 export function ImportKitsDialog({ open, onClose, onImported }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState("");
@@ -32,12 +33,17 @@ export function ImportKitsDialog({ open, onClose, onImported }: Props) {
   }
 
   async function handleSubmit() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick. A double-click here would
+    // POST the CSV twice, importing every row twice and bloating the skipped-duplicates list.
+    if (submittingRef.current) return;
     const file = fileRef.current?.files?.[0];
     if (!file) {
       setError("Please select a CSV file.");
       return;
     }
     setError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       const r = await importKitsCsv(file);
@@ -47,6 +53,7 @@ export function ImportKitsDialog({ open, onClose, onImported }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Import failed.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
