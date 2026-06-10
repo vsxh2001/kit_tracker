@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useRef, useState, useEffect, startTransition } from "react";
 import { Send } from "lucide-react";
 import {
   Dialog,
@@ -25,10 +25,18 @@ function expiryLabel(expiresAt: string): string {
 
 export function TelegramLinkDialog({ open, onClose }: Props) {
   const [result, setResult] = useState<TelegramLinkCodeResponse | null>(null);
+  const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function mint() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick. A double-click on
+    // "Generate new code" would POST /api/tg/link/code twice — the second call
+    // invalidates the first (per the link-code hook), wasting the code the user
+    // may have already started copying.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -40,6 +48,7 @@ export function TelegramLinkDialog({ open, onClose }: Props) {
         setError(err?.message ?? "Failed to generate code");
       }
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
