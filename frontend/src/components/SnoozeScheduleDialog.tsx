@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +54,7 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
   const open = !!schedule;
   const [mode, setMode] = useState<Mode>("7");
   const [customDate, setCustomDate] = useState("");
+  const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,6 +82,10 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
 
   async function handleSnooze() {
     if (!schedule) return;
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick. A double-click here would
+    // PATCH the schedule twice, advancing next_due_at by 2× the snooze interval.
+    if (submittingRef.current) return;
 
     let newDate: string;
     if (mode === "7") {
@@ -95,6 +100,7 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
       newDate = customDate;
     }
 
+    submittingRef.current = true;
     setLoading(true);
     setError("");
     try {
@@ -112,6 +118,7 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Failed to snooze schedule.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
