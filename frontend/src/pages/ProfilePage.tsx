@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { User } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -59,6 +59,7 @@ export function ProfilePage() {
 
   // Notification preferences state
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
+  const savingPrefsRef = useRef(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   // Telegram linking state
@@ -170,6 +171,13 @@ export function ProfilePage() {
   async function handleSavePrefs(e: React.FormEvent) {
     e.preventDefault();
     if (!currentUser?.id) return;
+
+    // Synchronous guard against double-click: setSavingPrefs is async so disabled={savingPrefs}
+    // doesn't propagate before a second click in the same tick. A double-click on
+    // "Save preferences" would PATCH updateNotificationPrefs twice (same payload, two audit rows).
+    if (savingPrefsRef.current) return;
+
+    savingPrefsRef.current = true;
     setSavingPrefs(true);
     try {
       await updateNotificationPrefs(currentUser.id, notifPrefs);
@@ -186,6 +194,7 @@ export function ProfilePage() {
         variant: "destructive",
       });
     } finally {
+      savingPrefsRef.current = false;
       setSavingPrefs(false);
     }
   }
