@@ -19,6 +19,7 @@ import { pb } from "../lib/pocketbase";
 import { ExpiryBadge } from "./ExpiryBadge";
 import { ConsumableBadge } from "./ConsumableBadge";
 import { TrackedBadge } from "./TrackedBadge";
+import { KitTagList } from "./KitTagList";
 import { expiryStatus } from "../lib/utils";
 import type { Component, Kit, Entity } from "../types";
 
@@ -155,7 +156,14 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
               <SelectContent>
                 {(targetType === "kit" ? kits : entities).map((item) => (
                   <SelectItem key={item.id} value={item.id}>
-                    {"serial" in item ? item.serial : item.name}
+                    {"serial" in item ? (
+                      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>{item.serial}</span>
+                        <KitTagList tags={item.tags} />
+                      </span>
+                    ) : (
+                      item.name
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
