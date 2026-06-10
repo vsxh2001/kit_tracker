@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (!schedule) return;
@@ -57,12 +58,16 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
   }
 
   async function handleSave() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     if (!schedule) return;
     if (!type) { setError("Type is required."); return; }
     const interval = parseInt(intervalDays, 10);
     if (!interval || interval < 1) { setError("Interval must be at least 1 day."); return; }
     if (!nextDueAt) { setError("Next due date is required."); return; }
     setError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       await updateSchedule(schedule.id, {
@@ -83,6 +88,7 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Failed to update schedule.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
