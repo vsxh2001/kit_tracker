@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useRef, useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,7 @@ export function AddShiftDialog({ open, onClose, onSaved, shift }: Props) {
   const [notes, setNotes] = useState("");
   const [eligibleUsers, setEligibleUsers] = useState<PBUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const submittingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -88,11 +89,16 @@ export function AddShiftDialog({ open, onClose, onSaved, shift }: Props) {
   }
 
   async function handleSave() {
+    // Synchronous guard against double-click: setSaving is async so disabled={saving}
+    // doesn't propagate before a second click in the same tick. A double-click here would
+    // POST/PATCH the shift twice, creating duplicate shifts or applying the edit twice.
+    if (submittingRef.current) return;
     if (!userId) { setError("Select a user."); return; }
     if (!startAt) { setError("Start date/time is required."); return; }
     if (!endAt) { setError("End date/time is required."); return; }
     if (endAt <= startAt) { setError("End must be after start."); return; }
     setError("");
+    submittingRef.current = true;
     setSaving(true);
     try {
       const startISO = new Date(startAt).toISOString();
@@ -111,6 +117,7 @@ export function AddShiftDialog({ open, onClose, onSaved, shift }: Props) {
     } catch (e: any) {
       setError(e?.message ?? "Failed to save shift.");
     } finally {
+      submittingRef.current = false;
       setSaving(false);
     }
   }
