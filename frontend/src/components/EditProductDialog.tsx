@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   const [error, setError] = useState("");
   const [specsError, setSpecsError] = useState("");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -75,6 +76,9 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
   }
 
   async function handleSubmit() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     if (!name.trim()) {
       setError("Name is required.");
       return;
@@ -96,6 +100,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
     }
     setError("");
     setSpecsError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       await updateProduct(product.id, {
@@ -118,6 +123,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: Props) 
     } catch (e: any) {
       setError(e?.message ?? "Failed to update product.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
