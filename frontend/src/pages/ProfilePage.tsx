@@ -65,6 +65,7 @@ export function ProfilePage() {
   // Telegram linking state
   const [telegramChatId, setTelegramChatId] = useState<string>("");
   const [telegramDialogOpen, setTelegramDialogOpen] = useState(false);
+  const unlinkingTelegramRef = useRef(false);
   const [unlinkingTelegram, setUnlinkingTelegram] = useState(false);
 
   async function load() {
@@ -201,6 +202,14 @@ export function ProfilePage() {
 
   async function handleUnlinkTelegram() {
     if (!currentUser?.id) return;
+
+    // Synchronous guard against double-click: setUnlinkingTelegram is async so
+    // disabled={unlinkingTelegram} doesn't propagate before a second click in the same
+    // tick. A double-click on "Unlink" would PATCH updateUserProfile twice (same payload,
+    // two audit rows).
+    if (unlinkingTelegramRef.current) return;
+
+    unlinkingTelegramRef.current = true;
     setUnlinkingTelegram(true);
     try {
       await updateUserProfile(currentUser.id, { telegram_chat_id: "" });
@@ -218,6 +227,7 @@ export function ProfilePage() {
         variant: "destructive",
       });
     } finally {
+      unlinkingTelegramRef.current = false;
       setUnlinkingTelegram(false);
     }
   }
