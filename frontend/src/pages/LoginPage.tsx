@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { login, loginWithGoogle } from "../services/auth";
 import { Button } from "../components/ui/button";
@@ -13,6 +13,7 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const loadingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -37,6 +38,13 @@ export function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick. A double-click on "Sign in"
+    // would fire authWithPassword twice.
+    if (loadingRef.current) return;
+
+    loadingRef.current = true;
     setLoading(true);
     try {
       await login(email, password);
@@ -50,6 +58,7 @@ export function LoginPage() {
         setError("Invalid email or password.");
       }
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }
