@@ -42,6 +42,8 @@ export function EntityFormDialog({ entity, open, onClose, onSaved }: Props) {
   }, [open, entity]);
 
   async function handleSave() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
     if (submittingRef.current) return;
     if (!name.trim()) { setError("Name is required."); return; }
     setError("");
