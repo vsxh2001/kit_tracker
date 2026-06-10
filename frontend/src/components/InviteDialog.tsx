@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from "react";
+import { useRef, useState, useEffect, startTransition } from "react";
 import { Link2, Copy, Check, X } from "lucide-react";
 import {
   Dialog,
@@ -45,6 +45,7 @@ export function InviteDialog({ open, onClose }: Props) {
   const [role, setRole] = useState("user");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
+  const submittingRef = useRef(false);
   const [generating, setGenerating] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -85,6 +86,10 @@ export function InviteDialog({ open, onClose }: Props) {
   }, [open]);
 
   async function handleGenerate() {
+    // Synchronous guard against double-click: setGenerating is async so disabled={generating}
+    // doesn't propagate before a second click in the same tick. A double-click here would
+    // POST /api/.../invites twice, creating two valid invite codes for the same recipient.
+    if (submittingRef.current) return;
     if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
       toast({ title: "Enter a valid email for the invite recipient.", variant: "destructive" });
       return;
@@ -95,6 +100,7 @@ export function InviteDialog({ open, onClose }: Props) {
       toast({ title: "Enter a valid phone number (digits only, E.164 without +).", variant: "destructive" });
       return;
     }
+    submittingRef.current = true;
     setGenerating(true);
     try {
       const result = await createInvite(role, inviteEmail.trim(), {
@@ -111,6 +117,7 @@ export function InviteDialog({ open, onClose }: Props) {
         variant: "destructive",
       });
     } finally {
+      submittingRef.current = false;
       setGenerating(false);
     }
   }
