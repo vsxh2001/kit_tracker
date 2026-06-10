@@ -11,6 +11,7 @@ import { formatDateOnly } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
 import { ConsumableBadge } from "./ConsumableBadge";
 import { TrackedBadge } from "./TrackedBadge";
+import { ExpiryBadge } from "./ExpiryBadge";
 import type { Transaction, ComponentTransaction, KitMaintenanceSchedule } from "../types";
 
 interface Props {
@@ -139,6 +140,7 @@ export function KitSnapshotCard({ kitId, atDate }: Props) {
                     )}
                     <ConsumableBadge isConsumable={product?.is_consumable} />
                     <TrackedBadge tracked={product?.track_in_status} />
+                    {comp?.expires_at && <ExpiryBadge expiresAt={comp.expires_at} />}
                     {comp?.serial && (
                       <span className="font-mono text-xs text-indigo-700">{comp.serial}</span>
                     )}
