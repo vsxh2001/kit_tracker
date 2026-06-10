@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
   const [certFile, setCertFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   function reset() {
     setPerformedAt(new Date().toLocaleDateString("en-CA"));
@@ -50,8 +51,12 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
   }
 
   async function handleSubmit() {
+    // Synchronous guard against double-click: setLoading is async so disabled={loading}
+    // doesn't propagate before a second click in the same tick.
+    if (submittingRef.current) return;
     if (!performedAt) { setError("Performed at date is required."); return; }
     setError("");
+    submittingRef.current = true;
     setLoading(true);
     try {
       const userId = pb.authStore.model?.id ?? "";
@@ -75,6 +80,7 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
     } catch (e: any) {
       setError(e?.message ?? "Failed to save record.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   }
