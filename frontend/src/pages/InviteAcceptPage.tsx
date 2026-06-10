@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { pb } from "../lib/pocketbase";
 import { previewInvite, acceptInvite } from "../services/invites";
@@ -27,6 +27,7 @@ export function InviteAcceptPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -51,6 +52,12 @@ export function InviteAcceptPage() {
     e.preventDefault();
     setSubmitError(null);
 
+    // Synchronous guard against double-click: setSubmitting is async so disabled={submitting}
+    // doesn't propagate before a second click in the same tick. A double-click on "Accept invite"
+    // would POST acceptInvite twice — the second call 4xx's (invite already redeemed) but the
+    // audit log records both attempts and the first invite's auth token race-loses to the second.
+    if (submittingRef.current) return;
+
     if (!email.trim() || !email.includes("@")) {
       setSubmitError("Enter a valid email address.");
       return;
@@ -64,6 +71,7 @@ export function InviteAcceptPage() {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const result = await acceptInvite({ token: token!, email, name, password });
@@ -79,6 +87,7 @@ export function InviteAcceptPage() {
         setSubmitError("You already have an account. Please log in instead.");
       }
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
