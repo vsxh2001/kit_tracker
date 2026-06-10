@@ -54,6 +54,7 @@ export function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
+  const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -127,6 +128,13 @@ export function ProfilePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!currentUser?.id) return;
+
+    // Synchronous guard against double-click: setSaving is async so disabled={saving}
+    // doesn't propagate before a second click in the same tick. A double-click on
+    // "Save" would PATCH updateUserProfile twice (same payload, but two audit rows).
+    if (savingRef.current) return;
+
+    savingRef.current = true;
     setSaving(true);
     try {
       await updateUserProfile(currentUser.id, {
@@ -147,6 +155,7 @@ export function ProfilePage() {
         variant: "destructive",
       });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
