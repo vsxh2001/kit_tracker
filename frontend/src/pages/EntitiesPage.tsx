@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -36,6 +36,7 @@ export function EntitiesPage() {
   // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<"retire" | "activate" | null>(null);
+  const bulkActionRef = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -100,8 +101,13 @@ export function EntitiesPage() {
 
   async function confirmBulkAction() {
     if (!bulkAction) return;
+    // Synchronous guard against double-click: setBulkAction(null) only fires after the
+    // React commit, so a second click in the same tick would re-enter Promise.all and
+    // double the writes (2N updateEntity calls + 2N audit rows).
+    if (bulkActionRef.current) return;
     const ids = Array.from(selected);
     const isRetire = bulkAction === "retire";
+    bulkActionRef.current = true;
     setBulkAction(null);
     try {
       await Promise.all(
@@ -116,6 +122,8 @@ export function EntitiesPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: `Bulk ${bulkAction} failed`, description: err?.message, variant: "destructive" });
+    } finally {
+      bulkActionRef.current = false;
     }
   }
 
