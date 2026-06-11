@@ -61,6 +61,7 @@ export function UsersPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editTelegramChatId, setEditTelegramChatId] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const editSavingRef = useRef(false);
 
 
   async function load() {
@@ -188,6 +189,13 @@ export function UsersPage() {
 
   async function handleEditSave() {
     if (!editTarget) return;
+
+    // Synchronous guard against double-click: setEditSaving is async so disabled={editSaving}
+    // doesn't propagate before a second click in the same tick. A double-click on "Save" would
+    // PATCH updateUserProfile twice — same payload, two audit rows.
+    if (editSavingRef.current) return;
+
+    editSavingRef.current = true;
     setEditSaving(true);
     const prevPhone = editTarget.phone;
     const prevTitle = editTarget.title;
@@ -229,6 +237,7 @@ export function UsersPage() {
         variant: "destructive",
       });
     } finally {
+      editSavingRef.current = false;
       setEditSaving(false);
     }
   }
