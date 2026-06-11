@@ -215,6 +215,17 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
 
   const selectedComponent = existingComponents.find((c) => c.id === selectedId);
 
+  const createProd = selectedProduct ?? presetProduct;
+  const createIsSerialized = createProd ? createProd.is_serialized : !isBulk;
+  const createQtyOk = createIsSerialized || (parseInt(quantity, 10) || 0) >= 1;
+  const createSerialOk = !createIsSerialized || serial.trim().length > 0;
+  const isCreateDisabled = !productId || !createSerialOk || !createQtyOk;
+  const moveQtyOk =
+    !selectedComponent?.is_bulk ||
+    ((parseInt(moveQty, 10) || 0) >= 1 &&
+      (selectedComponent.quantity == null || (parseInt(moveQty, 10) || 0) <= selectedComponent.quantity));
+  const isMoveDisabled = !selectedId || !moveQtyOk;
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
@@ -398,7 +409,7 @@ export function AddComponentDialog({ open, onClose, targetKit, targetEntity, onS
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button
               onClick={tab === "create" ? handleCreate : handleMove}
-              disabled={loading}
+              disabled={loading || (tab === "create" ? isCreateDisabled : isMoveDisabled)}
             >
               {loading ? "Saving…" : tab === "create" ? "Create" : "Move"}
             </Button>
