@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, Plus, ExternalLink } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -36,6 +36,7 @@ export function ProductDetailPage() {
   const [components, setComponents] = useState<Component[]>([]);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
+  const deactivatingRef = useRef(false);
   const [showRestore, setShowRestore] = useState(false);
   const [showAddComp, setShowAddComp] = useState(false);
   const [showCascadeDelete, setShowCascadeDelete] = useState(false);
@@ -77,6 +78,10 @@ export function ProductDetailPage() {
 
   async function handleSoftDelete() {
     if (!product) return;
+    // Synchronous guard against double-click: setShowDeactivate(false) only fires after
+    // the await, so a second click in the same tick would fire softDeleteProduct twice.
+    if (deactivatingRef.current) return;
+    deactivatingRef.current = true;
     try {
       await softDeleteProduct(product.id);
       toast({ title: "Product deactivated", description: product.name, variant: "success" });
@@ -85,6 +90,8 @@ export function ProductDetailPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast({ title: "Failed to deactivate", description: e?.message, variant: "destructive" });
+    } finally {
+      deactivatingRef.current = false;
     }
   }
 
