@@ -38,6 +38,7 @@ export function ProductDetailPage() {
   const [showDeactivate, setShowDeactivate] = useState(false);
   const deactivatingRef = useRef(false);
   const [showRestore, setShowRestore] = useState(false);
+  const restoringRef = useRef(false);
   const [showAddComp, setShowAddComp] = useState(false);
   const [showCascadeDelete, setShowCascadeDelete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -97,6 +98,10 @@ export function ProductDetailPage() {
 
   async function handleRestore() {
     if (!product) return;
+    // Synchronous guard against double-click: setShowRestore(false) only fires after
+    // the await, so a second click in the same tick would fire restoreProduct twice.
+    if (restoringRef.current) return;
+    restoringRef.current = true;
     try {
       await restoreProduct(product.id);
       toast({ title: "Product restored", description: product.name, variant: "success" });
@@ -105,6 +110,8 @@ export function ProductDetailPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast({ title: "Failed to restore", description: e?.message, variant: "destructive" });
+    } finally {
+      restoringRef.current = false;
     }
   }
 
