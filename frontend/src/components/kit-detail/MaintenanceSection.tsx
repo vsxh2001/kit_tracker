@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Wrench } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
@@ -37,6 +37,7 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [editingSchedule, setEditingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [deactivatingSched, setDeactivatingSched] = useState<KitMaintenanceSchedule | null>(null);
+  const deactivatingSchedRef = useRef(false);
 
   async function load() {
     setSchedules([]);
@@ -54,6 +55,11 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
 
   async function handleDeactivateSchedule() {
     if (!deactivatingSched) return;
+    // Synchronous guard against double-click: setDeactivatingSched(null) only fires after the
+    // React commit, so a second click in the same tick would re-enter updateSchedule and double
+    // the PATCH (2 schedule updates + 2 toasts + 2 audit rows).
+    if (deactivatingSchedRef.current) return;
+    deactivatingSchedRef.current = true;
     try {
       await updateSchedule(deactivatingSched.id, { is_active: false });
       toast({ title: "Schedule deactivated", description: maintenanceTypeLabel(deactivatingSched.type), variant: "success" });
@@ -62,6 +68,8 @@ export function MaintenanceSection({ kitId, canEdit }: MaintenanceSectionProps) 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Failed to deactivate", description: err?.message, variant: "destructive" });
+    } finally {
+      deactivatingSchedRef.current = false;
     }
   }
 
