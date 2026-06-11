@@ -15,10 +15,13 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const loadingRef = useRef(false);
   const [loading, setLoading] = useState(false);
+  const googleLoadingRef = useRef(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleGoogleSignIn() {
     setError("");
+    if (googleLoadingRef.current) return;
+    googleLoadingRef.current = true;
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
@@ -31,6 +34,7 @@ export function LoginPage() {
         "Google sign-in failed. Please try again.";
       setError(`Google sign-in failed: ${msg}`);
     } finally {
+      googleLoadingRef.current = false;
       setGoogleLoading(false);
     }
   }
