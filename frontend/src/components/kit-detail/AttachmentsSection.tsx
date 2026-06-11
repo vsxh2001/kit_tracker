@@ -1,4 +1,4 @@
-import { useEffect, startTransition } from "react";
+import { useEffect, useRef, startTransition } from "react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { AttachmentList } from "../AttachmentList";
@@ -14,6 +14,7 @@ interface AttachmentsSectionProps {
 export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) {
   const [kit, setKit] = useState<Kit | null>(null);
   const [fileToken, setFileToken] = useState<string>("");
+  const deletingRef = useRef(false);
 
   async function loadKit() {
     try {
@@ -67,6 +68,12 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
             }
           } : undefined}
           onDelete={isAdmin ? async (filename) => {
+            // Synchronous guard against double-click: the AlertDialog closes on action click,
+            // but a second click in the same tick (before React commits) would re-enter and
+            // PATCH a second time, causing a 404 toast or deleting a sibling attachment if the
+            // filename list shifts.
+            if (deletingRef.current) return;
+            deletingRef.current = true;
             try {
               const updated = await deleteKitAttachment(kit.id, filename);
               setKit(updated);
@@ -74,6 +81,8 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (err: any) {
               toast({ title: "Delete failed", description: err?.message, variant: "destructive" });
+            } finally {
+              deletingRef.current = false;
             }
           } : undefined}
         />
