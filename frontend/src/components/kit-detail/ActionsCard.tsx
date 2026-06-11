@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pencil, ArrowRight, Download } from "lucide-react";
 import { Button } from "../ui/button";
@@ -34,8 +34,13 @@ export function ActionsCard({ kit, isAdmin, currentEntityId, currentEntityName, 
   const [isMoveOpen, setIsMoveOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
+  const deactivatingRef = useRef(false);
 
   async function handleDelete() {
+    // Synchronous guard against double-click: the dialog stays open until navigate
+    // fires, so a second click in the same tick would call softDeleteKit twice.
+    if (deactivatingRef.current) return;
+    deactivatingRef.current = true;
     try {
       await softDeleteKit(kit.id);
       toast({ title: "Kit deactivated", description: kit.serial, variant: "success" });
@@ -43,6 +48,8 @@ export function ActionsCard({ kit, isAdmin, currentEntityId, currentEntityName, 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Failed to deactivate kit", description: err?.message, variant: "destructive" });
+    } finally {
+      deactivatingRef.current = false;
     }
   }
 
