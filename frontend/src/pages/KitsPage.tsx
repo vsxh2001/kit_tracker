@@ -72,6 +72,7 @@ export function KitsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const bulkLoadingRef = useRef(false);
   const [showBulkTransfer, setShowBulkTransfer] = useState(false);
 
   async function load() {
@@ -182,24 +183,33 @@ export function KitsPage() {
   }
 
   async function executeBulkAction(action: BulkAction) {
+    // Synchronous guard against double-click: setBulkLoading is async so disabled={bulkLoading}
+    // doesn't propagate before a second click in the same tick. A double-click on a bulk button
+    // would re-enter the loop and double-fire every per-kit mutation (2N audit rows).
+    if (bulkLoadingRef.current) return;
+    bulkLoadingRef.current = true;
     setBulkLoading(true);
     const ids = Array.from(selected);
     let succeeded = 0;
     let failed = 0;
-    for (const id of ids) {
-      try {
-        if (action === "retire") {
-          await softDeleteKit(id);
-        } else {
-          await updateKit(id, { is_active: true });
+    try {
+      for (const id of ids) {
+        try {
+          if (action === "retire") {
+            await softDeleteKit(id);
+          } else {
+            await updateKit(id, { is_active: true });
+          }
+          succeeded++;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (err: any) {
+          if (!err?.isAbort) failed++;
         }
-        succeeded++;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (err: any) {
-        if (!err?.isAbort) failed++;
       }
+    } finally {
+      bulkLoadingRef.current = false;
+      setBulkLoading(false);
     }
-    setBulkLoading(false);
     setBulkAction(null);
     setSelected(new Set());
     if (failed === 0) {
