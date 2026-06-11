@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, startTransition, type ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, FileX } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
@@ -43,6 +43,7 @@ export function RequestDetailPage() {
   const [assignEntity, setAssignEntity] = useState("none");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const actionLoadingRef = useRef(false);
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [confirmKind, setConfirmKind] = useState<ConfirmKind | null>(null);
@@ -74,6 +75,11 @@ export function RequestDetailPage() {
       (assignEntity === "none" ? undefined : assignEntity) !== (request.target_entity || undefined));
 
   async function doAction(action: () => Promise<unknown>, successMsg?: string) {
+    // Synchronous guard against double-click: setActionLoading is async so disabled={actionLoading}
+    // doesn't propagate before a second click in the same tick. Approve/Reject/Fulfill/Cancel/
+    // SaveAssignment all route through here, so guarding once protects every routed handler.
+    if (actionLoadingRef.current) return;
+    actionLoadingRef.current = true;
     setError("");
     setActionLoading(true);
     try {
@@ -86,6 +92,7 @@ export function RequestDetailPage() {
       setError(msg);
       toast({ title: "Action failed", description: msg, variant: "destructive" });
     } finally {
+      actionLoadingRef.current = false;
       setActionLoading(false);
     }
   }
