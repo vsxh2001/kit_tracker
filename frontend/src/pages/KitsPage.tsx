@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Download, Upload, ChevronUp, ChevronDown, Printer } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -64,6 +64,7 @@ export function KitsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Kit | null>(null);
+  const deletingKitRef = useRef(false);
   const [sortField, setSortField] = useState<SortField>("serial");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -128,6 +129,10 @@ export function KitsPage() {
 
   async function handleDeleteKit() {
     if (!deleteTarget) return;
+    // Synchronous guard against double-click: deleteTarget clears only in finally, so a second
+    // click in the same tick passes the guard above and would fire softDeleteKit twice.
+    if (deletingKitRef.current) return;
+    deletingKitRef.current = true;
     try {
       await softDeleteKit(deleteTarget.id);
       setRows((prev) => prev.filter((r) => r.kit.id !== deleteTarget.id));
@@ -136,6 +141,7 @@ export function KitsPage() {
     } catch (err: any) {
       toast({ title: "Failed to deactivate kit", description: err?.message, variant: "destructive" });
     } finally {
+      deletingKitRef.current = false;
       setDeleteTarget(null);
     }
   }
