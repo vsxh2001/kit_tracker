@@ -143,6 +143,11 @@ export function RequestDetailPage() {
   }
 
   async function handleDelete() {
+    // Synchronous guard against double-click: setActionLoading is async so disabled={actionLoading}
+    // doesn't propagate before a second click in the same tick. Reuses the same actionLoadingRef
+    // that #365 added for doAction — they share actionLoading state, so a single ref protects both.
+    if (actionLoadingRef.current) return;
+    actionLoadingRef.current = true;
     setConfirmKind(null);
     setError("");
     setActionLoading(true);
@@ -156,6 +161,7 @@ export function RequestDetailPage() {
       setError(msg);
       toast({ title: "Delete failed", description: msg, variant: "destructive" });
     } finally {
+      actionLoadingRef.current = false;
       setActionLoading(false);
     }
   }
