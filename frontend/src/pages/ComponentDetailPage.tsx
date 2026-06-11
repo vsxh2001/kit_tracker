@@ -48,6 +48,7 @@ export function ComponentDetailPage() {
   const [productOnHand, setProductOnHand] = useState<number | null>(null);
   const [showMove, setShowMove] = useState(false);
   const [showDeactivate, setShowDeactivate] = useState(false);
+  const deactivatingRef = useRef(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showCascadeDelete, setShowCascadeDelete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -161,6 +162,9 @@ export function ComponentDetailPage() {
 
   async function handleDeactivate() {
     if (!component) return;
+    // Synchronous guard against double-click: showDeactivate is async so disabled propagation doesn't reach the AlertDialogAction before a second click in the same tick. A double-click would PATCH updateComponent twice — same payload, two audit rows.
+    if (deactivatingRef.current) return;
+    deactivatingRef.current = true;
     try {
       await updateComponent(component.id, { is_active: false });
       const label = component.serial || component.expand?.product?.name || component.product;
@@ -169,6 +173,8 @@ export function ComponentDetailPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       toast({ title: "Failed to deactivate", description: e?.message, variant: "destructive" });
+    } finally {
+      deactivatingRef.current = false;
     }
   }
 
