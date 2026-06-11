@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Trash, RotateCcw } from "lucide-react";
@@ -72,6 +72,7 @@ export function KitTimeline({ kitId }: Props) {
   const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
   const [revertingTxId, setRevertingTxId] = useState<string | null>(null);
   const [reverting, setReverting] = useState(false);
+  const revertingRef = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -97,6 +98,14 @@ export function KitTimeline({ kitId }: Props) {
 
   async function handleRevert() {
     if (!revertingTxId) return;
+
+    // Synchronous guard against double-click: setReverting is async so disabled={reverting}
+    // doesn't propagate before a second click in the same tick. A double-click on "Revert"
+    // would call revertLastTransaction twice — the second call hits a deleted txId and 404s,
+    // but produces a misleading "Revert failed" toast and an extra audit row.
+    if (revertingRef.current) return;
+
+    revertingRef.current = true;
     setReverting(true);
     try {
       await revertLastTransaction(kitId, revertingTxId);
@@ -107,6 +116,7 @@ export function KitTimeline({ kitId }: Props) {
       const msg = err instanceof Error ? err.message : "Revert failed";
       toast({ title: "Revert failed", description: msg, variant: "destructive" });
     } finally {
+      revertingRef.current = false;
       setReverting(false);
     }
   }
