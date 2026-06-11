@@ -63,6 +63,7 @@ export function ComponentDetailPage() {
   const [showAddSched, setShowAddSched] = useState(false);
   const [recordingSchedule, setRecordingSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [deactivatingSched, setDeactivatingSched] = useState<KitMaintenanceSchedule | null>(null);
+  const deactivatingSchedRef = useRef(false);
 
   async function load() {
     if (!id) return;
@@ -111,6 +112,9 @@ export function ComponentDetailPage() {
 
   async function handleDeactivateSchedule() {
     if (!deactivatingSched) return;
+    // Synchronous guard against double-click: setDeactivatingSched(null) only fires after the await resolves, so a same-tick second click still sees the stale non-null target, passes the guard, and PATCHes updateSchedule twice — same payload (is_active=false), two audit rows.
+    if (deactivatingSchedRef.current) return;
+    deactivatingSchedRef.current = true;
     try {
       await updateSchedule(deactivatingSched.id, { is_active: false });
       toast({ title: "Schedule deactivated", description: maintenanceTypeLabel(deactivatingSched.type), variant: "success" });
@@ -119,6 +123,8 @@ export function ComponentDetailPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Failed to deactivate", description: err?.message, variant: "destructive" });
+    } finally {
+      deactivatingSchedRef.current = false;
     }
   }
 
