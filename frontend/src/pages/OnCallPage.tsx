@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { Clock, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -67,6 +67,7 @@ export function OnCallPage() {
   const [editShift, setEditShift] = useState<OnCallShift | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OnCallShift | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
   const [view, setView] = useState<"list" | "calendar">("list");
 
   async function load() {
@@ -85,6 +86,8 @@ export function OnCallPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
+    if (deletingRef.current) return;
+    deletingRef.current = true;
     setDeleting(true);
     try {
       await softDeleteShift(deleteTarget.id);
@@ -95,6 +98,7 @@ export function OnCallPage() {
     } catch (e: any) {
       toast({ title: "Failed to deactivate", description: e?.message, variant: "destructive" });
     } finally {
+      deletingRef.current = false;
       setDeleting(false);
     }
   }
