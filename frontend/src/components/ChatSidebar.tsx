@@ -21,6 +21,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
   const [acIndex, setAcIndex] = useState(0);
   const [acDismissed, setAcDismissed] = useState(false);
   const [argSuggestions, setArgSuggestions] = useState<string[]>([]);
@@ -76,45 +77,55 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
   }, [input, argAcDismissed]);
 
   const sendMessage = useCallback(async (msg: string) => {
-    if (!msg || loading) return;
-
-    const userMsg: Message = {
-      id: genId(),
-      role: "user",
-      content: msg,
-      ts: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+    if (!msg) return;
+    // Synchronous guard against double-send: setLoading is async so the `loading` check above
+    // and `disabled={loading}` on the send button don't propagate before a second send in the
+    // same tick. A rapid Enter-Enter would otherwise post two user messages and fire two
+    // command executions (duplicate MCP / slash-command side effects).
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
 
-    let replyContent: string;
+    try {
+      const userMsg: Message = {
+        id: genId(),
+        role: "user",
+        content: msg,
+        ts: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
 
-    if (isSlashCommand(msg)) {
-      const parsed = parseCommand(msg);
-      if (parsed) {
-        try {
-          const result = await execute(parsed);
-          replyContent = result.ok ? result.text : result.error;
-        } catch (err: unknown) {
-          replyContent = err instanceof Error ? err.message : "Command failed.";
+      let replyContent: string;
+
+      if (isSlashCommand(msg)) {
+        const parsed = parseCommand(msg);
+        if (parsed) {
+          try {
+            const result = await execute(parsed);
+            replyContent = result.ok ? result.text : result.error;
+          } catch (err: unknown) {
+            replyContent = err instanceof Error ? err.message : "Command failed.";
+          }
+        } else {
+          replyContent = "Unknown command — type /help for the command list.";
         }
       } else {
         replyContent = "Unknown command — type /help for the command list.";
       }
-    } else {
-      replyContent = "Unknown command — type /help for the command list.";
-    }
 
-    const assistantMsg: Message = {
-      id: genId(),
-      role: "assistant",
-      content: replyContent,
-      ts: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, assistantMsg]);
-    setLoading(false);
-  }, [loading]);
+      const assistantMsg: Message = {
+        id: genId(),
+        role: "assistant",
+        content: replyContent,
+        ts: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+    }
+  }, []);
 
   const handleSend = useCallback(async () => {
     await sendMessage(input.trim());
