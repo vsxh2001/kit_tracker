@@ -37,6 +37,7 @@ export function EntitiesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<"retire" | "activate" | null>(null);
   const bulkActionRef = useRef(false);
+  const confirmActionRef = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -83,7 +84,12 @@ export function EntitiesPage() {
 
   async function confirmAction() {
     if (!pending) return;
+    // Synchronous guard against double-click: setPending(null) only fires after the
+    // React commit, so a second click in the same tick would re-enter updateEntity
+    // and double the writes (2 updates + 2 audit rows).
+    if (confirmActionRef.current) return;
     const entity = pending;
+    confirmActionRef.current = true;
     setPending(null);
     try {
       await updateEntity(entity.id, { is_active: false });
@@ -96,6 +102,8 @@ export function EntitiesPage() {
         description: err?.message,
         variant: "destructive",
       });
+    } finally {
+      confirmActionRef.current = false;
     }
   }
 
