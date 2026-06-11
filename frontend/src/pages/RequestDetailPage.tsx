@@ -247,7 +247,12 @@ export function RequestDetailPage() {
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
                     {kits.map((k) => (
-                      <SelectItem key={k.id} value={k.id}>{k.serial}</SelectItem>
+                      <SelectItem key={k.id} value={k.id} textValue={k.serial}>
+                        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>{k.serial}</span>
+                          <KitTagList tags={k.tags} />
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
