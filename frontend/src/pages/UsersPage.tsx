@@ -50,6 +50,7 @@ export function UsersPage() {
   const [denialTarget, setDenialTarget] = useState<PBUser | null>(null);
   const [denialNotes, setDenialNotes] = useState("");
   const [denialSaving, setDenialSaving] = useState(false);
+  const denialSavingRef = useRef(false);
 
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -125,6 +126,14 @@ export function UsersPage() {
 
   async function handleDenialConfirm() {
     if (!denialTarget || !denialNotes.trim()) return;
+
+    // Synchronous guard against double-click: setDenialSaving is async so disabled={denialSaving}
+    // doesn't propagate before a second click in the same tick. The dialog is closed optimistically
+    // (setDenialTarget(null) below) but denialTarget is also async — a same-tick second click sees
+    // the stale non-null target and would PATCH updateUserDenial twice.
+    if (denialSavingRef.current) return;
+
+    denialSavingRef.current = true;
     setDenialSaving(true);
     const prevRole = denialTarget.role;
     const prevDenialNotes = denialTarget.denial_notes;
@@ -161,6 +170,7 @@ export function UsersPage() {
         variant: "destructive",
       });
     } finally {
+      denialSavingRef.current = false;
       setDenialSaving(false);
     }
   }
