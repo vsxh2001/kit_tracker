@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition, type ReactNode } from "react";
+import { useEffect, useState, startTransition, useRef, type ReactNode } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, Plus, Wrench } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -57,6 +57,7 @@ export function ComponentDetailPage() {
   const [editLotCode, setEditLotCode] = useState("");
   const [editExpiresAt, setEditExpiresAt] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const editSavingRef = useRef(false);
   const [editError, setEditError] = useState("");
   const [schedules, setSchedules] = useState<KitMaintenanceSchedule[]>([]);
   const [showAddSched, setShowAddSched] = useState(false);
@@ -134,6 +135,9 @@ export function ComponentDetailPage() {
 
   async function handleSaveEdit() {
     if (!component) return;
+    // Synchronous guard against double-click: setEditSaving is async so disabled={editSaving} doesn't propagate before a second click in the same tick. A double-click on "Save" would PATCH updateComponent twice — same payload, two audit rows.
+    if (editSavingRef.current) return;
+    editSavingRef.current = true;
     setEditSaving(true);
     try {
       await updateComponent(component.id, {
@@ -150,6 +154,7 @@ export function ComponentDetailPage() {
     } catch (e: any) {
       setEditError(e?.message ?? "Failed to save.");
     } finally {
+      editSavingRef.current = false;
       setEditSaving(false);
     }
   }
