@@ -136,17 +136,14 @@ test.describe("Entity creation (admin)", () => {
     });
   });
 
-  test("creating with empty name shows validation error", async ({ page }) => {
+  test("creating with empty name blocks save (button disabled)", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/entities");
     await page.getByRole("button", { name: /new entity/i }).click();
     await expect(page.getByRole("heading", { name: "New Entity" })).toBeVisible();
-    // Do NOT fill name
-    await page.getByRole("button", { name: /^save$/i }).click();
-    await expect(page.getByText(/name is required/i)).toBeVisible({
-      message: "Validation error for empty name should appear",
-    });
-    // Dialog must stay open
+    // Save is gated behind a non-empty name — button stays disabled until filled
+    await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    // Dialog stays open (no submit attempt was made)
     await expect(page.getByRole("heading", { name: "New Entity" })).toBeVisible();
   });
 
