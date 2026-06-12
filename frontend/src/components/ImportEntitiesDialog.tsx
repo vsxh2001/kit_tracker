@@ -20,6 +20,7 @@ export function ImportEntitiesDialog({ open, onClose, onImported }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
+  const [hasFile, setHasFile] = useState(false);
   const [result, setResult] = useState<ImportEntitiesResult | null>(null);
   const [error, setError] = useState("");
 
@@ -27,6 +28,7 @@ export function ImportEntitiesDialog({ open, onClose, onImported }: Props) {
     if (!v) {
       setResult(null);
       setError("");
+      setHasFile(false);
       if (fileRef.current) fileRef.current.value = "";
       onClose();
     }
@@ -74,6 +76,7 @@ export function ImportEntitiesDialog({ open, onClose, onImported }: Props) {
               ref={fileRef}
               type="file"
               accept=".csv"
+              onChange={(e) => setHasFile(!!e.target.files?.[0])}
               className="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded file:border file:border-input file:text-sm file:bg-background file:cursor-pointer"
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -81,7 +84,7 @@ export function ImportEntitiesDialog({ open, onClose, onImported }: Props) {
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={loading}>
+              <Button onClick={handleSubmit} disabled={loading || !hasFile}>
                 {loading ? "Importing…" : "Import"}
               </Button>
             </div>
