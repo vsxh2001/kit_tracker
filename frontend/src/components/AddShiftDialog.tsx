@@ -126,6 +126,8 @@ export function AddShiftDialog({ open, onClose, onSaved, shift }: Props) {
     if (!next) { reset(); onClose(); }
   }
 
+  const isFormValid = !!userId && !!startAt && !!endAt && endAt > startAt;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
@@ -184,7 +186,7 @@ export function AddShiftDialog({ open, onClose, onSaved, shift }: Props) {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || !isFormValid}>
               {saving ? "Saving…" : isEdit ? "Save changes" : "Add shift"}
             </Button>
           </div>
