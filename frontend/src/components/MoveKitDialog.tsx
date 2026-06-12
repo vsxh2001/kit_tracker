@@ -120,7 +120,7 @@ export function MoveKitDialog({ kit, currentEntityId, currentEntityName, open, o
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleMove} disabled={loading}>
+            <Button onClick={handleMove} disabled={loading || !toEntityId}>
               {loading ? "Moving…" : "Move kit"}
             </Button>
           </div>
