@@ -109,6 +109,7 @@ export function AuditLogPage() {
   const [committedTerm, setCommittedTerm] = useState("");
   const [selected, setSelected] = useState<AuditLog | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exportingRef = useRef(false);
 
   useEffect(() => {
     startTransition(() => {
@@ -157,6 +158,11 @@ export function AuditLogPage() {
   }
 
   async function handleExport() {
+    // Synchronous guard against double-click: setExporting is async so disabled={exporting}
+    // doesn't propagate before a second click in the same tick. The export paginates the
+    // entire audit log, so a double-fire kicks off two parallel multi-page reads.
+    if (exportingRef.current) return;
+    exportingRef.current = true;
     setExporting(true);
     try {
       const col = collectionFilter === "All" ? undefined : collectionFilter;
@@ -183,6 +189,7 @@ export function AuditLogPage() {
     } catch (err) {
       toast({ title: "Export failed", description: String(err), variant: "destructive" });
     } finally {
+      exportingRef.current = false;
       setExporting(false);
     }
   }
