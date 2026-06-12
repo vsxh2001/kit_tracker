@@ -120,19 +120,16 @@ test.describe("Kit creation (admin)", () => {
     });
   });
 
-  test("creating a kit with empty serial shows validation error", async ({
+  test("creating a kit with empty serial blocks save (button disabled)", async ({
     page,
   }) => {
     await loginAs(page, "admin");
     await page.goto("/kits");
     await page.getByRole("button", { name: /new kit/i }).click();
     await expect(page.getByRole("heading", { name: "New Kit" })).toBeVisible();
-    // Do NOT fill serial — save immediately
-    await page.getByRole("button", { name: /^save$/i }).click();
-    await expect(page.getByText(/serial is required/i)).toBeVisible({
-      message: "Validation error for empty serial should appear",
-    });
-    // Dialog must stay open
+    // Save is gated behind a non-empty serial — button stays disabled until filled
+    await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    // Dialog stays open (no submit attempt was made)
     await expect(page.getByRole("heading", { name: "New Kit" })).toBeVisible();
   });
 
@@ -298,7 +295,7 @@ test.describe("Kit move (transfer)", () => {
     );
   });
 
-  test("move dialog shows error when no destination is selected", async ({
+  test("move dialog blocks submit when no destination is selected (button disabled)", async ({
     page,
   }) => {
     await loginAs(page, "admin");
@@ -306,14 +303,10 @@ test.describe("Kit move (transfer)", () => {
     await page.getByRole("button", { name: /move kit/i }).click();
     await expect(page.getByRole("dialog", { name: /move kit/i })).toBeVisible();
 
-    // Click submit without selecting a destination
-    await page.getByRole("button", { name: /^move kit$/i }).click();
-
+    // Submit is gated behind a destination — button stays disabled until one is picked
     await expect(
-      page.getByText(/select destination entity/i)
-    ).toBeVisible({
-      message: "Error message should appear when no destination is selected",
-    });
+      page.getByRole("dialog", { name: /move kit/i }).getByRole("button", { name: /^move kit$/i })
+    ).toBeDisabled();
     // Dialog stays open
     await expect(page.getByRole("dialog", { name: /move kit/i })).toBeVisible();
   });

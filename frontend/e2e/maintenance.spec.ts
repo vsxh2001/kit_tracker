@@ -230,8 +230,8 @@ test.describe("Maintenance page", () => {
     await loginAs(page, "admin");
     await page.goto("/maintenance?status=overdue");
 
-    // Heading present, page loaded
-    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible();
+    // Heading present, page loaded (use exact: true — empty-state shows an h3 "No maintenance schedules" that also matches the substring)
+    await expect(page.getByRole("heading", { name: "Maintenance", exact: true })).toBeVisible();
 
     // Overdue chip is the active one (selected style = bg-indigo-600)
     const overdueChip = page.getByRole("button", { name: "Overdue" });
