@@ -241,7 +241,7 @@ export function AddProductDialog({ open, onClose, onSuccess }: Props) {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button onClick={handleSubmit} disabled={loading || !name.trim()}>
               {loading ? "Creating…" : "Create"}
             </Button>
           </div>
