@@ -67,6 +67,8 @@ export function KitsPage() {
   const deletingKitRef = useRef(false);
   const [sortField, setSortField] = useState<SortField>("serial");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [exporting, setExporting] = useState(false);
+  const exportingRef = useRef(false);
 
   // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -110,6 +112,14 @@ export function KitsPage() {
   useEffect(() => { startTransition(() => load()); }, []);
 
   async function handleExport() {
+    // Synchronous guard against double-click: setExporting is async so disabled={exporting}
+    // doesn't propagate before a second click in the same tick. exportKitsCsv() fans out
+    // a getFullList plus one getList per kit; two parallel runs would issue duplicate
+    // requestKeys ("export-kits-all", "export-kits-tx-<id>"), so the SDK's
+    // auto-cancellation kills the first call and the user gets no download.
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    setExporting(true);
     try {
       const csv = await exportKitsCsv();
       const blob = new Blob([csv], { type: "text/csv" });
@@ -125,6 +135,9 @@ export function KitsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
     }
   }
 
@@ -349,9 +362,9 @@ export function KitsPage() {
         </div>
         {canDecideRequests && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <Button size="sm" variant="outline" onClick={handleExport}>
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting}>
               <Download className="h-4 w-4" />
-              Export CSV
+              {exporting ? "Exporting…" : "Export CSV"}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
               <Upload className="h-4 w-4" />
