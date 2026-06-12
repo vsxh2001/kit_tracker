@@ -38,6 +38,8 @@ export function EntitiesPage() {
   const [bulkAction, setBulkAction] = useState<"retire" | "activate" | null>(null);
   const bulkActionRef = useRef(false);
   const confirmActionRef = useRef(false);
+  const exportingRef = useRef(false);
+  const [exporting, setExporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -54,6 +56,14 @@ export function EntitiesPage() {
   useEffect(() => { startTransition(() => load()); }, []);
 
   async function handleExport() {
+    // Synchronous guard against double-click: setExporting is async so disabled={exporting}
+    // doesn't propagate before a second click in the same tick. Two parallel
+    // exportEntitiesCsv() calls would race on the same PB requestKey
+    // ("export-entities-all"), cancelling the first with isAbort and leaving the user
+    // with no download.
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    setExporting(true);
     try {
       const csv = await exportEntitiesCsv();
       const blob = new Blob([csv], { type: "text/csv" });
@@ -69,6 +79,9 @@ export function EntitiesPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
     }
   }
 
@@ -172,9 +185,9 @@ export function EntitiesPage() {
         </div>
         {canDecideRequests && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <Button size="sm" variant="outline" onClick={handleExport}>
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting}>
               <Download className="h-4 w-4" />
-              Export CSV
+              {exporting ? "Exporting…" : "Export CSV"}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setShowImport(true)}>
               <Upload className="h-4 w-4" />
