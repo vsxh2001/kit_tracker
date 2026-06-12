@@ -204,7 +204,7 @@ export function MoveComponentDialog({ component, open, onClose, onSuccess }: Pro
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleMove} disabled={loading}>
+            <Button onClick={handleMove} disabled={loading || !targetId}>
               {loading ? "Moving…" : "Move"}
             </Button>
           </div>
