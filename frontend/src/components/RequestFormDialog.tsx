@@ -174,7 +174,7 @@ export function RequestFormDialog({ open, onClose, onSaved, request, showKitFiel
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button onClick={handleSubmit} disabled={loading || !deliveryDate}>
               {loading
                 ? (isEdit ? "Saving…" : "Submitting…")
                 : (isEdit ? "Save changes" : "Submit request")}
