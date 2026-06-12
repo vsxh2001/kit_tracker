@@ -57,6 +57,12 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
     if (!v) onClose();
   }
 
+  const intervalParsed = parseInt(intervalDays, 10);
+  const typeOk = type !== "";
+  const intervalOk = Number.isFinite(intervalParsed) && intervalParsed >= 1;
+  const nextDueOk = nextDueAt !== "";
+  const isFormValid = typeOk && intervalOk && nextDueOk;
+
   async function handleSave() {
     // Synchronous guard against double-click: setLoading is async so disabled={loading}
     // doesn't propagate before a second click in the same tick.
@@ -178,7 +184,7 @@ export function EditScheduleDialog({ schedule, onClose, onSaved }: Props) {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !isFormValid}>
               {loading ? "Saving…" : "Save changes"}
             </Button>
           </div>
