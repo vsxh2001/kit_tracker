@@ -112,7 +112,7 @@ export function KitFormDialog({ kit, open, onClose, onSaved }: Props) {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !serial.trim()}>
               {loading ? "Saving…" : "Save"}
             </Button>
           </div>
