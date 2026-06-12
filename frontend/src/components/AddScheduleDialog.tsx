@@ -69,6 +69,12 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
     setSelectedKitId("");
   }
 
+  const intervalParsed = parseInt(intervalDays, 10);
+  const kitOk = !showKitPicker || selectedKitId !== "";
+  const typeOk = type !== "none";
+  const intervalOk = Number.isFinite(intervalParsed) && intervalParsed >= 1;
+  const isFormValid = kitOk && typeOk && intervalOk;
+
   function computeNextDue(): string {
     const interval = parseInt(intervalDays, 10) || 0;
     if (lastDoneAt) {
@@ -210,7 +216,7 @@ export function AddScheduleDialog({ kitId, componentId, open, onClose, onSaved }
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !isFormValid}>
               {loading ? "Saving…" : "Add schedule"}
             </Button>
           </div>
