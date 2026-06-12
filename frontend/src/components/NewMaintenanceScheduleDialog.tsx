@@ -197,6 +197,13 @@ export function NewMaintenanceScheduleDialog({ open, onClose, onSaved }: Props) 
     ? kits.filter((k) => k.serial.toLowerCase().includes(kitSearch.trim().toLowerCase()))
     : kits;
 
+  const intervalParsed = parseInt(intervalDays, 10);
+  const kitOk = bulkMode ? selectedKitIds.size > 0 : selectedKitId !== "none";
+  const typeOk = type !== "none";
+  const descriptionOk = description.trim().length > 0;
+  const intervalOk = Number.isFinite(intervalParsed) && intervalParsed >= 1;
+  const isFormValid = kitOk && typeOk && descriptionOk && intervalOk;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
@@ -369,7 +376,7 @@ export function NewMaintenanceScheduleDialog({ open, onClose, onSaved }: Props) 
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
-            <Button onClick={handleSave} disabled={loading}>
+            <Button onClick={handleSave} disabled={loading || !isFormValid}>
               {loading
                 ? (bulkMode ? "Creating…" : "Creating…")
                 : (bulkMode ? `Create ${selectedKitIds.size > 0 ? selectedKitIds.size + " " : ""}schedule${selectedKitIds.size !== 1 ? "s" : ""}` : "Create schedule")}
