@@ -142,7 +142,7 @@ export function RecordMaintenanceDialog({ schedule, open, onClose, onRecorded }:
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button onClick={handleSubmit} disabled={loading || !performedAt}>
               {loading ? "Saving…" : "Record done"}
             </Button>
           </div>
