@@ -209,7 +209,10 @@ export function InviteDialog({ open, onClose }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleGenerate} disabled={generating}>
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !inviteEmail.trim() || !inviteEmail.includes("@")}
+            >
               {generating ? "Generating…" : "Generate link"}
             </Button>
           </div>
