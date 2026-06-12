@@ -110,6 +110,7 @@ export function AuditLogPage() {
   const [selected, setSelected] = useState<AuditLog | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exportingRef = useRef(false);
+  const loadingMoreRef = useRef(false);
 
   useEffect(() => {
     startTransition(() => {
@@ -136,6 +137,13 @@ export function AuditLogPage() {
   }
 
   async function handleLoadMore() {
+    // Synchronous guard against double-click: setLoadingMore is async so disabled={loadingMore}
+    // doesn't propagate before a second click in the same tick. listAuditLog's requestKey is
+    // unique per page, so two parallel fetches of the same nextPage (computed from stale page
+    // state since setPage runs after the await) don't auto-cancel — they both append, duplicating
+    // rows in the entries list.
+    if (loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
     const nextPage = page + 1;
     const col = collectionFilter === "All" ? undefined : collectionFilter;
     setLoadingMore(true);
@@ -153,6 +161,7 @@ export function AuditLogPage() {
     } catch (err: any) {
       if (!err?.isAbort) console.error(err);
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
   }
