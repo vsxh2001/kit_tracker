@@ -191,7 +191,7 @@ export function SnoozeScheduleDialog({ schedule, onClose, onSnoozed }: Props) {
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSnooze} disabled={loading}>
+            <Button onClick={handleSnooze} disabled={loading || (mode === "custom" && !customDate)}>
               {loading ? "Snoozing…" : "Snooze"}
             </Button>
           </div>
