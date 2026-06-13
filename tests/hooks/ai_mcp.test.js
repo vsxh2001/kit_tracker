@@ -370,6 +370,77 @@ describe("ai_mcp POST /api/mcp", () => {
     expect((await ctRes4.json()).items.length).toBe(2);
   });
 
+  it("an admin decide_request transitions status, and a repeat decision is a no-op", async () => {
+    // Symmetry with the move_kit / move_component no-op behavior. A repeat
+    // decide_request on a request already in the target status must not write
+    // a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Fetch admin user id — requests.requester is a required user relation.
+    const adminListRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent(`email="admin@hook-test.local"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const adminUserId = (await adminListRes.json()).items[0].id;
+
+    // Seed a kit + an open request directly via REST (request creation is
+    // not an MCP tool surface).
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: `MCP-DR-KIT-${suffix}`, is_active: true }),
+    });
+    const kitId = (await kitRes.json()).id;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const reqRes = await fetch(`${baseUrl}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: adminUserId,
+        designated_kit: kitId,
+        status: "open",
+        date: today,
+        delivery_date: today,
+      }),
+    });
+    const requestId = (await reqRes.json()).id;
+
+    // First approval transitions open → approved.
+    const decideRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 40, method: "tools/call",
+      params: { name: "decide_request", arguments: { request_id: requestId, decision: "approve" } },
+    });
+    const decidePayload = toolPayload((await decideRes.json()).result);
+    expect(decidePayload.success).toBe(true);
+    expect(decidePayload.new_status).toBe("approved");
+
+    // Capture audit_log count for this request after the real decision.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${requestId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat approve on already-approved request: must no-op with the same
+    // contract shape the move_kit / move_component guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 41, method: "tools/call",
+      params: { name: "decide_request", arguments: { request_id: requestId, decision: "approve" } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already approved/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${requestId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 
