@@ -278,6 +278,77 @@ describe("ai_mcp POST /api/mcp", () => {
     expect((await txRes2.json()).items.length).toBe(1);
   });
 
+  it("an admin move_component creates a transaction, and a repeat move to same kit is a no-op", async () => {
+    // Symmetry with the move_kit no-op behavior (B-G3-1).
+    const suffix = Math.random().toString(36).slice(2);
+
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 30, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-MC-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    const compRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 31, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: `MCP-MC-COMP-${suffix}` } },
+    });
+    const componentId = toolPayload((await compRes.json()).result).record_id;
+
+    const kitRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 32, method: "tools/call",
+      params: { name: "create_kit", arguments: { serial: `MCP-MC-KIT-${suffix}` } },
+    });
+    const kitId = toolPayload((await kitRes.json()).result).record_id;
+
+    // First move places the component into the kit.
+    const moveRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 33, method: "tools/call",
+      params: { name: "move_component", arguments: { component_id: componentId, to_kit_id: kitId } },
+    });
+    const movePayload = toolPayload((await moveRes.json()).result);
+    expect(movePayload.success).toBe(true);
+
+    const ctRes = await fetch(
+      `${baseUrl}/api/collections/component_transactions/records?filter=component%3D"${componentId}"`,
+      { headers: { Authorization: suToken } }
+    );
+    expect((await ctRes.json()).items.length).toBe(1);
+
+    // Repeat move to the same kit: no transaction created.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 34, method: "tools/call",
+      params: { name: "move_component", arguments: { component_id: componentId, to_kit_id: kitId } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.no_op).toBe(true);
+
+    const ctRes2 = await fetch(
+      `${baseUrl}/api/collections/component_transactions/records?filter=component%3D"${componentId}"`,
+      { headers: { Authorization: suToken } }
+    );
+    expect((await ctRes2.json()).items.length).toBe(1);
+
+    // A move to a different destination (entity) is NOT a no-op — still creates a transaction.
+    const entRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 35, method: "tools/call",
+      params: { name: "create_entity", arguments: { name: `MCP-MC-ENT-${suffix}` } },
+    });
+    const entityId = toolPayload((await entRes.json()).result).record_id;
+
+    const moveEntRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 36, method: "tools/call",
+      params: { name: "move_component", arguments: { component_id: componentId, to_entity_id: entityId } },
+    });
+    const moveEntPayload = toolPayload((await moveEntRes.json()).result);
+    expect(moveEntPayload.success).toBe(true);
+
+    const ctRes3 = await fetch(
+      `${baseUrl}/api/collections/component_transactions/records?filter=component%3D"${componentId}"`,
+      { headers: { Authorization: suToken } }
+    );
+    expect((await ctRes3.json()).items.length).toBe(2);
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 
