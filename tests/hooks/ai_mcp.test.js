@@ -500,6 +500,73 @@ describe("ai_mcp POST /api/mcp", () => {
     expect((await auditRes2.json()).items.length).toBe(auditCount1);
   });
 
+  it("an admin update_user_phone sets the phone, and a repeat update to the same phone is a no-op", async () => {
+    // Symmetry with the move_kit / move_component / decide_request / link_component
+    // no-op behavior. A repeat update_user_phone with the same value must not
+    // write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+    const targetEmail = `mcp-phone-${suffix}@hook-test.local`;
+
+    const createTargetRes = await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: targetEmail,
+        password: "Userpass1!",
+        passwordConfirm: "Userpass1!",
+        role: "user",
+        name: `MCP Phone Target ${suffix}`,
+      }),
+    });
+    const targetUserId = (await createTargetRes.json()).id;
+
+    const newPhone = "+15551234567";
+
+    // First update: writes the phone.
+    const updateRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 60, method: "tools/call",
+      params: { name: "update_user_phone", arguments: { email: targetEmail, phone: newPhone } },
+    });
+    const updatePayload = toolPayload((await updateRes.json()).result);
+    expect(updatePayload.success).toBe(true);
+    expect(updatePayload.after.phone).toBe(newPhone);
+
+    // Capture audit_log count for this user after the real update.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${targetUserId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat update with the same phone: must no-op with the same contract
+    // shape the sibling guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 61, method: "tools/call",
+      params: { name: "update_user_phone", arguments: { email: targetEmail, phone: newPhone } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${targetUserId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different phone value is NOT a no-op.
+    const differentPhone = "+15559999999";
+    const changeRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 62, method: "tools/call",
+      params: { name: "update_user_phone", arguments: { email: targetEmail, phone: differentPhone } },
+    });
+    const changePayload = toolPayload((await changeRes.json()).result);
+    expect(changePayload.success).toBe(true);
+    expect(changePayload.after.phone).toBe(differentPhone);
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 
