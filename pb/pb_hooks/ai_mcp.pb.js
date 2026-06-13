@@ -1504,6 +1504,20 @@ routerAdd("POST", "/api/mcp", function(c) {
         after.is_active = args.is_active === true;
       }
 
+      var entityNoOp = true;
+      for (var ebk in before) {
+        if (Object.prototype.hasOwnProperty.call(before, ebk)) {
+          if (before[ebk] !== after[ebk]) { entityNoOp = false; break; }
+        }
+      }
+      if (entityNoOp) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "Entity " + id + " already matches the requested values; no update performed"
+        };
+      }
+
       try {
         dao.save(record);
 
