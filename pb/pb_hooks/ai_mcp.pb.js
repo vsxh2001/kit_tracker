@@ -1670,6 +1670,20 @@ routerAdd("POST", "/api/mcp", function(c) {
         after.is_consumable = args.is_consumable === true;
       }
 
+      var productNoOp = true;
+      for (var pbk in before) {
+        if (Object.prototype.hasOwnProperty.call(before, pbk)) {
+          if (before[pbk] !== after[pbk]) { productNoOp = false; break; }
+        }
+      }
+      if (productNoOp) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "Product " + id + " already matches the requested values; no update performed"
+        };
+      }
+
       try {
         dao.save(record);
 
