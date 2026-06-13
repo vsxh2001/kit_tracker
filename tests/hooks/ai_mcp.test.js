@@ -635,6 +635,67 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(changePayload.after.telegram_chat_id).toBe(differentChatId);
   });
 
+  it("an admin update_product changes a field, and a repeat update with the same value is a no-op", async () => {
+    // Symmetry with the move_kit / move_component / decide_request /
+    // link_component / update_user_phone / update_user_telegram_chat_id
+    // no-op behavior. A repeat update_product with the same value must not
+    // write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+    const productName = `MCP-UP-PROD-${suffix}`;
+
+    // Create a product via the MCP create_product tool.
+    const createRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 80, method: "tools/call",
+      params: { name: "create_product", arguments: { name: productName, is_serialized: false } },
+    });
+    const createPayload = toolPayload((await createRes.json()).result);
+    expect(createPayload.success).toBe(true);
+    const id = createPayload.record_id;
+
+    // First update: writes the description.
+    const updateRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 81, method: "tools/call",
+      params: { name: "update_product", arguments: { id, description: "first" } },
+    });
+    const updatePayload = toolPayload((await updateRes.json()).result);
+    expect(updatePayload.success).toBe(true);
+    expect(updatePayload.after.description).toBe("first");
+
+    // Capture audit_log count for this product after the real update.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat update with the same description: must no-op with the same
+    // contract shape the sibling guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 82, method: "tools/call",
+      params: { name: "update_product", arguments: { id, description: "first" } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different description value is NOT a no-op.
+    const changeRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 83, method: "tools/call",
+      params: { name: "update_product", arguments: { id, description: "second" } },
+    });
+    const changePayload = toolPayload((await changeRes.json()).result);
+    expect(changePayload.success).toBe(true);
+    expect(changePayload.after.description).toBe("second");
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 
