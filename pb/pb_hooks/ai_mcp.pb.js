@@ -1244,6 +1244,27 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       } catch (_) {}
 
+      // No-op if component is already at the requested destination (B-G3-1 symmetry with move_kit).
+      // Prevents duplicate component_transactions across repeat MCP calls.
+      if ((toKitId && fromKitId === toKitId) || (toEntityId && fromEntityId === toEntityId)) {
+        var compSerial0 = safeStr(component, "serial") || componentId;
+        var destName0 = toKitId || toEntityId;
+        try {
+          if (toKitId) {
+            var toKit0 = dao.findRecordById("kits", toKitId);
+            destName0 = safeStr(toKit0, "serial") || toKitId;
+          } else if (toEntityId) {
+            var toEnt0 = dao.findRecordById("entities", toEntityId);
+            destName0 = safeStr(toEnt0, "name") || toEntityId;
+          }
+        } catch (_) {}
+        return {
+          ok: true,
+          no_op: true,
+          message: "Component " + compSerial0 + " already at " + destName0 + " — no transaction created."
+        };
+      }
+
       var qty = 0;
       var isBulk = component.getBool ? component.getBool("is_bulk") : (safeStr(component, "is_bulk") === "true");
       if (isBulk) {
