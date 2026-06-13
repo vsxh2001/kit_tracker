@@ -14,6 +14,7 @@ interface AttachmentsSectionProps {
 export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) {
   const [kit, setKit] = useState<Kit | null>(null);
   const [fileToken, setFileToken] = useState<string>("");
+  const uploadingRef = useRef(false);
   const deletingRef = useRef(false);
 
   async function loadKit() {
@@ -58,6 +59,14 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
           fileToken={fileToken}
           canEdit={isAdmin}
           onUpload={isAdmin ? async (file) => {
+            // Synchronous guard against double-trigger: the hidden <input type="file"> reopens the
+            // system file dialog every click on the visible Upload button — that button has no
+            // disabled state, so two consecutive picks before the first upload returns would fire
+            // parallel PATCH writes. PB serializes the appends correctly, but the second-arriving
+            // response can be stale (generated before the first commit lands), and setKit on the
+            // late response would drop a just-uploaded attachment from the UI until refresh.
+            if (uploadingRef.current) return;
+            uploadingRef.current = true;
             try {
               const updated = await uploadKitAttachment(kit.id, file);
               setKit(updated);
@@ -65,6 +74,8 @@ export function AttachmentsSection({ kitId, isAdmin }: AttachmentsSectionProps) 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (err: any) {
               toast({ title: "Upload failed", description: err?.message, variant: "destructive" });
+            } finally {
+              uploadingRef.current = false;
             }
           } : undefined}
           onDelete={isAdmin ? async (filename) => {
