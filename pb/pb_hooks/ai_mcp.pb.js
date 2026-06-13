@@ -1343,6 +1343,18 @@ routerAdd("POST", "/api/mcp", function(c) {
 
       var newStatus = decision === "approve" ? "approved" : "rejected";
 
+      // No-op if the request is already in the target status (symmetry with the
+      // move_kit / move_component no-op guards). Without the check, a repeat MCP
+      // call writes a redundant audit_log row each time.
+      var currentStatus = safeStr(request, "status");
+      if (currentStatus === newStatus) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "Request " + requestId + " already " + newStatus + " — no change made."
+        };
+      }
+
       try {
         request.set("status", newStatus);
         if (args.decision_notes) {
