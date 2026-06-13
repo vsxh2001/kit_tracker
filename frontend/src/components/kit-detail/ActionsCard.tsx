@@ -35,6 +35,8 @@ export function ActionsCard({ kit, isAdmin, currentEntityId, currentEntityName, 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const deactivatingRef = useRef(false);
+  const [exporting, setExporting] = useState(false);
+  const exportingRef = useRef(false);
 
   async function handleDelete() {
     // Synchronous guard against double-click: the dialog stays open until navigate
@@ -50,6 +52,28 @@ export function ActionsCard({ kit, isAdmin, currentEntityId, currentEntityName, 
       toast({ title: "Failed to deactivate kit", description: err?.message, variant: "destructive" });
     } finally {
       deactivatingRef.current = false;
+    }
+  }
+
+  async function handleExport() {
+    // Synchronous guard against double-click: setExporting is async so disabled={exporting}
+    // doesn't propagate before a second click in the same tick. exportKitTimelineCsv() runs
+    // a transactions getFullList + an audit_log query, both with shared requestKeys
+    // ("export-kit-timeline-<id>" and the via-tag lookup). Two parallel runs would let the
+    // SDK auto-cancellation kill the first call, so the user gets no download.
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    setExporting(true);
+    try {
+      await exportKitTimelineCsv(kit.id, kit.serial);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (!err?.isAbort) {
+        toast({ title: "Failed to export timeline", description: err?.message, variant: "destructive" });
+      }
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
     }
   }
 
@@ -72,9 +96,9 @@ export function ActionsCard({ kit, isAdmin, currentEntityId, currentEntityName, 
               Edit
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => exportKitTimelineCsv(kit.id, kit.serial)}>
+          <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting}>
             <Download className="h-4 w-4" />
-            Export timeline
+            {exporting ? "Exporting…" : "Export timeline"}
           </Button>
           {isAdmin && (
             <Button size="sm" variant="destructive" onClick={() => setIsDeactivateOpen(true)}>
