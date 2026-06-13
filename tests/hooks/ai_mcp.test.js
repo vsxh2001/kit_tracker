@@ -441,6 +441,65 @@ describe("ai_mcp POST /api/mcp", () => {
     expect((await auditRes2.json()).items.length).toBe(auditCount1);
   });
 
+  it("an admin link_component_to_product relinks, and a repeat link to the same product is a no-op", async () => {
+    // Symmetry with the move_kit / move_component / decide_request no-op
+    // behavior. A repeat link to the product the component is already on must
+    // not write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+
+    const prodARes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 50, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-LC-PRODA-${suffix}`, is_serialized: true } },
+    });
+    const productAId = toolPayload((await prodARes.json()).result).record_id;
+
+    const prodBRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 51, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-LC-PRODB-${suffix}`, is_serialized: true } },
+    });
+    const productBId = toolPayload((await prodBRes.json()).result).record_id;
+
+    const compRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 52, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productAId, serial: `MCP-LC-COMP-${suffix}` } },
+    });
+    const componentId = toolPayload((await compRes.json()).result).record_id;
+
+    // First relink: A → B succeeds.
+    const linkRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 53, method: "tools/call",
+      params: { name: "link_component_to_product", arguments: { component_id: componentId, product_id: productBId } },
+    });
+    const linkPayload = toolPayload((await linkRes.json()).result);
+    expect(linkPayload.success).toBe(true);
+    expect(linkPayload.new_product_id).toBe(productBId);
+
+    // Capture audit_log count for this component after the real link.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${componentId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat link to product B (already current): must no-op with the same
+    // contract shape the move_kit / move_component / decide_request guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 54, method: "tools/call",
+      params: { name: "link_component_to_product", arguments: { component_id: componentId, product_id: productBId } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already linked/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${componentId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 

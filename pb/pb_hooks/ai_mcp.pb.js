@@ -1408,6 +1408,19 @@ routerAdd("POST", "/api/mcp", function(c) {
         return { error: "not_found", detail: "product not found: " + productId };
       }
 
+      // No-op if the component is already linked to the target product (symmetry
+      // with the move_kit / move_component / decide_request no-op guards).
+      // Without the check, a repeat MCP call writes a redundant audit_log row.
+      var currentProductId = safeStr(component, "product");
+      if (currentProductId === productId) {
+        var compSerialNoop = safeStr(component, "serial") || componentId;
+        return {
+          ok: true,
+          no_op: true,
+          message: "Component " + compSerialNoop + " already linked to product " + productId + " — no change made."
+        };
+      }
+
       try {
         component.set("product", productId);
         dao.save(component);
