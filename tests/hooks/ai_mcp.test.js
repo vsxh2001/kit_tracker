@@ -567,6 +567,74 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(changePayload.after.phone).toBe(differentPhone);
   });
 
+  it("an admin update_user_telegram_chat_id sets the chat id, and a repeat update to the same value is a no-op", async () => {
+    // Symmetry with the move_kit / move_component / decide_request /
+    // link_component / update_user_phone no-op behavior. A repeat
+    // update_user_telegram_chat_id with the same value must not write a
+    // redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+    const targetEmail = `mcp-tg-${suffix}@hook-test.local`;
+
+    const createTargetRes = await fetch(`${baseUrl}/api/collections/users/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: targetEmail,
+        password: "Userpass1!",
+        passwordConfirm: "Userpass1!",
+        role: "user",
+        name: `MCP TG Target ${suffix}`,
+      }),
+    });
+    const targetUserId = (await createTargetRes.json()).id;
+
+    const newChatId = "987654321";
+
+    // First update: writes the chat id.
+    const updateRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 70, method: "tools/call",
+      params: { name: "update_user_telegram_chat_id", arguments: { email: targetEmail, telegram_chat_id: newChatId } },
+    });
+    const updatePayload = toolPayload((await updateRes.json()).result);
+    expect(updatePayload.success).toBe(true);
+    expect(updatePayload.after.telegram_chat_id).toBe(newChatId);
+
+    // Capture audit_log count for this user after the real update.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${targetUserId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat update with the same chat id: must no-op with the same contract
+    // shape the sibling guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 71, method: "tools/call",
+      params: { name: "update_user_telegram_chat_id", arguments: { email: targetEmail, telegram_chat_id: newChatId } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${targetUserId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different chat id value is NOT a no-op.
+    const differentChatId = "111222333";
+    const changeRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 72, method: "tools/call",
+      params: { name: "update_user_telegram_chat_id", arguments: { email: targetEmail, telegram_chat_id: differentChatId } },
+    });
+    const changePayload = toolPayload((await changeRes.json()).result);
+    expect(changePayload.success).toBe(true);
+    expect(changePayload.after.telegram_chat_id).toBe(differentChatId);
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 

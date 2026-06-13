@@ -1754,7 +1754,15 @@ routerAdd("POST", "/api/mcp", function(c) {
       if (userRole !== "admin" && target.id !== userId) {
         return { error: "permission_denied", detail: "Only admin can update another user's telegram_chat_id." };
       }
-      var before = { telegram_chat_id: target.getString ? target.getString("telegram_chat_id") : "" };
+      var currentChatId = target.getString ? target.getString("telegram_chat_id") : "";
+      if (currentChatId === newChatId) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "telegram_chat_id for " + email + " is already " + newChatId + "; no update performed"
+        };
+      }
+      var before = { telegram_chat_id: currentChatId };
       target.set("telegram_chat_id", newChatId);
       try {
         dao.save(target);
