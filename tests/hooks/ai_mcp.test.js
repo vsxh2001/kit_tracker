@@ -314,13 +314,16 @@ describe("ai_mcp POST /api/mcp", () => {
     );
     expect((await ctRes.json()).items.length).toBe(1);
 
-    // Repeat move to the same kit: no transaction created.
+    // Repeat move to the same kit: no transaction created. Assert the full
+    // contract shape that MCP clients special-case on (parity with move_kit guard).
     const repeatRes = await rpc(adminToken, {
       jsonrpc: "2.0", id: 34, method: "tools/call",
       params: { name: "move_component", arguments: { component_id: componentId, to_kit_id: kitId } },
     });
     const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
     expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already at/);
 
     const ctRes2 = await fetch(
       `${baseUrl}/api/collections/component_transactions/records?filter=component%3D"${componentId}"`,
@@ -347,6 +350,24 @@ describe("ai_mcp POST /api/mcp", () => {
       { headers: { Authorization: suToken } }
     );
     expect((await ctRes3.json()).items.length).toBe(2);
+
+    // Entity→entity no-op: exercises the second disjunct of the predicate
+    // (toEntityId && fromEntityId === toEntityId). Component is now at entityId
+    // (after the kit→entity move above); moving to the same entity must no-op.
+    const repeatEntRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 37, method: "tools/call",
+      params: { name: "move_component", arguments: { component_id: componentId, to_entity_id: entityId } },
+    });
+    const repeatEntPayload = toolPayload((await repeatEntRes.json()).result);
+    expect(repeatEntPayload.ok).toBe(true);
+    expect(repeatEntPayload.no_op).toBe(true);
+    expect(repeatEntPayload.message).toMatch(/already at/);
+
+    const ctRes4 = await fetch(
+      `${baseUrl}/api/collections/component_transactions/records?filter=component%3D"${componentId}"`,
+      { headers: { Authorization: suToken } }
+    );
+    expect((await ctRes4.json()).items.length).toBe(2);
   });
 
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
