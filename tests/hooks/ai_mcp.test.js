@@ -598,6 +598,69 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(after.is_consumable).toBe(true);
   });
 
+  it("update_entity no-ops when every specified field already matches the requested value", async () => {
+    // Symmetry with the move_kit / move_component / decide_request no-op
+    // behavior. A repeat update_entity that sets fields to their current
+    // values must not write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Seed an entity directly via REST.
+    const seedRes = await fetch(`${baseUrl}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-ENT-UPD-NOOP-${suffix}`,
+        category: "field",
+        is_active: true,
+      }),
+    });
+    const id = (await seedRes.json()).id;
+
+    // First update flips name + category — real change, persists.
+    const firstRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 210, method: "tools/call",
+      params: { name: "update_entity", arguments: { id, name: `MCP-ENT-NEW-${suffix}`, category: "storage" } },
+    });
+    const firstPayload = toolPayload((await firstRes.json()).result);
+    expect(firstPayload.success).toBe(true);
+    expect(firstPayload.after.name).toBe(`MCP-ENT-NEW-${suffix}`);
+    expect(firstPayload.after.category).toBe("storage");
+
+    // Capture audit_log count for this entity after the real update.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat update with the same values: must no-op with the same contract
+    // shape the move_* / decide_request guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 211, method: "tools/call",
+      params: { name: "update_entity", arguments: { id, name: `MCP-ENT-NEW-${suffix}`, category: "storage" } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already matches/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Partial overlap still proceeds: same name but different category → real update.
+    const partialRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 212, method: "tools/call",
+      params: { name: "update_entity", arguments: { id, name: `MCP-ENT-NEW-${suffix}`, category: "field" } },
+    });
+    const partialPayload = toolPayload((await partialRes.json()).result);
+    expect(partialPayload.success).toBe(true);
+    expect(partialPayload.after.category).toBe("field");
+  });
+
   it("create_component persists bin_code, lot_code, and expires_at when provided", async () => {
     // Seed serialized product so the serial-required guard accepts the component.
     const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {

@@ -1484,6 +1484,22 @@ routerAdd("POST", "/api/mcp", function(c) {
         after.is_active = args.is_active === true;
       }
 
+      // No-op if every specified field already matches the requested value
+      // (symmetry with the move_kit / move_component / decide_request no-op
+      // guards). Without the check, a repeat MCP call writes a redundant
+      // audit_log row each time.
+      var entityChanged = false;
+      for (var ek in after) {
+        if (after[ek] !== before[ek]) { entityChanged = true; break; }
+      }
+      if (!entityChanged) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "Entity " + id + " already matches requested values — no change made."
+        };
+      }
+
       try {
         dao.save(record);
 
