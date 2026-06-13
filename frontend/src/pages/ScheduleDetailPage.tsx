@@ -1,5 +1,5 @@
-import { useEffect, useState, startTransition } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useRef, useState, startTransition } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Wrench } from "lucide-react";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -8,11 +8,23 @@ import { RecordMaintenanceDialog } from "../components/RecordMaintenanceDialog";
 import { EditScheduleDialog } from "../components/EditScheduleDialog";
 import { SnoozeScheduleDialog } from "../components/SnoozeScheduleDialog";
 import { EmptyState } from "../components/EmptyState";
-import { getSchedule, listRecordsForSchedule } from "../services/maintenance";
+import { getSchedule, listRecordsForSchedule, updateSchedule } from "../services/maintenance";
 import { baseUrl } from "../services/admin";
 import { useAuth } from "../context/AuthContext";
 import { formatDate, formatDateOnly, maintenanceStatus } from "../lib/utils";
 import { maintenanceTypeLabel } from "../lib/maintenance-types";
+import { toast } from "../components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { MaintenanceStatusBadge } from "../components/MaintenanceStatusBadge";
 import { KitTagList } from "../components/KitTagList";
 import { RetiredBadge } from "../components/RetiredBadge";
@@ -22,6 +34,7 @@ import type { KitMaintenanceSchedule, MaintenanceRecord } from "../types";
 export function ScheduleDetailPage() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
   const { user, canDecideRequests } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
   const [schedule, setSchedule] = useState<KitMaintenanceSchedule | null>(null);
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
@@ -29,6 +42,8 @@ export function ScheduleDetailPage() {
   const [recordingOpen, setRecordingOpen] = useState(false);
   const [editingOpen, setEditingOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [confirmDeactivateOpen, setConfirmDeactivateOpen] = useState(false);
+  const deactivatingRef = useRef(false);
 
   async function load() {
     if (!scheduleId) return;
@@ -50,6 +65,25 @@ export function ScheduleDetailPage() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { startTransition(() => load()); }, [scheduleId]);
+
+  async function handleDeactivate() {
+    if (!schedule) return;
+    // Synchronous guard against double-click: setConfirmDeactivateOpen(false) only fires after
+    // the React commit, so a second click in the same tick would re-enter updateSchedule and
+    // double the PATCH (2 schedule updates + 2 toasts + 2 audit rows).
+    if (deactivatingRef.current) return;
+    deactivatingRef.current = true;
+    try {
+      await updateSchedule(schedule.id, { is_active: false });
+      toast({ title: "Schedule deactivated", description: maintenanceTypeLabel(schedule.type), variant: "success" });
+      navigate("/maintenance");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast({ title: "Failed to deactivate", description: err?.message, variant: "destructive" });
+    } finally {
+      deactivatingRef.current = false;
+    }
+  }
 
   const status: MaintStatus = schedule ? maintenanceStatus(schedule.next_due_at) : "ok";
 
@@ -83,9 +117,30 @@ export function ScheduleDetailPage() {
               )}
             </div>
             {user?.role === "admin" && (
-              <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => setEditingOpen(true)}>
-                Edit
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => setEditingOpen(true)}>
+                  Edit
+                </Button>
+                <AlertDialog open={confirmDeactivateOpen} onOpenChange={setConfirmDeactivateOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" className="min-h-[44px]">
+                      Deactivate
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Deactivate this schedule?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        The schedule will be marked inactive and will stop generating reminders. Past records remain accessible. You can re-create a fresh schedule any time.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={handleDeactivate}>Deactivate</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             )}
           </div>
 
