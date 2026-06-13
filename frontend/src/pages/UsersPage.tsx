@@ -63,6 +63,11 @@ export function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const editSavingRef = useRef(false);
 
+  // Per-user in-flight role change. Keyed by user id so admins can update
+  // multiple rows concurrently, but the same row cannot race itself.
+  const [roleSavingIds, setRoleSavingIds] = useState<Set<string>>(new Set());
+  const roleSavingIdsRef = useRef<Set<string>>(new Set());
+
 
   async function load() {
     setLoading(true);
@@ -85,6 +90,17 @@ export function UsersPage() {
       setDenialNotes("");
       return;
     }
+
+    // Synchronous guard against rapid Select changes on the same row:
+    // setRoleSavingIds is async so disabled={roleSavingIds.has(u.id)} doesn't
+    // propagate before a second pick in the same tick. Without this, two parallel
+    // PB writes could land in any order and leave the role at the FIRST pick instead
+    // of the second. The restoreUser-vs-updateUserRole branch on prevRole would also
+    // see the optimistic value on the second call, taking the wrong service path
+    // when rapidly clicking "denied → X → Y" before the first response.
+    if (roleSavingIdsRef.current.has(u.id)) return;
+    roleSavingIdsRef.current.add(u.id);
+    setRoleSavingIds(new Set(roleSavingIdsRef.current));
 
     const newRole: UserRole | "" = newValue === "none" ? "" : (newValue as UserRole);
     const prevRole = u.role;
@@ -121,6 +137,9 @@ export function UsersPage() {
         description: err?.message,
         variant: "destructive",
       });
+    } finally {
+      roleSavingIdsRef.current.delete(u.id);
+      setRoleSavingIds(new Set(roleSavingIdsRef.current));
     }
   }
 
@@ -322,7 +341,11 @@ export function UsersPage() {
                         </button>
                       </div>
                     </div>
-                    <Select value={selectValue} onValueChange={(v) => handleRoleChange(u, v)}>
+                    <Select
+                      value={selectValue}
+                      onValueChange={(v) => handleRoleChange(u, v)}
+                      disabled={roleSavingIds.has(u.id)}
+                    >
                       <SelectTrigger className="w-36 h-11 md:h-9">
                         <SelectValue />
                       </SelectTrigger>
@@ -383,6 +406,7 @@ export function UsersPage() {
                               <Select
                                 value={selectValue}
                                 onValueChange={(v) => handleRoleChange(u, v)}
+                                disabled={roleSavingIds.has(u.id)}
                               >
                                 <SelectTrigger className="w-32">
                                   <SelectValue />
