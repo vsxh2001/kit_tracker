@@ -1699,7 +1699,15 @@ routerAdd("POST", "/api/mcp", function(c) {
       if (userRole !== "admin" && target.id !== userId) {
         return { error: "permission_denied", detail: "Only admin can update another user's phone." };
       }
-      var before = { phone: target.getString ? target.getString("phone") : "" };
+      var currentPhone = target.getString ? target.getString("phone") : "";
+      if (currentPhone === newPhone) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "phone for " + email + " is already " + (newPhone || "(empty)") + "; no update performed"
+        };
+      }
+      var before = { phone: currentPhone };
       target.set("phone", newPhone);
       try {
         dao.save(target);
