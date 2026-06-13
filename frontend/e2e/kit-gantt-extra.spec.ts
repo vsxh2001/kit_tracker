@@ -1,5 +1,5 @@
 /**
- * Kit Gantt — edge-case coverage (post-merge verification, 2026-05-11).
+ * Kit Gantt — edge-case coverage.
  *
  * Covers scenarios NOT included in kit-gantt.spec.ts:
  *   1. Single-transaction kit: full-width bar, correct date labels
@@ -8,10 +8,9 @@
  *   4. Two transactions same second: layout doesn't crash (hairlines render)
  *   5. Loading state: "Loading…" shown before data, replaced by table
  *   6. Sort desc: kits without deliveries float to top in descending order
- *
- * P2 findings documented as skipped tests with TODO (not fixing app code):
- *   - Tooltip shows date-only strings for intra-day segments ("08/05/2026 → 08/05/2026")
- *     which loses time precision (P2, cosmetic).
+ *   7. Rapid-move kit: 2px min-width clamp + time-precise tooltip (regression
+ *      tests for PR #304 fixes — KitTimeline.tsx:153 formatDate and
+ *      KitTimeline.tsx:158 minWidth: "2px"). Added in PR #334.
  *
  * All tests serial (workers:1) — shared PocketBase mutable state.
  */
