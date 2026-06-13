@@ -131,18 +131,16 @@ onModelBeforeCreate((e) => {
 
   // quantity vs component available — only meaningful for bulk components.
   // Serialized components (is_bulk=false) have quantity null/0 by design;
-  // each serialized unit is one tx, no available-quantity gate.
+  // each serialized unit is one tx, no available-quantity gate, and qty=null
+  // on the transaction is the intended shape.
   const componentId = e.model.getString("component");
   const txnQty = e.model.getInt("quantity");
-  if (txnQty < 1) {
-    throw new BadRequestError("Transaction quantity must be >= 1");
-  }
-
   const component = $app.dao().findRecordById("components", componentId);
-  // Serialized components store quantity=NULL (getInt returns 0). Skip overflow
-  // check for them — each serialized unit is its own record, so qty=1 is always valid.
   const isBulk = component.getBool("is_bulk");
   if (isBulk) {
+    if (txnQty < 1) {
+      throw new BadRequestError("Transaction quantity must be >= 1");
+    }
     const availableQty = component.getInt("quantity");
     if (txnQty > availableQty) {
       throw new BadRequestError(

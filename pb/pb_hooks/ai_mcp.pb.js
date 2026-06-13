@@ -198,7 +198,8 @@ routerAdd("POST", "/api/mcp", function(c) {
             url: { type: "string", description: "Optional URL (product page, datasheet)" },
             specs: { type: "string", description: "Optional specs (JSON string or plain text)" },
             reorder_point: { type: "number", description: "Optional low-stock threshold (>=0, integer). Surfaces low-stock badge on product detail when on-hand below this. 0 or omitted = no threshold." },
-            is_consumable: { type: "boolean", description: "Optional flag for one-way inventory (tape, screws, adhesives) — components consumed not returned." }
+            is_consumable: { type: "boolean", description: "Optional flag for one-way inventory (tape, screws, adhesives) — components consumed not returned." },
+            is_serialized: { type: "boolean", description: "Whether components of this product carry per-unit serials (true, default) or are tracked as bulk quantities (false). Omitting defaults to true to match the schema backfill." }
           },
           required: ["name"]
         }
@@ -1104,6 +1105,12 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (args.is_consumable !== undefined) {
           record.set("is_consumable", args.is_consumable === true);
         }
+        // Honor caller-supplied is_serialized. Default true to match the
+        // 1778960000 migration's backfill default for products with no
+        // linked components — otherwise the downstream
+        // components_product_serialized_check hook rejects any
+        // create_component call that includes a serial.
+        record.set("is_serialized", args.is_serialized === false ? false : true);
         dao.save(record);
 
         saveMcpAuditLog(dao, {
