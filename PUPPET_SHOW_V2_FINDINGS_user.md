@@ -12,7 +12,6 @@
 | ID | Story | Severity | Where | What |
 |----|-------|----------|-------|------|
 | U-01 | A2 (deep) | MEDIUM | `RequireRole.tsx`, `Layout.tsx`, PB listRule | `role="denied"` is truthy → `hasRole=true` → denied users bypass RequireRole route gate and see full nav. No "denied" banner on dashboard. PB listRules use `role != ""` which `"denied"` passes. Fresh login is blocked (PB returns 400), but mid-session denial (admin changes role → realtime fires → authRefresh → role="denied") leaves user fully browseable. |
-| U-02 | F3 | LOW | `services/oncall.ts:getCurrentOnCallUsers` | `getFullList` has no `sort` parameter → PB returns rows in internal (undefined) order. When multiple users are simultaneously on-call, which appears in the sidebar is non-deterministic. No guaranteed priority (e.g. longest-running shift, most recently started). |
 
 ---
 
