@@ -80,15 +80,6 @@
 
 ---
 
-## Pre-existing known gaps confirmed
-
-| Gap | Story | Verified? |
-|-----|-------|-----------|
-| K1 | E2 | No "Add schedule" CTA on /maintenance empty state. E2 documented this as expected behavior. |
-| K3 | — | `listRecordsForSchedule` exists in services but unused in UI. Not a user-persona story. |
-
----
-
 ## Notes on method
 
 Browser MCP (Chrome) was unavailable this session due to a singleton lock / initialization timeout (Chrome data dir at `/home/hadassi/.cache/ms-playwright/mcp-chrome-d92dffe` held a stale lock). All UI verification was done via:
