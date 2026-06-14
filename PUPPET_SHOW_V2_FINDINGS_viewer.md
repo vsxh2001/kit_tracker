@@ -32,24 +32,6 @@
 
 ---
 
-## Bugs Found
-
-### B-V-3 (INFO): Duplicate active kits with identical serial DEMO-KIT-INJ
-
-**Story:** G5 / G (AI chat)
-**Severity:** Informational / Data integrity
-**Reproduce:**
-```bash
-curl -s -H "Authorization: $VIEWER_TOKEN" \
-  "http://127.0.0.1:8090/api/collections/kits/records?filter=serial%3D'DEMO-KIT-INJ'&fields=id,serial"
-```
-**Actual:** Two active kits with `serial=DEMO-KIT-INJ` and `id=2lvb0snq6medjln` and `id=bd4vgb0na6mmatm`.
-**Root cause:** Migration `1778880000_kit_serial_not_unique.js` intentionally dropped the UNIQUE constraint on `kits.serial` to allow serial re-use after soft-delete. The seed script created two kits with the same serial for the prompt-injection test without one being soft-deleted.
-**Impact:** The AI correctly handles this (lists both kits in its answer). No crash. But the seeder created an unexpected state — two simultaneous active kits with the same serial confuses resolve_kit lookups.
-**Note:** Not a code bug; a seed data artifact. Flagged for seed script review.
-
----
-
 ## Permission Matrix (API-level verification)
 
 | Operation | Viewer Result | Expected | Status |
