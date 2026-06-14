@@ -3,7 +3,7 @@
 Status: PLAYED 2026-05-16
 Stories attempted: 30
 Stories passing: 29
-Bugs found: 5
+Bugs found: 3
 
 ---
 
@@ -17,24 +17,6 @@ Bugs found: 5
 - Repro: Navigate to an approved request with no kit/entity → click "Save & Fulfill →" → error fires despite button label implying combined action.
 - Severity rationale: UX mismatch. The button label `Save & Fulfill →` implies one-step but requires previous manual "Save assignment" click. There is no tooltip or inline guidance explaining this requirement before the error fires.
 - Screenshot path: test-results/puppet-admin/C3-after-fulfill.png
-
-### B-G1-1: AI chat fails to answer "Where is kit DEMO-KIT-005?" [P1]
-- Story: G1
-- Step that failed: Ask AI "Where is kit DEMO-KIT-005 right now?"
-- Expected: AI calls resolve_kit → get_kit and returns current location (DEMO-Entity-008)
-- Actual: AI responds "I'm sorry, I wasn't able to complete that action. Please try again or rephrase your request." — no entity name, no location info. Same failure for G2 ("What requests are currently open?").
-- Repro: Log in as admin → open AI chat sidebar → send "Where is kit DEMO-KIT-005 right now?" → generic failure response.
-- Severity rationale: The AI chat's core read path (kit location lookup) is broken or was intermittent during testing. G3 (write: move kit) succeeded, implying AI itself works but read tools may be failing. Could be tool availability or model behavior. Affected: G1, G2 both return same generic error.
-- Screenshot path: test-results/puppet-admin/G1-response-check.png
-
-### B-G3-1: AI move kit creates duplicate transactions across test runs [P2]
-- Story: G3
-- Step that failed: AI correctly moved DEMO-KIT-008, but across multiple test runs created 5+ transactions
-- Expected: One transaction per test run (idempotent)
-- Actual: AI creates a real PB transaction on every run since there is no deduplication. After multiple puppet show runs, 5 identical "Puppet G3 move via AI" transactions exist for DEMO-KIT-008. No "already at target" check.
-- Repro: Run the G3 test multiple times; check transactions on DEMO-KIT-008 — grows linearly.
-- Severity rationale: Not a security issue but a data quality issue for multi-run demo environments. The AI does not check if the kit is already at the target entity before moving.
-- Screenshot path: test-results/puppet-admin/G3-result-check.png
 
 ### B-L3-1: Double-click on "Create request" creates two requests [P1]
 - Story: L3
@@ -84,7 +66,6 @@ Bugs found: 5
 - C4: Admin who creates their own request cannot Cancel it (BUG-6) — admin must use Delete instead. Delete removes the request entirely rather than leaving an audit trail with cancelled status.
 - D4: The "Product is required" validation fires after submit attempt (not proactively). Submit button enabled even with no product selected — could be immediately disabled until product is chosen.
 - F5: Delete button on past shifts has no confirmation dialog — single click immediately removes the record. Add a confirmation step to prevent accidental deletion.
-- G1/G2: AI chat failure message "I'm sorry, I wasn't able to complete that action." is generic with no indication of what went wrong (tool failure, rate limit, model error). Showing a more specific error would aid debugging.
 - L2: Negative quantity rejected by PB backend but with a generic "Failed to create record." message. Frontend should validate quantity > 0 before submitting.
 
 ---
