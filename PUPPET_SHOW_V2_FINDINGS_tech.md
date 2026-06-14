@@ -51,14 +51,6 @@
 **Impact:** The PUPPET_SHOW_V2.md story B2 says "expected: dialog shows error referencing unique constraint." This is now incorrect — duplicates are allowed by design. The kit picker in requests could show two entries with the same serial (ambiguous UX).
 **Verdict:** Design change, not a bug. Story B2 needs to be updated to reflect the intent. UX risk: if two ACTIVE kits share a serial, the user and AI both face ambiguity.
 
-### B-T-2 — Low/UX: F3 — On-call phone not set in seed data
-
-**Story:** F3 — "User in the field calls on-call technician via sidebar tel: link"
-**Observed:** Demo seed does not populate `phone` field for technicians. At test start, tech-1 phone was empty → sidebar shows name only, no `tel:` href rendered.
-**Note:** The admin persona appears to have set tech-1's phone to `+972501234567` during their own session (observed in audit_log). After that update, the tel: link would render.
-**Root cause:** `scripts/seed_demo_data.mjs:134-135` creates technicians without `phone` field.
-**Verdict:** UX gap in seed data; not a frontend bug. Fix: add `phone` to seed user creation.
-
 ### B-T-3 — Informational: G5 duplicate serial side-effect in AI
 
 **Story:** G5 — Prompt injection
