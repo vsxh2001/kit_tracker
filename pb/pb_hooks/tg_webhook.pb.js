@@ -805,23 +805,37 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       }
       var dcNotes = parts.slice(2).join(" ");
 
-      // Find open requests; match by last-6-char ID suffix
-      var dcOpenReqs = [];
+      // Search all requests (any status); match by last-6-char ID suffix so the
+      // no-op / wrong-status branches below can give an accurate reply instead of
+      // a misleading "no open request" when the request is already approved /
+      // rejected / fulfilled. B-G3-1 symmetry with MCP decide_request.
+      var dcAllReqs = [];
       try {
-        dcOpenReqs = dao.findRecordsByFilter("requests", "status = 'open'", "-created", 200, 0);
+        dcAllReqs = dao.findRecordsByFilter("requests", "id != ''", "-created", 500, 0);
       } catch (e) {}
       var dcMatching = [];
-      for (var dci = 0; dci < dcOpenReqs.length; dci++) {
-        if (dcOpenReqs[dci].id.slice(-6) === dcHandle) dcMatching.push(dcOpenReqs[dci]);
+      for (var dci = 0; dci < dcAllReqs.length; dci++) {
+        if (dcAllReqs[dci].id.slice(-6) === dcHandle) dcMatching.push(dcAllReqs[dci]);
       }
       if (!dcMatching.length) {
-        return reply("No open request found with handle: " + escapeHtml(dcHandle));
+        return reply("No request found with handle: " + escapeHtml(dcHandle));
       }
       if (dcMatching.length > 1) {
-        return reply("Ambiguous handle (multiple open requests match). Contact admin.");
+        return reply("Ambiguous handle (multiple requests match). Contact admin.");
       }
       var dcReq = dcMatching[0];
+      var dcCurrentStatus = dcReq.getString("status");
       var dcNewStatus = (cmd === "/approve") ? "approved" : "rejected";
+
+      // No-op if already in target status (B-G3-1 symmetry with MCP decide_request).
+      if (dcCurrentStatus === dcNewStatus) {
+        return reply("Request " + escapeHtml(dcHandle) + " already " + dcNewStatus + " — no change made.");
+      }
+      // Block transition from non-open statuses (fulfilled / cancelled / opposite decision).
+      if (dcCurrentStatus !== "open") {
+        return reply("Request " + escapeHtml(dcHandle) + " is " + escapeHtml(dcCurrentStatus) + " — cannot " + cmd.slice(1) + ".");
+      }
+
       dcReq.set("status", dcNewStatus);
       if (dcNotes) dcReq.set("decision_notes", dcNotes);
       try {

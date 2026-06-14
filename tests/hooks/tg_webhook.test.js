@@ -961,7 +961,7 @@ describe("tg_webhook P2 — write commands", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.reply).toContain("No open request found with handle");
+    expect(body.reply).toContain("No request found with handle");
   });
 
   it("/approve — user role → permission denied, request status unchanged", async () => {
@@ -1075,6 +1075,98 @@ describe("tg_webhook P2 — write commands", () => {
     const changes = JSON.parse(auditRows[0].changes);
     expect(changes.via).toBe("tg-command");
     expect(changes.status).toBe("rejected");
+  });
+
+  // ---------- /approve & /reject — no-op guards (B-G3-1 symmetry with MCP decide_request) ----------
+
+  it("/approve — request already approved → no-op reply, no new audit row", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: userId4, designated_kit: kitId4, target_entity: entityBId4, status: "approved", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const beforeAudit = await getAuditRows(rqData.id, "update");
+    const beforeCount = beforeAudit.length;
+
+    const res = await postAs(CHAT_ADMIN, `/approve ${handle}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("already approved");
+    expect(body.reply).toContain(handle);
+
+    // No new audit row, status unchanged
+    const afterAudit = await getAuditRows(rqData.id, "update");
+    expect(afterAudit.length).toBe(beforeCount);
+    const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      headers: { Authorization: suToken4 },
+    });
+    expect((await check.json()).status).toBe("approved");
+
+    await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken4 },
+    });
+  });
+
+  it("/reject — request already rejected → no-op reply, no new audit row", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: userId4, designated_kit: kitId4, target_entity: entityBId4, status: "rejected", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const beforeAudit = await getAuditRows(rqData.id, "update");
+    const beforeCount = beforeAudit.length;
+
+    const res = await postAs(CHAT_ADMIN, `/reject ${handle}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("already rejected");
+
+    const afterAudit = await getAuditRows(rqData.id, "update");
+    expect(afterAudit.length).toBe(beforeCount);
+
+    await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken4 },
+    });
+  });
+
+  it("/approve — request already rejected → cannot-transition reply, status unchanged", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rq = await fetch(`${baseUrl4}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken4, "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: userId4, designated_kit: kitId4, target_entity: entityBId4, status: "rejected", date: today, delivery_date: today }),
+    });
+    const rqData = await rq.json();
+    const handle = rqData.id.slice(-6);
+
+    const res = await postAs(CHAT_ADMIN, `/approve ${handle}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("rejected");
+    expect(body.reply).toContain("cannot approve");
+
+    const check = await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      headers: { Authorization: suToken4 },
+    });
+    expect((await check.json()).status).toBe("rejected");
+
+    await fetch(`${baseUrl4}/api/collections/requests/records/${rqData.id}`, {
+      method: "DELETE",
+      headers: { Authorization: suToken4 },
+    });
   });
 
   // ---------- /request ----------
