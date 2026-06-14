@@ -18,15 +18,6 @@ Bugs found: 7
 - Severity rationale: Kit picker dropdowns and detail views break when multiple kits share a serial. Root cause: PB collection schema has `required:true` but no `unique:true` on the `serial` field. Confirmed pre-existing as BUG-1 in memory.
 - Screenshot path: test-results/puppet-admin/B2-FAIL-dialog-closed-silently.png
 
-### B-B6-1: No Deactivate button on kit detail page — deactivation not exposed via UI [P1]
-- Story: B6
-- Step that failed: Navigate to kit detail, look for "Deactivate" / "Archive" button
-- Expected: A "Deactivate" button in the Actions card to soft-delete the kit
-- Actual: Actions card shows only "Move kit", "Edit", and "Delete" (hard-delete). No deactivation affordance. The kit list shows 35 kits after running tests — PUPPET-KIT-001 duplicates are active in the list.
-- Repro: Log in as admin → /kits/any_active_kit_id → look for deactivate button → not found.
-- Severity rationale: Soft-delete (`is_active=false`) is the intended mechanism (CLAUDE.md: `deleteRule: null`) but there is no way for admin to deactivate via the UI. Only hard-delete is exposed. Kits can accumulate without a clean-up path.
-- Screenshot path: test-results/puppet-admin/B6-no-deactivate-button.png
-
 ### B-C3-1: Fulfill without prior assignment shows misleading error — BUG-2 confirmed [P1]
 - Story: C3
 - Step that failed: Click "Save & Fulfill →" on approved request with no designated_kit/target_entity set
