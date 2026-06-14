@@ -1185,4 +1185,113 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(afterRetirePayload.success).toBe(true);
     expect(afterRetirePayload.record_id).not.toBe(recordId);
   });
+
+  it("an admin create_component creates the record, and a repeat create with the same serialized serial is a no-op", async () => {
+    // 14th and final create-side no-op guard, closing the series. A repeat
+    // create_component with the same active serial (on a serialized product)
+    // must return no_op with the existing record_id instead of failing with
+    // create_failed (which is what components_active_serial_unique would
+    // otherwise produce), and must not write a redundant audit_log row.
+    //
+    // The guard only fires for serialized components (is_bulk=false) with a
+    // non-empty serial — bulk components share the namespace and are exempt
+    // from the underlying constraint.
+    const suffix = Math.random().toString(36).slice(2);
+    const componentSerial = `MCP-CC-${suffix}`;
+
+    // Seed a serialized product so the create_component path with a serial
+    // is accepted by components_product_serialized_check.
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 130, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-CC-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    // First create succeeds.
+    const createRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 131, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: componentSerial } },
+    });
+    const createPayload = toolPayload((await createRes.json()).result);
+    expect(createPayload.success).toBe(true);
+    const recordId = createPayload.record_id;
+
+    // Capture audit_log count for this component after the real create.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${recordId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat create with the same serial: must no-op with the same contract
+    // shape the sibling guards return, including the existing record_id.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 132, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: componentSerial } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.record_id).toBe(recordId);
+    expect(repeatPayload.message).toMatch(/already exists/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${recordId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different serial is NOT a no-op — new record created.
+    const otherSerial = `${componentSerial}-OTHER`;
+    const otherRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 133, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: otherSerial } },
+    });
+    const otherPayload = toolPayload((await otherRes.json()).result);
+    expect(otherPayload.success).toBe(true);
+    expect(otherPayload.record_id).not.toBe(recordId);
+
+    // Soft-delete bypass: an inactive serialized component with the same
+    // serial does NOT shadow a new create (mirrors components_active_serial_unique).
+    // Authenticate as the app admin for the PATCH — the components REST field
+    // guard at components_validate.pb.js rejects the superuser panel token
+    // because it has no users.role (documented gotcha in CLAUDE.md).
+    const retireRes = await fetch(
+      `${baseUrl}/api/collections/components/records/${recordId}`,
+      {
+        method: "PATCH",
+        headers: { Authorization: adminToken, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      },
+    );
+    expect(retireRes.status).toBe(200);
+
+    const afterRetireRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 134, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: componentSerial } },
+    });
+    const afterRetirePayload = toolPayload((await afterRetireRes.json()).result);
+    expect(afterRetirePayload.success).toBe(true);
+    expect(afterRetirePayload.record_id).not.toBe(recordId);
+
+    // Bulk-component exemption: a bulk component with a duplicate serial is
+    // NOT a no-op (the underlying unique constraint exempts bulks, so the
+    // guard must too). Seed a bulk-capable product first, then verify the
+    // bulk create succeeds even when the soft-deleted serialized record above
+    // shares the same serial string.
+    const bulkProdRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 135, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-CC-BULK-PROD-${suffix}`, is_serialized: false } },
+    });
+    const bulkProductId = toolPayload((await bulkProdRes.json()).result).record_id;
+
+    const bulkRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 136, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: bulkProductId, is_bulk: true, quantity: 5 } },
+    });
+    const bulkPayload = toolPayload((await bulkRes.json()).result);
+    expect(bulkPayload.success).toBe(true);
+    expect(bulkPayload.is_bulk).toBe(true);
+  });
 });

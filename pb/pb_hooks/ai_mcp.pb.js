@@ -1235,6 +1235,36 @@ routerAdd("POST", "/api/mcp", function(c) {
         return { error: "not_found", detail: "product not found: " + productId };
       }
 
+      // Idempotent retry guard (#414–#426 series, 14th and final guard for the
+      // create-side, closing the series). If an active serialized component
+      // with this serial already exists, return no-op with the existing record
+      // id instead of letting the components_active_serial_unique hook reject
+      // the save with a generic create_failed. Bulk components (is_bulk=true)
+      // and components with an empty serial are exempt — they can share, so
+      // there's no uniqueness wart to deduplicate against (mirrors the
+      // exemption logic in components_active_serial_unique.pb.js lines 11-14).
+      if (!isBulk && serial) {
+        try {
+          var existingComponents = dao.findRecordsByFilter(
+            "components",
+            "serial = {:serial} && is_active = true && is_bulk = false",
+            "",
+            1,
+            0,
+            { serial: serial }
+          );
+          if (existingComponents && existingComponents.length > 0) {
+            return {
+              ok: true,
+              no_op: true,
+              record_id: existingComponents[0].id,
+              serial: serial,
+              message: "Component " + serial + " already exists; no record created."
+            };
+          }
+        } catch (_) {}
+      }
+
       try {
         var collection = dao.findCollectionByNameOrId("components");
         var record = new Record(collection);
