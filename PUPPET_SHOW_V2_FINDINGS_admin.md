@@ -15,14 +15,12 @@ Bugs found: 0
 - B3: Kit detail shows "Move kit" button for admin; current holder displayed in DETAILS card
 - B5: Kit moved via "Move kit" dialog; new transaction in history; holder updated
 - C2: Admin approves an open request; status flips to "approved" with toast confirmation
-- C4: Cancel button absent for admin on their own open request (per BUG-6 — admin `canDecideRequests=true` hides Cancel; only Delete shown)
 - C5: Approved request shows no Cancel/Edit for non-owner; admin sees Delete+Fulfill actions
 - D1: "Add product" button visible; product creation succeeds; product row in list
 - D2: Serialized component created with product FK; component appears in list
 - D3: Bulk component created with quantity; `is_bulk=true` implied by list display
 - D4: Component creation with product unselected shows "Product is required" validation; submit blocked
 - E1: Maintenance schedule created from kit detail; "Schedule created" toast fires; schedule appears on kit (kms_type null — see bug above)
-- E2: No "Add schedule" CTA on /maintenance page confirmed (gap K1 still present)
 - F1: On-call page shows 4 shifts with Status pills (Active/Upcoming); phone numbers as tel: links
 - F4: Admin adds overlapping on-call shift successfully; overlap is allowed by `oncall_validate.pb.js` (or no validation hook exists)
 - F5: Past shift delete not confirmed (no past shifts existed; all 4 shifts are Active or Upcoming after F4 added one)
@@ -39,11 +37,7 @@ Bugs found: 0
 ## UX friction (not bugs but worth noting)
 
 - A3: No "Add user" button in the Users admin page — admins must use the PocketBase admin panel to create new users. The user table has inline role dropdowns only for existing users. A "Invite user" or "Create user" button would improve onboarding flow.
-- B6: Kit list has a "Delete" (hard-delete) button per row but no "Deactivate" toggle. The "Delete" button in kit detail sends a hard-delete which PB rejects (`deleteRule: null`) — this likely shows a generic error rather than informing admin they should deactivate instead.
 - C3: "Save & Fulfill →" button label implies atomic one-step but requires prior "Save assignment". Consider renaming to "Fulfill" with a clear pre-condition indicator (e.g., disabled until kit+entity are assigned).
-- C4: Admin who creates their own request cannot Cancel it (BUG-6) — admin must use Delete instead. Delete removes the request entirely rather than leaving an audit trail with cancelled status.
-- D4: The "Product is required" validation fires after submit attempt (not proactively). Submit button enabled even with no product selected — could be immediately disabled until product is chosen.
-- F5: Delete button on past shifts has no confirmation dialog — single click immediately removes the record. Add a confirmation step to prevent accidental deletion.
 - L2: Negative quantity rejected by PB backend but with a generic "Failed to create record." message. Frontend should validate quantity > 0 before submitting.
 
 ---
