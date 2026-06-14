@@ -18,15 +18,6 @@ Bugs found: 3
 - Severity rationale: UX mismatch. The button label `Save & Fulfill →` implies one-step but requires previous manual "Save assignment" click. There is no tooltip or inline guidance explaining this requirement before the error fires.
 - Screenshot path: test-results/puppet-admin/C3-after-fulfill.png
 
-### B-L3-1: Double-click on "Create request" creates two requests [P1]
-- Story: L3
-- Step that failed: Click submit twice rapidly (`.click({ clickCount: 2, delay: 100 })`)
-- Expected: Only one request created; submit button disabled on first click
-- Actual: Two `open` requests created in DB (diff = 2). The submit button does not disable on first click and does not prevent duplicate submissions. Confirmed by row count before/after.
-- Repro: Log in → /requests → New request → fill delivery_date → double-click Create (< 500ms between clicks). Two rows appear.
-- Severity rationale: Creates orphaned open requests. In a real scenario, a user who accidentally double-clicks creates a duplicate request that another user may act on. The fix is to disable the submit button immediately on first click.
-- Screenshot path: test-results/puppet-admin/L3-count-check.png
-
 ---
 
 ## Successes (one-line per story)
