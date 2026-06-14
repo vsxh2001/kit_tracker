@@ -314,6 +314,23 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       },
       {
+        name: "update_component",
+        description: "Update fields on an existing component. Only specified fields are changed. Use for fixing serial, notes, bin_code, lot_code, expires_at, or soft-deleting (is_active=false) / reactivating (is_active=true). Undo not available via MCP — issue a reverse update_component. Only admin/technician can call this.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Component record ID (required)" },
+            serial: { type: "string", description: "New serial number (pass empty string to clear)" },
+            notes: { type: "string", description: "New notes" },
+            bin_code: { type: "string", description: "New bin code (max 16 chars)" },
+            lot_code: { type: "string", description: "New lot code (max 32 chars)" },
+            expires_at: { type: "string", description: "Expiry date YYYY-MM-DD or empty string to clear" },
+            is_active: { type: "boolean", description: "Set to false to soft-delete, true to reactivate" }
+          },
+          required: ["id"]
+        }
+      },
+      {
         name: "update_user_phone",
         description: "Set the phone number for a user (E.164 format). Admin can update any user; non-admin can only update self. Undo not available via MCP — issue a reverse update_user_phone. Only admin/technician+ can call this.",
         inputSchema: {
@@ -1829,6 +1846,87 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeUpdateComponent(dao, args, userId, userRole) {
+      if (userRole !== "admin" && userRole !== "technician") {
+        return { error: "permission_denied", detail: "Only admin or technician can update components." };
+      }
+      var id = String(args.id || "").trim();
+      if (!id) {
+        return { error: "missing_required", detail: "id is required" };
+      }
+      var mutableFields = ["serial", "notes", "bin_code", "lot_code", "expires_at", "is_active"];
+      var hasUpdate = false;
+      for (var fi = 0; fi < mutableFields.length; fi++) {
+        if (args[mutableFields[fi]] !== undefined) { hasUpdate = true; break; }
+      }
+      if (!hasUpdate) {
+        return { error: "no_fields_to_update", detail: "no fields to update" };
+      }
+
+      var record;
+      try {
+        record = dao.findRecordById("components", id);
+      } catch (_) {
+        return { error: "not_found", detail: "component not found: " + id };
+      }
+
+      var before = {};
+      var after = {};
+      var strFields = ["serial", "notes", "bin_code", "lot_code", "expires_at"];
+      for (var si = 0; si < strFields.length; si++) {
+        var sf = strFields[si];
+        if (args[sf] !== undefined) {
+          before[sf] = safeStr(record, sf);
+          record.set(sf, String(args[sf]));
+          after[sf] = String(args[sf]);
+        }
+      }
+      if (args.is_active !== undefined) {
+        before.is_active = record.getBool ? record.getBool("is_active") : (safeStr(record, "is_active") === "true");
+        record.set("is_active", args.is_active === true);
+        after.is_active = args.is_active === true;
+      }
+
+      var componentNoOp = true;
+      for (var cbk in before) {
+        if (Object.prototype.hasOwnProperty.call(before, cbk)) {
+          if (before[cbk] !== after[cbk]) { componentNoOp = false; break; }
+        }
+      }
+      if (componentNoOp) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "Component " + id + " already matches the requested values; no update performed"
+        };
+      }
+
+      try {
+        dao.save(record);
+
+        saveMcpAuditLog(dao, {
+          collection_name: "components",
+          record_id: id,
+          actor: userId,
+          action: "update",
+          tool: "update_component",
+          changes: { before: before, after: after }
+        });
+
+        return {
+          success: true,
+          record_id: id,
+          before: before,
+          after: after,
+          description: "Updated component: " + id + ". Note: undo is not available via MCP — issue a reverse update_component.",
+          collection: "components"
+        };
+      } catch (err) {
+        saveMcpAuditLog(dao, { collection_name: "components", record_id: id, actor: userId, action: "update_failed", tool: "update_component", changes: { error_detail: String(err) } });
+        return { error: "update_failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function executeUpdateUserPhone(dao, args, userId, userRole) {
       var email = String(args.email || "").trim();
       if (!email) {
@@ -2170,6 +2268,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "update_entity") return executeUpdateEntity(dao, args, userId, userRole);
         if (toolName === "update_kit") return executeUpdateKit(dao, args, userId, userRole);
         if (toolName === "update_product") return executeUpdateProduct(dao, args, userId, userRole);
+        if (toolName === "update_component") return executeUpdateComponent(dao, args, userId, userRole);
         if (toolName === "update_user_phone") return executeUpdateUserPhone(dao, args, userId, userRole);
         if (toolName === "update_user_telegram_chat_id") return executeUpdateUserTelegramChatId(dao, args, userId, userRole);
         if (toolName === "report_kits_by_entity") return executeReportKitsByEntity(dao);
@@ -2273,6 +2372,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         toolName === "update_entity" ||
         toolName === "update_kit" ||
         toolName === "update_product" ||
+        toolName === "update_component" ||
         toolName === "update_user_phone" ||
         toolName === "update_user_telegram_chat_id"
       );
