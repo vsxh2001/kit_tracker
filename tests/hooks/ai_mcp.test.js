@@ -1294,4 +1294,153 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(bulkPayload.success).toBe(true);
     expect(bulkPayload.is_bulk).toBe(true);
   });
+
+  it("an admin update_component changes a field, and a repeat update with the same value is a no-op", async () => {
+    // Symmetry with update_kit / update_product no-op behavior. A repeat
+    // update_component with the same value must not write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Seed a serialized product so create_component accepts the serial.
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 140, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-UC-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    // Create a component via the MCP create_component tool.
+    const createRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 141, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: `MCP-UC-COMP-${suffix}` } },
+    });
+    const createPayload = toolPayload((await createRes.json()).result);
+    expect(createPayload.success).toBe(true);
+    const id = createPayload.record_id;
+
+    // First update: writes the notes.
+    const updateRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 142, method: "tools/call",
+      params: { name: "update_component", arguments: { id, notes: "first" } },
+    });
+    const updatePayload = toolPayload((await updateRes.json()).result);
+    expect(updatePayload.success).toBe(true);
+    expect(updatePayload.after.notes).toBe("first");
+
+    // Capture audit_log count for this component after the real update.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat update with the same notes: must no-op with the same contract
+    // shape the sibling guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 143, method: "tools/call",
+      params: { name: "update_component", arguments: { id, notes: "first" } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different notes value is NOT a no-op.
+    const changeRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 144, method: "tools/call",
+      params: { name: "update_component", arguments: { id, notes: "second" } },
+    });
+    const changePayload = toolPayload((await changeRes.json()).result);
+    expect(changePayload.success).toBe(true);
+    expect(changePayload.after.notes).toBe("second");
+  });
+
+  it("update_component flips bin_code + lot_code + expires_at and records before/after", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Seed a product (non-serialized is fine for fields-only update test).
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-UC-FLD-PROD-${suffix}`,
+        is_active: true,
+        is_serialized: false,
+      }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    // Seed a component with initial field values.
+    const compRes = await fetch(`${baseUrl}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: productId,
+        is_active: true,
+        bin_code: "A-01-01",
+        lot_code: "LOT-ORIG-001",
+        expires_at: "2025-12-31 00:00:00.000Z",
+      }),
+    });
+    const id = (await compRes.json()).id;
+
+    // Update all three fields.
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 150, method: "tools/call",
+      params: {
+        name: "update_component",
+        arguments: { id, bin_code: "B-02-09", lot_code: "LOT-NEW-999", expires_at: "2027-06-30" },
+      },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.success).toBe(true);
+    expect(payload.before.bin_code).toBe("A-01-01");
+    expect(payload.after.bin_code).toBe("B-02-09");
+    expect(payload.before.lot_code).toBe("LOT-ORIG-001");
+    expect(payload.after.lot_code).toBe("LOT-NEW-999");
+    expect(payload.before.expires_at).toContain("2025-12-31");
+    expect(payload.after.expires_at).toBe("2027-06-30");
+
+    // Confirm the DB was updated.
+    const got = await fetch(`${baseUrl}/api/collections/components/records/${id}`, {
+      headers: { Authorization: suToken },
+    });
+    const body = await got.json();
+    expect(body.bin_code).toBe("B-02-09");
+    expect(body.lot_code).toBe("LOT-NEW-999");
+    expect(body.expires_at).toContain("2027-06-30");
+
+    // Repeat with the same "YYYY-MM-DD" expires_at must no-op — PB stores
+    // dates as "YYYY-MM-DD HH:MM:SS.sssZ", so a naive string compare would
+    // diverge and write a redundant audit row. Guard normalizes both sides.
+    const auditCountRes = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCountBefore = (await auditCountRes.json()).items.length;
+
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 151, method: "tools/call",
+      params: {
+        name: "update_component",
+        arguments: { id, bin_code: "B-02-09", lot_code: "LOT-NEW-999", expires_at: "2027-06-30" },
+      },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    const auditCountRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditCountRes2.json()).items.length).toBe(auditCountBefore);
+  });
 });
