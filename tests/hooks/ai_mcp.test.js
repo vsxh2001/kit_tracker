@@ -696,6 +696,67 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(changePayload.after.description).toBe("second");
   });
 
+  it("an admin update_kit changes a field, and a repeat update with the same value is a no-op", async () => {
+    // Symmetry with the move_kit / move_component / decide_request /
+    // link_component / update_user_phone / update_user_telegram_chat_id /
+    // update_product no-op behavior. A repeat update_kit with the same value
+    // must not write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+    const kitSerial = `MCP-UK-KIT-${suffix}`;
+
+    // Create a kit via the MCP create_kit tool.
+    const createRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 90, method: "tools/call",
+      params: { name: "create_kit", arguments: { serial: kitSerial } },
+    });
+    const createPayload = toolPayload((await createRes.json()).result);
+    expect(createPayload.success).toBe(true);
+    const id = createPayload.record_id;
+
+    // First update: writes the notes.
+    const updateRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 91, method: "tools/call",
+      params: { name: "update_kit", arguments: { id, notes: "first" } },
+    });
+    const updatePayload = toolPayload((await updateRes.json()).result);
+    expect(updatePayload.success).toBe(true);
+    expect(updatePayload.after.notes).toBe("first");
+
+    // Capture audit_log count for this kit after the real update.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat update with the same notes: must no-op with the same contract
+    // shape the sibling guards return.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 92, method: "tools/call",
+      params: { name: "update_kit", arguments: { id, notes: "first" } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different notes value is NOT a no-op.
+    const changeRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 93, method: "tools/call",
+      params: { name: "update_kit", arguments: { id, notes: "second" } },
+    });
+    const changePayload = toolPayload((await changeRes.json()).result);
+    expect(changePayload.success).toBe(true);
+    expect(changePayload.after.notes).toBe("second");
+  });
+
   it("get_kit active_components derives from component_transactions, not components.kit", async () => {
     const suffix = Math.random().toString(36).slice(2);
 

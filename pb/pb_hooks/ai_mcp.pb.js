@@ -1591,6 +1591,20 @@ routerAdd("POST", "/api/mcp", function(c) {
         after.is_active = args.is_active === true;
       }
 
+      var kitNoOp = true;
+      for (var kbk in before) {
+        if (Object.prototype.hasOwnProperty.call(before, kbk)) {
+          if (before[kbk] !== after[kbk]) { kitNoOp = false; break; }
+        }
+      }
+      if (kitNoOp) {
+        return {
+          ok: true,
+          no_op: true,
+          message: "Kit " + id + " already matches the requested values; no update performed"
+        };
+      }
+
       try {
         dao.save(record);
 
