@@ -1375,13 +1375,18 @@ describe("ai_mcp POST /api/mcp", () => {
     });
     const productId = (await prodRes.json()).id;
 
-    // Seed a component with initial field values.
+    // Seed a component with initial field values. Non-serialized products
+    // require is_bulk=true + quantity>=1 (enforced by
+    // components_product_serialized_check.pb.js); without them PB rejects
+    // the POST with "Bulk component quantity must be >= 1".
     const compRes = await fetch(`${baseUrl}/api/collections/components/records`, {
       method: "POST",
       headers: { Authorization: suToken, "Content-Type": "application/json" },
       body: JSON.stringify({
         product: productId,
         is_active: true,
+        is_bulk: true,
+        quantity: 1,
         bin_code: "A-01-01",
         lot_code: "LOT-ORIG-001",
         expires_at: "2025-12-31 00:00:00.000Z",
