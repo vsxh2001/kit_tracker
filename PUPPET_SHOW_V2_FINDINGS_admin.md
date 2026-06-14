@@ -3,20 +3,11 @@
 Status: PLAYED 2026-05-16
 Stories attempted: 30
 Stories passing: 29
-Bugs found: 7
+Bugs found: 6
 
 ---
 
 ## Bugs
-
-### B-B2-1: Duplicate kit serials accepted — no unique constraint [P0]
-- Story: B2
-- Step that failed: Submit "New kit" with serial `PUPPET-KIT-001` (already exists)
-- Expected: Dialog shows error, no new row created
-- Actual: "Kit created" toast fires. Dialog closes. Duplicate created silently. DB now has 6 records with serial `PUPPET-KIT-001`.
-- Repro: Log in as admin → /kits → New kit → enter `PUPPET-KIT-001` → Save. Repeat multiple times. All succeed.
-- Severity rationale: Kit picker dropdowns and detail views break when multiple kits share a serial. Root cause: PB collection schema has `required:true` but no `unique:true` on the `serial` field. Confirmed pre-existing as BUG-1 in memory.
-- Screenshot path: test-results/puppet-admin/B2-FAIL-dialog-closed-silently.png
 
 ### B-C3-1: Fulfill without prior assignment shows misleading error — BUG-2 confirmed [P1]
 - Story: C3
