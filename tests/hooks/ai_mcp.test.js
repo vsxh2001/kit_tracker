@@ -1415,5 +1415,32 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(body.bin_code).toBe("B-02-09");
     expect(body.lot_code).toBe("LOT-NEW-999");
     expect(body.expires_at).toContain("2027-06-30");
+
+    // Repeat with the same "YYYY-MM-DD" expires_at must no-op — PB stores
+    // dates as "YYYY-MM-DD HH:MM:SS.sssZ", so a naive string compare would
+    // diverge and write a redundant audit row. Guard normalizes both sides.
+    const auditCountRes = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCountBefore = (await auditCountRes.json()).items.length;
+
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 151, method: "tools/call",
+      params: {
+        name: "update_component",
+        arguments: { id, bin_code: "B-02-09", lot_code: "LOT-NEW-999", expires_at: "2027-06-30" },
+      },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.message).toMatch(/already/);
+
+    const auditCountRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${id}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditCountRes2.json()).items.length).toBe(auditCountBefore);
   });
 });

@@ -1876,7 +1876,11 @@ routerAdd("POST", "/api/mcp", function(c) {
       for (var si = 0; si < strFields.length; si++) {
         var sf = strFields[si];
         if (args[sf] !== undefined) {
-          before[sf] = safeStr(record, sf);
+          var raw = safeStr(record, sf);
+          // PB stores date fields as "YYYY-MM-DD HH:MM:SS.sssZ"; callers pass
+          // "YYYY-MM-DD". Strip to the date prefix so the no-op guard compares
+          // apples-to-apples and the audit log echoes the caller's format.
+          before[sf] = (sf === "expires_at" && raw) ? raw.slice(0, 10) : raw;
           record.set(sf, String(args[sf]));
           after[sf] = String(args[sf]);
         }
