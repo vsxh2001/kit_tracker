@@ -7,14 +7,6 @@
 
 ---
 
-## Bug table
-
-| ID | Story | Severity | Where | What |
-|----|-------|----------|-------|------|
-| U-01 | A2 (deep) | MEDIUM | `RequireRole.tsx`, `Layout.tsx`, PB listRule | `role="denied"` is truthy → `hasRole=true` → denied users bypass RequireRole route gate and see full nav. No "denied" banner on dashboard. PB listRules use `role != ""` which `"denied"` passes. Fresh login is blocked (PB returns 400), but mid-session denial (admin changes role → realtime fires → authRefresh → role="denied") leaves user fully browseable. |
-
----
-
 ## Story-by-story results
 
 ### Group A — Onboarding & auth
@@ -23,7 +15,6 @@
 |-------|--------|-------|
 | A1 | PASS | `DashboardPage.tsx:27` `pendingApproval = !user?.role`; banner text at line 78. `Layout.tsx:22` `hasRole = !!user?.role` → all nav links hidden for role="" users. |
 | A2 | PASS | PB returns `{"code":400,"message":"Your account has been denied. Contact administrator."}`. `LoginPage.tsx:45` catches the "denied" string and sets the correct error. |
-| A2 deep | BUG U-01 | See table above. |
 
 ### Group B — Kit lifecycle
 
