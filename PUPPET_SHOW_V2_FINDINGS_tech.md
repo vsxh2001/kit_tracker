@@ -41,25 +41,6 @@
 
 ---
 
-## Bugs Found
-
-### B-T-1 — Low: B2 story expectation is outdated (duplicate serial now intentional)
-
-**Story:** B2 — "Duplicate serial rejected"
-**Observed:** Two kits with serial `DEMO-KIT-INJ` both created and active. `resolve_kit` in AI returns both, and AI correctly notes the ambiguity.
-**Root cause:** Migration `1778880000_kit_serial_not_unique.js` intentionally drops the UNIQUE constraint to allow re-issuing serials for retired (soft-deleted) kits.
-**Impact:** The PUPPET_SHOW_V2.md story B2 says "expected: dialog shows error referencing unique constraint." This is now incorrect — duplicates are allowed by design. The kit picker in requests could show two entries with the same serial (ambiguous UX).
-**Verdict:** Design change, not a bug. Story B2 needs to be updated to reflect the intent. UX risk: if two ACTIVE kits share a serial, the user and AI both face ambiguity.
-
-### B-T-3 — Informational: G5 duplicate serial side-effect in AI
-
-**Story:** G5 — Prompt injection
-**Observed:** G5 setup created `DEMO-KIT-INJ` as a new kit. There was already a `DEMO-KIT-INJ` record (ID: `2lvb0snq6medjln`) from a prior session. AI correctly reported both: "there are two kit records with this serial number."
-**Impact:** In real deployment, stale INJ kits would mislead AI responses. Clean teardown of test data is important.
-**Verdict:** Not a functional bug; data hygiene issue in test setup.
-
----
-
 ## Previously Known Bugs — Status Update
 
 | Bug | Description | Status |
@@ -95,8 +76,6 @@
 2. **Maintenance `/maintenance` page — no active schedules in seed**: All 15 seeded schedules have `is_active=false`. The `/maintenance` page filtered to `is_active=true` would show nothing. E3 worked around this by creating a new schedule.
 
 3. **F1 missing "Past" shift**: The F5 deletion of the past shift means F1 only has 2 shifts (Active current + Upcoming) + 1 overlapping from F4. The original "3 shifts from seed" pattern was disrupted by F5 earlier. Story ordering matters for F1.
-
-4. **B2 — Puppet show story outdated**: The B2 story expects duplicate serial to be rejected. Per migration `1778880000`, this is now intentional. Story should be updated to "document the re-issue flow" instead.
 
 ---
 
