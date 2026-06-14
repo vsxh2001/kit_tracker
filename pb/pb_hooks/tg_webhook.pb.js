@@ -756,6 +756,11 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
         if (mvLastTxArr && mvLastTxArr.length) mvFromId = mvLastTxArr[0].getString("to_entity") || "";
       } catch (e) {}
 
+      // No-op if kit is already at the requested destination (B-G3-1 symmetry with MCP move_kit).
+      if (mvFromId && mvFromId === mvEntity.id) {
+        return reply("Kit " + escapeHtml(mvSerial) + " already at " + escapeHtml(mvEntity.getString("name")) + " — no transaction created.");
+      }
+
       // Create transaction
       var mvNow = new Date().toISOString().replace("T", " ").replace("Z", "") + "Z";
       var mvTxCol = dao.findCollectionByNameOrId("transactions");

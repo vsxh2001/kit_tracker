@@ -921,6 +921,33 @@ describe("tg_webhook P2 — write commands", () => {
     expect(changes.via).toBe("tg-command");
   });
 
+  it("/move — kit already at destination → no-op reply, no new transaction, no audit row", async () => {
+    // Kit is currently at Entity Alpha (from prior test). Issue /move to Alpha again.
+    const txBefore = await fetch(
+      `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const beforeData = await txBefore.json();
+    const beforeCount = beforeData.totalItems;
+    const beforeNewestId = beforeData.items[0].id;
+
+    const res = await postAs(CHAT_ADMIN, "/move P2-KIT-001 P2 Entity Alpha");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("already at");
+    expect(body.reply).toContain("P2-KIT-001");
+    expect(body.reply).toContain("P2 Entity Alpha");
+
+    const txAfter = await fetch(
+      `${baseUrl4}/api/collections/transactions/records?filter=${encodeURIComponent(`kit="${kitId4}"`)}&sort=-created`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterData = await txAfter.json();
+    expect(afterData.totalItems).toBe(beforeCount);
+    expect(afterData.items[0].id).toBe(beforeNewestId);
+  });
+
   // ---------- /approve — role gate + happy path ----------
 
   it("/approve — missing handle → usage hint (200 ok)", async () => {
