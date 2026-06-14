@@ -3,7 +3,7 @@
 Status: PLAYED 2026-05-16
 Stories attempted: 30
 Stories passing: 29
-Bugs found: 6
+Bugs found: 5
 
 ---
 
@@ -44,15 +44,6 @@ Bugs found: 6
 - Repro: Log in → /requests → New request → fill delivery_date → double-click Create (< 500ms between clicks). Two rows appear.
 - Severity rationale: Creates orphaned open requests. In a real scenario, a user who accidentally double-clicks creates a duplicate request that another user may act on. The fix is to disable the submit button immediately on first click.
 - Screenshot path: test-results/puppet-admin/L3-count-check.png
-
-### B-E1-1: Maintenance schedule `kms_type` not saved — always null [P1]
-- Story: E1
-- Step that failed: Fill "Type" = "calibration" in Add Maintenance Schedule dialog → Submit
-- Expected: `kms_type = "calibration"` stored in DB
-- Actual: DB shows `kms_type = null` for all newly created schedules. The "Type" input field in the dialog does not map to the `kms_type` DB field, or the field name mismatch means the value is silently dropped.
-- Repro: Kit detail → Add schedule → fill Type "calibration" → Save → check DB: `kms_type` is null.
-- Severity rationale: This is a pre-existing known gap (K7 in the puppet show doc: "kms_type is uncontrolled text"). However the value is entirely dropped (not even saved as some other field) — meaning maintenance type filtering/reporting is permanently broken for all schedules created via the UI.
-- Screenshot path: test-results/puppet-admin/E1-after-submit.png
 
 ---
 
@@ -95,7 +86,6 @@ Bugs found: 6
 - F5: Delete button on past shifts has no confirmation dialog — single click immediately removes the record. Add a confirmation step to prevent accidental deletion.
 - G1/G2: AI chat failure message "I'm sorry, I wasn't able to complete that action." is generic with no indication of what went wrong (tool failure, rate limit, model error). Showing a more specific error would aid debugging.
 - L2: Negative quantity rejected by PB backend but with a generic "Failed to create record." message. Frontend should validate quantity > 0 before submitting.
-- Maintenance kms_type: All maintenance schedules show `kms_type = null` in DB. The Type input in the dialog doesn't persist to the expected field, creating silent data loss for a potentially important classification field.
 
 ---
 
