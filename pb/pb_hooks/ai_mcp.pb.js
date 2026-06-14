@@ -945,6 +945,30 @@ routerAdd("POST", "/api/mcp", function(c) {
         return { error: "missing_required", detail: "serial is required" };
       }
 
+      // Idempotent retry guard (#415–#424 series, 12th guard). If an active kit
+      // with this serial already exists, return no-op with the existing record id
+      // instead of letting the kits_active_serial_unique hook reject the save
+      // with a generic create_failed.
+      try {
+        var existingKits = dao.findRecordsByFilter(
+          "kits",
+          "serial = {:serial} && is_active = true",
+          "",
+          1,
+          0,
+          { serial: serial }
+        );
+        if (existingKits && existingKits.length > 0) {
+          return {
+            ok: true,
+            no_op: true,
+            record_id: existingKits[0].id,
+            serial: serial,
+            message: "Kit " + serial + " already exists; no record created."
+          };
+        }
+      } catch (_) {}
+
       try {
         var collection = dao.findCollectionByNameOrId("kits");
         var record = new Record(collection);
