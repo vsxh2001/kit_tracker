@@ -880,6 +880,31 @@ routerAdd("POST", "/api/mcp", function(c) {
         return { error: "missing_required", detail: "name is required" };
       }
 
+      // Idempotent retry guard (B-G3-1 symmetry with move_kit / move_component /
+      // decide_request / link_component_to_product / update_* no-op guards). If
+      // an active entity with this name already exists, return no-op with the
+      // existing record id instead of letting the entities_active_name_unique
+      // hook reject the save with a generic create_failed.
+      try {
+        var existingEntities = dao.findRecordsByFilter(
+          "entities",
+          "name = {:name} && is_active = true",
+          "",
+          1,
+          0,
+          { name: name }
+        );
+        if (existingEntities && existingEntities.length > 0) {
+          return {
+            ok: true,
+            no_op: true,
+            record_id: existingEntities[0].id,
+            name: name,
+            message: "Entity " + name + " already exists; no record created."
+          };
+        }
+      } catch (_) {}
+
       try {
         var collection = dao.findCollectionByNameOrId("entities");
         var record = new Record(collection);
