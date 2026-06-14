@@ -34,39 +34,6 @@
 
 ## Bugs Found
 
-### B-V-1 (LOW): AI chat gives generic "wasn't able to complete" error on session context loss
-
-**Story:** G4 / G (AI chat)
-**Severity:** Low / UX
-**Reproduce:**
-1. Start a session as viewer. Ask "Move DEMO-KIT-001 to DEMO-Entity-005". AI correctly refuses with role explanation.
-2. In a NEW message in the same session: "Yes, proceed with the move."
-3. AI responds: "I'm sorry, I wasn't able to complete that action. Please try again or rephrase your request."
-
-**Expected:** AI should maintain context and repeat the permission-denial explanation.
-**Actual:** Generic error message — looks like a system failure rather than a permissions message.
-**Impact:** Confusing UX; viewer may think it's a server error, not a role restriction.
-**Security:** No security impact — no move was executed. Verified via transaction log (no new rows).
-
----
-
-### B-V-2 (LOW): AI chat G6 ambiguity response implies viewer CAN move (misleading pre-refusal)
-
-**Story:** G6 / G (AI chat)
-**Severity:** Low / UX
-**Reproduce:**
-1. As viewer, send: "Move the kit to the lab"
-2. AI responds asking "which kit? which lab? Once you provide details, I'll resolve and move."
-3. AI implies it will execute the move, without noting viewer's role restriction upfront.
-4. On follow-up with specific serial/entity, AI then correctly refuses.
-
-**Expected:** AI should note upfront that viewer cannot move kits, before asking disambiguation questions.
-**Actual:** AI optimistically offers to help ("I'll resolve and move"), then refuses once it has enough info to attempt.
-**Impact:** UX confusion; one extra round-trip; viewer gets hopeful then rejected.
-**Security:** No security impact. The actual move_kit tool correctly returns permission_denied.
-
----
-
 ### B-V-3 (INFO): Duplicate active kits with identical serial DEMO-KIT-INJ
 
 **Story:** G5 / G (AI chat)
