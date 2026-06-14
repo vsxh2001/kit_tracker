@@ -9,15 +9,6 @@ Bugs found: 3
 
 ## Bugs
 
-### B-C3-1: Fulfill without prior assignment shows misleading error — BUG-2 confirmed [P1]
-- Story: C3
-- Step that failed: Click "Save & Fulfill →" on approved request with no designated_kit/target_entity set
-- Expected: Clear UI guidance to assign kit first, then fulfill
-- Actual: "Assign a kit before fulfilling." error shows both inline (red text) and as a toast after clicking Save & Fulfill. The request remains in `approved` state with no kit assigned. The two-step flow (Save assignment → Fulfill) is non-obvious — the `Save & Fulfill` button implies a single step but actually requires prior Save assignment.
-- Repro: Navigate to an approved request with no kit/entity → click "Save & Fulfill →" → error fires despite button label implying combined action.
-- Severity rationale: UX mismatch. The button label `Save & Fulfill →` implies one-step but requires previous manual "Save assignment" click. There is no tooltip or inline guidance explaining this requirement before the error fires.
-- Screenshot path: test-results/puppet-admin/C3-after-fulfill.png
-
 ---
 
 ## Successes (one-line per story)
