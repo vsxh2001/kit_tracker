@@ -1136,6 +1136,32 @@ routerAdd("POST", "/api/mcp", function(c) {
         return { error: "missing_required", detail: "name is required" };
       }
 
+      // Idempotent retry guard (#414–#425 series, 13th guard). If an active
+      // product with this name already exists, return no-op with the existing
+      // record id instead of letting the products_active_name_unique hook
+      // reject the save with a generic create_failed. Soft-deleted products
+      // with the same name do NOT shadow the create — filter scopes to
+      // is_active = true, matching the underlying unique-active-name constraint.
+      try {
+        var existingProducts = dao.findRecordsByFilter(
+          "products",
+          "name = {:name} && is_active = true",
+          "",
+          1,
+          0,
+          { name: name }
+        );
+        if (existingProducts && existingProducts.length > 0) {
+          return {
+            ok: true,
+            no_op: true,
+            record_id: existingProducts[0].id,
+            name: name,
+            message: "Product " + name + " already exists; no record created."
+          };
+        }
+      } catch (_) {}
+
       try {
         var collection = dao.findCollectionByNameOrId("products");
         var record = new Record(collection);
