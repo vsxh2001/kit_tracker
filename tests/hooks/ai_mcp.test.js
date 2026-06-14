@@ -954,4 +954,81 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(body.lot_code).toBe("LOT-XYZ-001");
     expect(body.expires_at).toContain("2026-12-31");
   });
+
+  it("an admin create_entity creates the record, and a repeat create with the same name is a no-op", async () => {
+    // Symmetry with the move_kit / move_component / decide_request /
+    // link_component / update_user_phone / update_user_telegram_chat_id /
+    // update_entity / update_product / update_kit no-op guards. A repeat
+    // create_entity with the same active name must return no_op with the
+    // existing record_id instead of failing with create_failed (which is
+    // what entities_active_name_unique would otherwise produce), and must
+    // not write a redundant audit_log row.
+    const suffix = Math.random().toString(36).slice(2);
+    const entityName = `MCP-CE-ENT-${suffix}`;
+
+    // First create succeeds.
+    const createRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 100, method: "tools/call",
+      params: { name: "create_entity", arguments: { name: entityName } },
+    });
+    const createPayload = toolPayload((await createRes.json()).result);
+    expect(createPayload.success).toBe(true);
+    const recordId = createPayload.record_id;
+
+    // Capture audit_log count for this entity after the real create.
+    const auditRes1 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${recordId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const auditCount1 = (await auditRes1.json()).items.length;
+
+    // Repeat create with the same name: must no-op with the same contract
+    // shape the sibling guards return, including the existing record_id.
+    const repeatRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 101, method: "tools/call",
+      params: { name: "create_entity", arguments: { name: entityName } },
+    });
+    const repeatPayload = toolPayload((await repeatRes.json()).result);
+    expect(repeatPayload.ok).toBe(true);
+    expect(repeatPayload.no_op).toBe(true);
+    expect(repeatPayload.record_id).toBe(recordId);
+    expect(repeatPayload.message).toMatch(/already exists/);
+
+    // No new audit_log row was written for the no-op call.
+    const auditRes2 = await fetch(
+      `${baseUrl}/api/collections/audit_log/records?filter=${encodeURIComponent(`record_id="${recordId}"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    expect((await auditRes2.json()).items.length).toBe(auditCount1);
+
+    // Sanity: a different name is NOT a no-op — new record created.
+    const otherName = `${entityName}-OTHER`;
+    const otherRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 102, method: "tools/call",
+      params: { name: "create_entity", arguments: { name: otherName } },
+    });
+    const otherPayload = toolPayload((await otherRes.json()).result);
+    expect(otherPayload.success).toBe(true);
+    expect(otherPayload.record_id).not.toBe(recordId);
+
+    // Soft-delete bypass: an inactive entity with the same name does NOT
+    // shadow a new create (mirrors entities_active_name_unique behavior).
+    const retireRes = await fetch(
+      `${baseUrl}/api/collections/entities/records/${recordId}`,
+      {
+        method: "PATCH",
+        headers: { Authorization: suToken, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      },
+    );
+    expect(retireRes.status).toBe(200);
+
+    const afterRetireRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 103, method: "tools/call",
+      params: { name: "create_entity", arguments: { name: entityName } },
+    });
+    const afterRetirePayload = toolPayload((await afterRetireRes.json()).result);
+    expect(afterRetirePayload.success).toBe(true);
+    expect(afterRetirePayload.record_id).not.toBe(recordId);
+  });
 });
