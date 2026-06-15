@@ -267,8 +267,6 @@ Status: READY-TO-PLAY · 2026-05-15
 
 ### E. Maintenance
 
-> See pre-existing bugs K4–K6 above for the remaining friction surface. Stories here cover what currently works.
-
 #### E1: Admin creates a maintenance schedule from a kit detail page @smoke
 **Persona:** demo-admin-1
 **Preconditions:** Kit `DEMO-KIT-02` is active.
@@ -542,7 +540,7 @@ Status: READY-TO-PLAY · 2026-05-15
 **Expected:** Navigates to /requests/<id>. (Per recent merge `242eb6a Merge: tables — whole-row click to detail, drop arrow column`.)
 **Bug if:** Nothing happens, or row tap triggers a different (form) action.
 
-#### K5: Mobile /maintenance — list renders as cards (KNOWN GAP K6 for create)
+#### K5: Mobile /maintenance — list renders as cards
 **Persona:** demo-admin-1 (mobile viewport)
 **Steps:**
 1. Navigate to /maintenance.
@@ -633,7 +631,7 @@ Specific multi-persona scenarios where the Playwright agents MUST run side-by-si
 | L. Error states + edge cases | 6 |
 | **Total** | **59** |
 
-K4–K6 are documentation markers (not playable stories); the 59-count above only covers playable stories distributed across the 11 active groups (the original group G "AI chat" was retired when the AI chat sidebar was replaced by deterministic slash commands).
+K5 is a documentation marker (not a playable story); the 59-count above only covers playable stories distributed across the 11 active groups (the original group G "AI chat" was retired when the AI chat sidebar was replaced by deterministic slash commands).
 
 ## Highest-ROI starting points (if forced to pick 3)
 
