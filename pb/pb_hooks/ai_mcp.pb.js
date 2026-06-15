@@ -406,6 +406,18 @@ routerAdd("POST", "/api/mcp", function(c) {
           },
           required: []
         }
+      },
+      {
+        name: "report_expiring_components",
+        description: "Return active components with an expires_at date already past or within N days from now, sorted by expires_at ascending. Use when user asks 'what is expiring', 'expired components', 'shelf life', 'expiring soon'.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            days_ahead: { type: "number", description: "Look-ahead window in days (default 30, max 365)" },
+            limit: { type: "number", description: "Max results (default 50, max 200)" }
+          },
+          required: []
+        }
       }
     ];
 
@@ -2250,6 +2262,70 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeReportExpiringComponents(dao, args) {
+      try {
+        var daysAhead = (args.days_ahead === undefined || args.days_ahead === null || args.days_ahead === "")
+          ? 30
+          : parseInt(args.days_ahead, 10);
+        if (isNaN(daysAhead) || daysAhead < 0) daysAhead = 30;
+        if (daysAhead > 365) daysAhead = 365;
+        var limit = args.limit ? parseInt(args.limit, 10) : 50;
+        if (isNaN(limit) || limit < 1) limit = 50;
+        if (limit > 200) limit = 200;
+
+        var horizon = new Date();
+        horizon.setDate(horizon.getDate() + daysAhead);
+        var horizonStr = horizon.toISOString().slice(0, 10);
+        var todayStr = new Date().toISOString().slice(0, 10);
+
+        var rows = [];
+        try {
+          rows = dao.findRecordsByFilter(
+            "components",
+            "is_active = true && expires_at != '' && expires_at <= {:horizon}",
+            "expires_at",
+            limit,
+            0,
+            { horizon: horizonStr }
+          );
+        } catch (_) {
+          return { expiring: [], note: "components collection not available" };
+        }
+
+        var nowMs = new Date(todayStr).getTime();
+        var expiring = [];
+        for (var i = 0; i < rows.length; i++) {
+          var c = rows[i];
+          var expiresAt = safeStr(c, "expires_at");
+          var expMs = new Date(expiresAt).getTime();
+          var daysUntilExpiry = isNaN(expMs) ? 0 : Math.floor((expMs - nowMs) / 86400000);
+          var productName = "";
+          var productId = safeStr(c, "product");
+          if (productId) {
+            try {
+              var prod = dao.findRecordById("products", productId);
+              productName = safeStr(prod, "name");
+            } catch (_) { /* product may be missing */ }
+          }
+          expiring.push({
+            component_id: c.id,
+            serial: safeStr(c, "serial"),
+            product_id: productId,
+            product_name: productName,
+            lot_code: safeStr(c, "lot_code"),
+            bin_code: safeStr(c, "bin_code"),
+            expires_at: expiresAt.slice(0, 10),
+            days_until_expiry: daysUntilExpiry,
+            is_bulk: c.getBool("is_bulk"),
+            quantity: c.getInt("quantity")
+          });
+        }
+        return { expiring: expiring };
+      } catch (err) {
+        return { error: "report_expiring_components failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function execute(toolName, args, dao, userId, userRole) {
       try {
         if (toolName === "list_kits") return executeListKits(dao, args);
@@ -2280,6 +2356,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "report_open_requests") return executeReportOpenRequests(dao, args);
         if (toolName === "report_overdue_returns") return executeReportOverdueReturns(dao, args);
         if (toolName === "report_maintenance_due") return executeReportMaintenanceDue(dao, args);
+        if (toolName === "report_expiring_components") return executeReportExpiringComponents(dao, args);
         return { error: "unknown tool: " + toolName };
       } catch (err) {
         return { error: "tool execution error", detail: String(err && err.message ? err.message : err) };
