@@ -30,15 +30,12 @@ Bugs found: 0
 - I1: Admin sidebar shows all links including /users, /maintenance, /stats, /audit, /oncall
 - I5: Self-promote PATCH rejected with HTTP 400 (role_change_check hook working)
 - L1: Network failure during kit create — dialog stays open with entered values preserved; "Something went wrong while processing your request." shown inline in dialog
-- L2: Negative quantity (-5) on bulk component rejected by PB; "Failed to create record." shown inline in dialog (no frontend validation — PB backend rejects)
 
 ---
 
 ## UX friction (not bugs but worth noting)
 
-- A3: No "Add user" button in the Users admin page — admins must use the PocketBase admin panel to create new users. The user table has inline role dropdowns only for existing users. A "Invite user" or "Create user" button would improve onboarding flow.
-- C3: "Save & Fulfill →" button label implies atomic one-step but requires prior "Save assignment". Consider renaming to "Fulfill" with a clear pre-condition indicator (e.g., disabled until kit+entity are assigned).
-- L2: Negative quantity rejected by PB backend but with a generic "Failed to create record." message. Frontend should validate quantity > 0 before submitting.
+_All previously listed friction items have been resolved; see purge PRs for details._
 
 ---
 
