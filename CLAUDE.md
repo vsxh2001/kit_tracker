@@ -117,7 +117,7 @@ When dispatching agents, the orchestrator reads assigned ports from `.claude/por
 
 | Collection | Key fields |
 |---|---|
-| `users` | `name`, `role` (select: admin/technician/user/viewer or empty) |
+| `users` | `name`, `role` (select: admin/technician/user/viewer/denied or empty) |
 | `kits` | `serial` (unique among `is_active=1` rows, migration `1781100000`), `notes`, `is_active` |
 | `entities` | `name`, `type`, `is_active` |
 | `transactions` | `kit`, `from_entity`, `to_entity`, `timestamp`, `notes`, `created_by`, `request` |
