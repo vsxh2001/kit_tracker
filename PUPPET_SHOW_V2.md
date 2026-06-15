@@ -14,7 +14,6 @@ Status: READY-TO-PLAY · 2026-05-15
 | # | Where | What | Source |
 |---|-------|------|--------|
 | K5 | Components page bulk vs serial UX | One dialog conditionally toggles fields rather than two distinct paths. Easy to mis-fill. | `COMPONENT_HYPERCHARGE_IDEAS.md` §4.9 |
-| K6 | Mobile schedule creation | Kit detail page is long; mobile requires deep scroll to find "Add schedule" (workaround: use the `/maintenance` page's "New schedule" CTA instead). | `MAINTENANCE_REVIEW.md` finding 10 |
 
 > Stories below assume these gaps remain. Where a story would be "pre-doomed," it is omitted and the gap above is referenced.
 
