@@ -117,8 +117,8 @@ When dispatching agents, the orchestrator reads assigned ports from `.claude/por
 
 | Collection | Key fields |
 |---|---|
-| `users` | `name`, `role` (select: admin/user/viewer or empty) |
-| `kits` | `serial` (unique), `notes`, `is_active` |
+| `users` | `name`, `role` (select: admin/technician/user/viewer/denied or empty) |
+| `kits` | `serial` (unique among `is_active=1` rows, migration `1781100000`), `notes`, `is_active` |
 | `entities` | `name`, `type`, `is_active` |
 | `transactions` | `kit`, `from_entity`, `to_entity`, `timestamp`, `notes`, `created_by`, `request` |
 | `requests` | `requester`, `date`, `delivery_date` (required), `status` (open/approved/rejected/fulfilled/cancelled), `designated_kit`, `target_entity`, `notes`, `decision_notes`, `expected_return` (optional) |
@@ -139,11 +139,13 @@ When dispatching agents, the orchestrator reads assigned ports from `.claude/por
 
 | Collection | createRule | updateRule | deleteRule | listRule |
 |---|---|---|---|---|
-| `requests` | admin or user role | admin OR (owner AND status=open) | admin OR (owner AND status=open) | auth |
-| `entities` | admin only | admin only | null (soft-delete via `is_active=false`) | auth |
-| `kits` | admin only | admin only | null (soft-delete via `is_active=false`) | auth |
-| `transactions` | auth + own created_by | null (append-only) | null (append-only) | auth |
+| `requests` | admin / technician / user | admin / technician / (owner AND status=open) | admin / (owner AND status=open) | auth AND role≠"" |
+| `entities` | admin / technician | admin / technician | null (soft-delete via `is_active=false`) | auth AND role≠"" |
+| `kits` | admin / technician | admin / technician | null (soft-delete via `is_active=false`) | auth AND role≠"" |
+| `transactions` | (admin / technician) AND own created_by | null (append-only) | null (append-only) | auth AND role≠"" |
 | `users` | (PB default) | admin OR self | (PB default) | admin OR self |
+
+Sources of truth: `requests.createRule` from `1778471709_technician_create_request_rule.js`; `requests.updateRule` + `transactions.createRule` from `1778470805_add_technician_role.js`; technician parity on `kits`/`entities` from `1778677172_tech_admin_parity.js`; pending-user listRule tightening from `1778598391_tighten_listrule_pending_users.js`.
 
 `users.viewRule` is `@request.auth.id != ""` (any authenticated) so `expand: requester` works for non-admins reading requests.
 
