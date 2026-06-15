@@ -5,7 +5,7 @@ Status: READY-TO-PLAY · 2026-05-15
 ## How to use
 - Each story has: persona, preconditions, steps, expected outcome, what counts as a bug.
 - Playwright agents execute against local PB on :8090 with demo data seeded (`scripts/seed_demo_data.mjs`).
-- Bugs go in `PUPPET_SHOW_V2_FINDINGS.md` (one row per failure; reference story id e.g. `C3`).
+- Bugs go in the per-persona file `PUPPET_SHOW_V2_FINDINGS_<persona>.md` (e.g. `PUPPET_SHOW_V2_FINDINGS_admin.md`) — one row per failure; reference story id e.g. `C3`.
 - All demo passwords are `Pass1234!`. Personas are seeded by `scripts/seed_demo_data.mjs:130-168`.
 - Routes are declared in `frontend/src/App.tsx:51-81`. Role gates: `RequireRole` (any non-empty role), `AdminOnly` (admin), `CanDecideOnly` (admin OR technician).
 
