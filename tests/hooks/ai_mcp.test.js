@@ -1448,4 +1448,128 @@ describe("ai_mcp POST /api/mcp", () => {
     );
     expect((await auditCountRes2.json()).items.length).toBe(auditCountBefore);
   });
+
+  it("report_expiring_components returns components whose expires_at falls within the look-ahead window", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Seed a product to hang components off of.
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 200, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-EXP-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    // Three components: one already expired (in the past), one expiring soon
+    // (within the default 30-day window), one far in the future (outside any
+    // reasonable window). days_ahead=60 should pick up the first two and skip
+    // the third.
+    const pastSerial = `MCP-EXP-PAST-${suffix}`;
+    const soonSerial = `MCP-EXP-SOON-${suffix}`;
+    const farSerial = `MCP-EXP-FAR-${suffix}`;
+
+    const pastDate = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const soonDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    const farDate = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
+
+    for (const [serial, expiresAt] of [[pastSerial, pastDate], [soonSerial, soonDate], [farSerial, farDate]]) {
+      const r = await rpc(adminToken, {
+        jsonrpc: "2.0", id: 201, method: "tools/call",
+        params: {
+          name: "create_component",
+          arguments: { product_id: productId, serial, expires_at: expiresAt },
+        },
+      });
+      const payload = toolPayload((await r.json()).result);
+      expect(payload.success).toBe(true);
+    }
+
+    // Default window (30 days) — only the already-expired and soon items match.
+    const defaultRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 202, method: "tools/call",
+      params: { name: "report_expiring_components", arguments: {} },
+    });
+    expect(defaultRes.status).toBe(200);
+    const defaultPayload = toolPayload((await defaultRes.json()).result);
+    expect(Array.isArray(defaultPayload.expiring)).toBe(true);
+    const defaultSerials = defaultPayload.expiring.map((c) => c.serial);
+    expect(defaultSerials).toContain(pastSerial);
+    expect(defaultSerials).toContain(soonSerial);
+    expect(defaultSerials).not.toContain(farSerial);
+
+    // Past-only window — days_ahead=0 still matches everything <= today, so the
+    // expired component is included but the soon-but-future one is not.
+    const pastRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 203, method: "tools/call",
+      params: { name: "report_expiring_components", arguments: { days_ahead: 0 } },
+    });
+    const pastPayload = toolPayload((await pastRes.json()).result);
+    const pastSerials = pastPayload.expiring.map((c) => c.serial);
+    expect(pastSerials).toContain(pastSerial);
+    expect(pastSerials).not.toContain(soonSerial);
+    expect(pastSerials).not.toContain(farSerial);
+
+    // Each row carries the contract fields the spec advertises.
+    const pastRow = defaultPayload.expiring.find((c) => c.serial === pastSerial);
+    expect(pastRow).toBeTruthy();
+    expect(pastRow.product_id).toBe(productId);
+    expect(pastRow.product_name).toBe(`MCP-EXP-PROD-${suffix}`);
+    expect(pastRow.expires_at).toBe(pastDate);
+    expect(typeof pastRow.days_until_expiry).toBe("number");
+    expect(pastRow.days_until_expiry).toBeLessThan(0);
+
+    // A non-admin can call it too — it's a read tool. Assert the seeded row
+    // actually surfaces (regression-guard against silent [] for non-admin).
+    const userRes = await rpc(userToken, {
+      jsonrpc: "2.0", id: 204, method: "tools/call",
+      params: { name: "report_expiring_components", arguments: { days_ahead: 60 } },
+    });
+    expect(userRes.status).toBe(200);
+    const userBody = await userRes.json();
+    expect(userBody.error).toBeUndefined();
+    const userPayload = toolPayload(userBody.result);
+    expect(Array.isArray(userPayload.expiring)).toBe(true);
+    expect(userPayload.expiring.map((c) => c.serial)).toContain(soonSerial);
+
+    // quantity contract: serialized components return null, not 0 — a 0 would
+    // be misread by a consumer as "out of stock" on a serialized item.
+    const soonRow = defaultPayload.expiring.find((c) => c.serial === soonSerial);
+    expect(soonRow.is_bulk).toBe(false);
+    expect(soonRow.quantity).toBeNull();
+  });
+
+  it("report_expiring_components excludes inactive components", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 210, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-EXP-INACT-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    const soonDate = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    const serial = `MCP-EXP-INACT-${suffix}`;
+    const compRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 211, method: "tools/call",
+      params: {
+        name: "create_component",
+        arguments: { product_id: productId, serial, expires_at: soonDate },
+      },
+    });
+    const compId = toolPayload((await compRes.json()).result).record_id;
+
+    // Soft-delete via update_component is_active=false.
+    const deactRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 212, method: "tools/call",
+      params: { name: "update_component", arguments: { id: compId, is_active: false } },
+    });
+    expect(toolPayload((await deactRes.json()).result).success).toBe(true);
+
+    const reportRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 213, method: "tools/call",
+      params: { name: "report_expiring_components", arguments: { days_ahead: 30 } },
+    });
+    const payload = toolPayload((await reportRes.json()).result);
+    const serials = payload.expiring.map((c) => c.serial);
+    expect(serials).not.toContain(serial);
+  });
 });
