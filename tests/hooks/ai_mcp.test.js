@@ -1517,7 +1517,8 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(typeof pastRow.days_until_expiry).toBe("number");
     expect(pastRow.days_until_expiry).toBeLessThan(0);
 
-    // A non-admin can call it too — it's a read tool.
+    // A non-admin can call it too — it's a read tool. Assert the seeded row
+    // actually surfaces (regression-guard against silent [] for non-admin).
     const userRes = await rpc(userToken, {
       jsonrpc: "2.0", id: 204, method: "tools/call",
       params: { name: "report_expiring_components", arguments: { days_ahead: 60 } },
@@ -1527,6 +1528,13 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(userBody.error).toBeUndefined();
     const userPayload = toolPayload(userBody.result);
     expect(Array.isArray(userPayload.expiring)).toBe(true);
+    expect(userPayload.expiring.map((c) => c.serial)).toContain(soonSerial);
+
+    // quantity contract: serialized components return null, not 0 — a 0 would
+    // be misread by a consumer as "out of stock" on a serialized item.
+    const soonRow = defaultPayload.expiring.find((c) => c.serial === soonSerial);
+    expect(soonRow.is_bulk).toBe(false);
+    expect(soonRow.quantity).toBeNull();
   });
 
   it("report_expiring_components excludes inactive components", async () => {

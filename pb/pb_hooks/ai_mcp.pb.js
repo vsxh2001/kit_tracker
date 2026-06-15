@@ -2307,6 +2307,7 @@ routerAdd("POST", "/api/mcp", function(c) {
               productName = safeStr(prod, "name");
             } catch (_) { /* product may be missing */ }
           }
+          var isBulk = c.getBool("is_bulk");
           expiring.push({
             component_id: c.id,
             serial: safeStr(c, "serial"),
@@ -2316,8 +2317,8 @@ routerAdd("POST", "/api/mcp", function(c) {
             bin_code: safeStr(c, "bin_code"),
             expires_at: expiresAt.slice(0, 10),
             days_until_expiry: daysUntilExpiry,
-            is_bulk: c.getBool("is_bulk"),
-            quantity: c.getInt("quantity")
+            is_bulk: isBulk,
+            quantity: isBulk ? c.getInt("quantity") : null
           });
         }
         return { expiring: expiring };
