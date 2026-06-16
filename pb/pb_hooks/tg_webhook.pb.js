@@ -918,6 +918,52 @@ routerAdd("POST", "/api/tg/webhook", function(c) {
       }
       var rqEntityRec = rqEntityMatches[0];
 
+      // No-op if the same requester already has an OPEN request with this exact
+      // kit + entity + delivery_date. B-G3-1 symmetry with MCP move_kit / decide_request
+      // and Telegram /move / /approve no-op guards (#430, #431). Prevents duplicate
+      // open rows when a user retypes or resends the same /request line.
+      // delivery_date is a PB `date` field; range bounds use YYYY-MM-DD to match a
+      // full calendar day regardless of the stored time suffix.
+      //
+      // The shape regex above (/^\d{4}-\d{2}-\d{2}$/) accepts semantically invalid
+      // dates like "2026-99-99"; computing the next-day bound on those throws
+      // RangeError. Skip the guard rather than crashing — PB's saveRecord below
+      // will return the canonical "invalid date" error to the user.
+      var rqDateNextStr = "";
+      try {
+        var rqDateNext = new Date(rqDate + "T00:00:00Z");
+        if (!isNaN(rqDateNext.getTime())) {
+          rqDateNext.setUTCDate(rqDateNext.getUTCDate() + 1);
+          rqDateNextStr = rqDateNext.toISOString().slice(0, 10);
+        }
+      } catch (e) {}
+      if (rqDateNextStr) {
+        var rqDupes = [];
+        try {
+          rqDupes = dao.findRecordsByFilter(
+            "requests",
+            "status = 'open' && requester = {:r} && designated_kit = {:k} && target_entity = {:e} && delivery_date >= {:d1} && delivery_date < {:d2}",
+            "-created",
+            1,
+            0,
+            {
+              r: tgUser.id,
+              k: rqKitRec.id,
+              e: rqEntityRec.id,
+              d1: rqDate,
+              d2: rqDateNextStr,
+            }
+          );
+        } catch (e) {}
+        if (rqDupes.length > 0) {
+          return reply(
+            "Open request already exists for " + escapeHtml(rqKit) + " → " +
+            escapeHtml(rqEntityRec.getString("name")) + " by " + escapeHtml(rqDate) +
+            " [" + escapeHtml(rqDupes[0].id.slice(-6)) + "] — no new request created."
+          );
+        }
+      }
+
       // Create request
       var rqToday = new Date().toISOString().slice(0, 10);
       var rqCol = dao.findCollectionByNameOrId("requests");

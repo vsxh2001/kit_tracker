@@ -1242,6 +1242,84 @@ describe("tg_webhook P2 — write commands", () => {
     expect(listData.items[0].delivery_date.startsWith("2026-12-31")).toBe(true);
   });
 
+  it("/request — duplicate (same kit + entity + delivery_date) → no-op reply, no second row", async () => {
+    const dupDate = "2026-11-15";
+    // First request — succeeds and creates row
+    const first = await postAs(CHAT_USER, `/request P2-KIT-001 P2 Entity Alpha ${dupDate}`);
+    expect(first.status).toBe(200);
+    expect((await first.json()).ok).toBe(true);
+
+    const beforeRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(
+        `requester="${userId4}"&&designated_kit="${kitId4}"&&target_entity="${entityAId4}"&&status="open"`
+      )}`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const beforeCount = (await beforeRes.json()).totalItems;
+    expect(beforeCount).toBeGreaterThan(0);
+
+    // Second identical request — must no-op
+    const second = await postAs(CHAT_USER, `/request P2-KIT-001 P2 Entity Alpha ${dupDate}`);
+    expect(second.status).toBe(200);
+    const body = await second.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("already exists");
+    expect(body.reply).toContain("no new request created");
+
+    const afterRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(
+        `requester="${userId4}"&&designated_kit="${kitId4}"&&target_entity="${entityAId4}"&&status="open"`
+      )}`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterCount = (await afterRes.json()).totalItems;
+    expect(afterCount).toBe(beforeCount); // no new row
+  });
+
+  it("/request — different delivery_date does not trigger no-op guard (legitimate new ask)", async () => {
+    // Seed an open request for D, then issue /request for D+1 — must create a second row.
+    const dateA = "2026-09-10";
+    const dateB = "2026-09-11";
+    const a = await postAs(CHAT_TECH, `/request P2-KIT-001 P2 Entity Beta ${dateA}`);
+    expect(a.status).toBe(200);
+    expect((await a.json()).ok).toBe(true);
+
+    const beforeRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(
+        `requester="${techId4}"&&designated_kit="${kitId4}"&&target_entity="${entityBId4}"&&status="open"`
+      )}`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const beforeCount = (await beforeRes.json()).totalItems;
+    expect(beforeCount).toBeGreaterThan(0);
+
+    const b = await postAs(CHAT_TECH, `/request P2-KIT-001 P2 Entity Beta ${dateB}`);
+    expect(b.status).toBe(200);
+    const body = await b.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("Requested");
+    expect(body.reply).not.toContain("already exists");
+
+    const afterRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(
+        `requester="${techId4}"&&designated_kit="${kitId4}"&&target_entity="${entityBId4}"&&status="open"`
+      )}`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterCount = (await afterRes.json()).totalItems;
+    expect(afterCount).toBe(beforeCount + 1);
+  });
+
+  it("/request — shape-valid but semantically invalid date does not crash hook", async () => {
+    // Regression guard: `2026-99-99` passes the shape regex but `new Date(...).toISOString()`
+    // throws RangeError. The no-op guard must skip cleanly and let the downstream
+    // PB save path produce a controlled error reply (not a 500).
+    const res = await postAs(CHAT_ADMIN, "/request P2-KIT-001 P2 Entity Alpha 2026-99-99");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+
   // ---------- /request — viewer role security gate (Bug 1 regression test) ----------
 
   it("/request — viewer role → permission denied, NO new request row created", async () => {
