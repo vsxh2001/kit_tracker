@@ -1242,6 +1242,40 @@ describe("tg_webhook P2 — write commands", () => {
     expect(listData.items[0].delivery_date.startsWith("2026-12-31")).toBe(true);
   });
 
+  it("/request — duplicate (same kit + entity + delivery_date) → no-op reply, no second row", async () => {
+    const dupDate = "2026-11-15";
+    // First request — succeeds and creates row
+    const first = await postAs(CHAT_USER, `/request P2-KIT-001 P2 Entity Alpha ${dupDate}`);
+    expect(first.status).toBe(200);
+    expect((await first.json()).ok).toBe(true);
+
+    const beforeRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(
+        `requester="${userId4}"&&designated_kit="${kitId4}"&&target_entity="${entityAId4}"&&status="open"`
+      )}`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const beforeCount = (await beforeRes.json()).totalItems;
+    expect(beforeCount).toBeGreaterThan(0);
+
+    // Second identical request — must no-op
+    const second = await postAs(CHAT_USER, `/request P2-KIT-001 P2 Entity Alpha ${dupDate}`);
+    expect(second.status).toBe(200);
+    const body = await second.json();
+    expect(body.ok).toBe(true);
+    expect(body.reply).toContain("already exists");
+    expect(body.reply).toContain("no new request created");
+
+    const afterRes = await fetch(
+      `${baseUrl4}/api/collections/requests/records?filter=${encodeURIComponent(
+        `requester="${userId4}"&&designated_kit="${kitId4}"&&target_entity="${entityAId4}"&&status="open"`
+      )}`,
+      { headers: { Authorization: suToken4 } }
+    );
+    const afterCount = (await afterRes.json()).totalItems;
+    expect(afterCount).toBe(beforeCount); // no new row
+  });
+
   // ---------- /request — viewer role security gate (Bug 1 regression test) ----------
 
   it("/request — viewer role → permission denied, NO new request row created", async () => {
