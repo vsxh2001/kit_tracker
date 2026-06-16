@@ -429,6 +429,19 @@ routerAdd("POST", "/api/mcp", function(c) {
           },
           required: []
         }
+      },
+      {
+        name: "report_idle_kits",
+        description: "Return active kits whose most recent transaction timestamp is older than days_threshold days ago, plus (by default) kits that have never been moved. Useful for retirement candidates and procurement signals. Sorted with never-moved kits first, then by days_idle descending. Use when user asks 'what kits are idle', 'which kits sit unused', 'retirement candidates', 'kits not moved recently', 'stale kits'.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            days_threshold: { type: "number", description: "Minimum idle age in days (default 90, max 730)" },
+            limit: { type: "number", description: "Max results (default 50, max 200)" },
+            include_no_transactions: { type: "boolean", description: "Include kits with no transactions at all (default true)" }
+          },
+          required: []
+        }
       }
     ];
 
@@ -2426,6 +2439,106 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeReportIdleKits(dao, args) {
+      try {
+        var daysThreshold = args.days_threshold ? parseInt(args.days_threshold, 10) : 90;
+        if (isNaN(daysThreshold) || daysThreshold < 1) daysThreshold = 90;
+        if (daysThreshold > 730) daysThreshold = 730;
+
+        var limit = args.limit ? parseInt(args.limit, 10) : 50;
+        if (isNaN(limit) || limit < 1) limit = 50;
+        if (limit > 200) limit = 200;
+
+        var includeNoTx = args.include_no_transactions !== false;
+
+        var KIT_SCAN_CAP = 500;
+        var kits = [];
+        try {
+          kits = dao.findRecordsByFilter("kits", "is_active = true", "serial", KIT_SCAN_CAP, 0, {});
+        } catch (_) {
+          return { idle_kits: [], note: "kits collection not available" };
+        }
+
+        var nowMs = new Date().getTime();
+        var msPerDay = 86400000;
+        var thresholdMs = daysThreshold * msPerDay;
+
+        var idle = [];
+        for (var i = 0; i < kits.length; i++) {
+          var k = kits[i];
+          var txns = [];
+          try {
+            txns = dao.findRecordsByFilter(
+              "transactions",
+              "kit = {:kitId}",
+              "-timestamp,-created",
+              1,
+              0,
+              { kitId: k.id }
+            );
+          } catch (_) {}
+
+          if (txns.length === 0) {
+            if (!includeNoTx) continue;
+            idle.push({
+              kit_id: k.id,
+              serial: safeStr(k, "serial"),
+              notes: safeStr(k, "notes"),
+              days_idle: null,
+              last_move_at: "",
+              current_entity_name: ""
+            });
+            continue;
+          }
+
+          var tx = txns[0];
+          var tsStr = safeStr(tx, "timestamp");
+          var tsMs = Date.parse(tsStr);
+          if (isNaN(tsMs)) continue;
+          var ageMs = nowMs - tsMs;
+          if (ageMs < thresholdMs) continue;
+
+          var daysIdle = Math.floor(ageMs / msPerDay);
+          var toName = "";
+          var toId = safeStr(tx, "to_entity");
+          if (toId) {
+            try { toName = safeStr(dao.findRecordById("entities", toId), "name"); } catch (_) {}
+          }
+
+          idle.push({
+            kit_id: k.id,
+            serial: safeStr(k, "serial"),
+            notes: safeStr(k, "notes"),
+            days_idle: daysIdle,
+            last_move_at: tsStr,
+            current_entity_name: toName
+          });
+        }
+
+        // Sort: never-moved kits (days_idle=null) first as "infinitely idle",
+        // then by days_idle desc, then by serial asc for stable tie-break.
+        idle.sort(function (a, b) {
+          if (a.days_idle === null && b.days_idle !== null) return -1;
+          if (a.days_idle !== null && b.days_idle === null) return 1;
+          if (a.days_idle === null && b.days_idle === null) {
+            return a.serial < b.serial ? -1 : a.serial > b.serial ? 1 : 0;
+          }
+          if (b.days_idle !== a.days_idle) return b.days_idle - a.days_idle;
+          return a.serial < b.serial ? -1 : a.serial > b.serial ? 1 : 0;
+        });
+
+        if (idle.length > limit) idle = idle.slice(0, limit);
+        var result = { idle_kits: idle, days_threshold: daysThreshold };
+        if (kits.length >= KIT_SCAN_CAP) {
+          result.truncated = true;
+          result.scanned = KIT_SCAN_CAP;
+        }
+        return result;
+      } catch (err) {
+        return { error: "report_idle_kits failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function execute(toolName, args, dao, userId, userRole) {
       try {
         if (toolName === "list_kits") return executeListKits(dao, args);
@@ -2458,6 +2571,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "report_maintenance_due") return executeReportMaintenanceDue(dao, args);
         if (toolName === "report_expiring_components") return executeReportExpiringComponents(dao, args);
         if (toolName === "report_low_stock_products") return executeReportLowStockProducts(dao, args);
+        if (toolName === "report_idle_kits") return executeReportIdleKits(dao, args);
         return { error: "unknown tool: " + toolName };
       } catch (err) {
         return { error: "tool execution error", detail: String(err && err.message ? err.message : err) };

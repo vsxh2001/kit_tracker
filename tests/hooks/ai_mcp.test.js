@@ -1691,4 +1691,129 @@ describe("ai_mcp POST /api/mcp", () => {
     const smallIdx = payload.low_stock.findIndex((p) => p.product_name === smallName);
     expect(bigIdx).toBeLessThan(smallIdx);
   });
+
+  it("report_idle_kits surfaces never-moved kits and kits whose last transaction is older than days_threshold", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Three seed kits:
+    //   - never: no transactions (qualifies regardless of threshold; days_idle=null)
+    //   - old:   one transaction with a timestamp 200 days in the past (qualifies at threshold=90)
+    //   - fresh: one transaction with the current timestamp (must NOT qualify)
+    const neverSerial = `MCP-IDLE-NEVER-${suffix}`;
+    const oldSerial = `MCP-IDLE-OLD-${suffix}`;
+    const freshSerial = `MCP-IDLE-FRESH-${suffix}`;
+
+    async function makeKit(serial) {
+      const r = await rpc(adminToken, {
+        jsonrpc: "2.0", id: 400, method: "tools/call",
+        params: { name: "create_kit", arguments: { serial } },
+      });
+      return toolPayload((await r.json()).result).record_id;
+    }
+
+    const neverId = await makeKit(neverSerial);
+    const oldId = await makeKit(oldSerial);
+    const freshId = await makeKit(freshSerial);
+
+    const entRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 401, method: "tools/call",
+      params: { name: "create_entity", arguments: { name: `MCP-IDLE-ENT-${suffix}` } },
+    });
+    const entityId = toolPayload((await entRes.json()).result).record_id;
+
+    // Fresh kit: current-time transaction via the standard MCP move_kit path.
+    const freshMove = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 402, method: "tools/call",
+      params: { name: "move_kit", arguments: { kit_id: freshId, to_entity_id: entityId } },
+    });
+    expect(toolPayload((await freshMove.json()).result).success).toBe(true);
+
+    // Old kit: backdated transaction posted via the superuser token (move_kit
+    // always stamps now, so the only way to seed an old timestamp is direct REST).
+    const adminListRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent(`email="admin@hook-test.local"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const adminUserId = (await adminListRes.json()).items[0].id;
+
+    const oldTimestamp = new Date(Date.now() - 200 * 86400000).toISOString();
+    const oldTxRes = await fetch(`${baseUrl}/api/collections/transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kit: oldId,
+        to_entity: entityId,
+        timestamp: oldTimestamp,
+        created_by: adminUserId,
+      }),
+    });
+    expect(oldTxRes.status).toBe(200);
+
+    // Default threshold (90 days) — never + old qualify; fresh does not.
+    const defaultRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 403, method: "tools/call",
+      params: { name: "report_idle_kits", arguments: {} },
+    });
+    expect(defaultRes.status).toBe(200);
+    const defaultPayload = toolPayload((await defaultRes.json()).result);
+    expect(Array.isArray(defaultPayload.idle_kits)).toBe(true);
+    expect(defaultPayload.days_threshold).toBe(90);
+
+    const serials = defaultPayload.idle_kits.map((k) => k.serial);
+    expect(serials).toContain(neverSerial);
+    expect(serials).toContain(oldSerial);
+    expect(serials).not.toContain(freshSerial);
+
+    const neverRow = defaultPayload.idle_kits.find((k) => k.serial === neverSerial);
+    expect(neverRow.kit_id).toBe(neverId);
+    expect(neverRow.days_idle).toBeNull();
+    expect(neverRow.current_entity_name).toBe("");
+    expect(neverRow.last_move_at).toBe("");
+
+    const oldRow = defaultPayload.idle_kits.find((k) => k.serial === oldSerial);
+    expect(oldRow.kit_id).toBe(oldId);
+    expect(typeof oldRow.days_idle).toBe("number");
+    expect(oldRow.days_idle).toBeGreaterThanOrEqual(199);
+    expect(oldRow.current_entity_name).toBe(`MCP-IDLE-ENT-${suffix}`);
+    expect(oldRow.last_move_at).toBeTruthy();
+
+    // Sort: never-moved row (days_idle=null) must precede the old-but-moved row.
+    const neverIdx = defaultPayload.idle_kits.findIndex((k) => k.serial === neverSerial);
+    const oldIdx = defaultPayload.idle_kits.findIndex((k) => k.serial === oldSerial);
+    expect(neverIdx).toBeLessThan(oldIdx);
+
+    // include_no_transactions=false should hide the never-moved kit but keep the old one.
+    const noNeverRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 404, method: "tools/call",
+      params: { name: "report_idle_kits", arguments: { include_no_transactions: false } },
+    });
+    const noNeverPayload = toolPayload((await noNeverRes.json()).result);
+    const noNeverSerials = noNeverPayload.idle_kits.map((k) => k.serial);
+    expect(noNeverSerials).not.toContain(neverSerial);
+    expect(noNeverSerials).toContain(oldSerial);
+
+    // High threshold (>200d) must drop the old kit but keep the never-moved one.
+    const highRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 405, method: "tools/call",
+      params: { name: "report_idle_kits", arguments: { days_threshold: 365 } },
+    });
+    const highPayload = toolPayload((await highRes.json()).result);
+    const highSerials = highPayload.idle_kits.map((k) => k.serial);
+    expect(highSerials).toContain(neverSerial);
+    expect(highSerials).not.toContain(oldSerial);
+    expect(highSerials).not.toContain(freshSerial);
+    expect(highPayload.days_threshold).toBe(365);
+
+    // A non-admin can call this read tool too — assert it surfaces the same rows.
+    const userRes = await rpc(userToken, {
+      jsonrpc: "2.0", id: 406, method: "tools/call",
+      params: { name: "report_idle_kits", arguments: {} },
+    });
+    expect(userRes.status).toBe(200);
+    const userBody = await userRes.json();
+    expect(userBody.error).toBeUndefined();
+    const userPayload = toolPayload(userBody.result);
+    expect(userPayload.idle_kits.map((k) => k.serial)).toContain(neverSerial);
+    expect(userPayload.idle_kits.map((k) => k.serial)).toContain(oldSerial);
+  });
 });
