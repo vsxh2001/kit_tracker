@@ -390,8 +390,10 @@ test.describe("Maintenance — new schedule from hub @smoke", () => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
-    // Button must be visible
-    const newScheduleBtn = page.getByRole("button", { name: "New schedule" });
+    // Button must be visible.
+    // .first() scopes to the header button — when /maintenance has zero schedules,
+    // the EmptyState CTA renders a second "New schedule" button (MaintenancePage.tsx:168).
+    const newScheduleBtn = page.getByRole("button", { name: "New schedule" }).first();
     await expect(newScheduleBtn).toBeVisible({ timeout: 10_000 });
     await newScheduleBtn.click();
 
@@ -470,7 +472,8 @@ test.describe("Maintenance — bulk-apply schedule @smoke", () => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
-    const newScheduleBtn = page.getByRole("button", { name: "New schedule" });
+    // .first() scopes to the header button — EmptyState renders a second "New schedule" CTA when empty.
+    const newScheduleBtn = page.getByRole("button", { name: "New schedule" }).first();
     await expect(newScheduleBtn).toBeVisible({ timeout: 10_000 });
     await newScheduleBtn.click();
 
@@ -543,7 +546,8 @@ test.describe("Maintenance — edit schedule inline @smoke", () => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
-    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible({ timeout: 10_000 });
+    // exact: true — the EmptyState "No maintenance schedules" heading also contains "Maintenance" and would otherwise collide.
+    await expect(page.getByRole("heading", { name: "Maintenance", exact: true })).toBeVisible({ timeout: 10_000 });
 
     // Find the Edit button in the row for our kit (desktop table)
     // The row has the kit serial in it; click the Edit button within that row
@@ -718,8 +722,10 @@ test.describe("Maintenance — schedule detail page @smoke", () => {
     await page.goto(`/maintenance/${schedId}`);
     await expect(page.locator("h1")).toBeVisible({ timeout: 10_000 });
 
-    // Count existing history rows before recording
+    // Wait for the seeded history record to render so initialRows is stable.
+    // The beforeAll seeds 1 record; capture the count after the row is visible.
     await expect(page.locator("table")).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("tbody tr").first()).toBeVisible({ timeout: 5_000 });
     const initialRows = await page.locator("tbody tr").count();
 
     // Open RecordMaintenanceDialog
@@ -733,8 +739,8 @@ test.describe("Maintenance — schedule detail page @smoke", () => {
     // Success toast
     await expect(page.locator("div:has-text('Maintenance recorded')").first()).toBeVisible({ timeout: 10_000 });
 
-    // History table now has one more row than before
-    const newRows = await page.locator("tbody tr").count();
-    expect(newRows).toBe(initialRows + 1);
+    // History table now has one more row than before. toHaveCount auto-retries to
+    // ride out the post-record refetch (records list briefly empty during reload).
+    await expect(page.locator("tbody tr")).toHaveCount(initialRows + 1, { timeout: 10_000 });
   });
 });
