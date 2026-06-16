@@ -1,6 +1,23 @@
 # Maintenance feature — review + plan
 
-Status: DISCUSSION — pending approval
+Status: PARTIAL SHIPPED (Phase 1 + Phase 2 complete · Phase 3 deferred) — original 2026-05-15 plan retained below for history.
+
+## Status update (2026-06-16)
+
+Phase 1 (must) and Phase 2 (should) items have all landed; the user-reported gap and the secondary quality wins are closed in HEAD. Phase 3 (optional) is still deferred pending demand signal (F8) or scope decision (F5).
+
+| Plan item | Status | Evidence |
+|-----------|--------|----------|
+| F1 — "New schedule" button + kit-picker on `/maintenance` | SHIPPED | `MaintenancePage.tsx:85-89` header button (admin-only), `NewMaintenanceScheduleDialog.tsx`, `MaintenancePage.tsx:141` EmptyState `cta` |
+| F2 — Schedule detail / records-history view (with certificate download) | SHIPPED | `App.tsx:82` route, `ScheduleDetailPage.tsx` renders `listRecordsForSchedule` + certificate download |
+| F3 — Surface SMTP failure to admins | SHIPPED | #241 — `MaintenancePage.tsx:93-97` banner driven by `getSmtpStatus()` |
+| F4 — Edit schedule inline | SHIPPED | `EditScheduleDialog.tsx`, wired at `MaintenancePage.tsx:285-289` |
+| F6 — Snooze / skip-once | SHIPPED | `SnoozeScheduleDialog.tsx`, wired at `MaintenancePage.tsx:291-295` |
+| F7(a) — Constrain `type` to a controlled vocabulary | SHIPPED | #238 — `MAINTENANCE_TYPES` extracted into shared lib; #239 wired `maintenanceTypeLabel()` into dialogs |
+| F9 — Mobile polish for schedule actions | SHIPPED | `MaintenancePage.tsx:77` sticky-top header + `min-h-[44px]` action buttons |
+| F5 — Bulk-apply schedule | DEFERRED | Phase 3; scope still open per plan §7 Q3 |
+| F8 — Per-component maintenance | DEFERRED | Gated on Open Q 1 (demand confirmation); see plan §6 NOT-recommended note |
+| Cross-cutting — PB hook integration test harness | DEFERRED | Phase 3 cross-cutting recommendation |
 
 ## 1. The user-reported gap
 
