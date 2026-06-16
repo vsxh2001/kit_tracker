@@ -209,7 +209,8 @@ test.describe("Maintenance page", () => {
     await loginAs(page, "admin");
     await page.goto("/maintenance");
 
-    await expect(page.getByRole("heading", { name: "Maintenance" })).toBeVisible();
+    // exact: true — the EmptyState "No maintenance schedules" heading also contains "Maintenance" and would otherwise collide.
+    await expect(page.getByRole("heading", { name: "Maintenance", exact: true })).toBeVisible();
     // Status filter chips
     await expect(page.getByRole("button", { name: "All" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Overdue" })).toBeVisible();
