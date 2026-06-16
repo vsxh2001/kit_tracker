@@ -418,6 +418,17 @@ routerAdd("POST", "/api/mcp", function(c) {
           },
           required: []
         }
+      },
+      {
+        name: "report_low_stock_products",
+        description: "Return active products whose on-hand stock is below their configured reorder_point threshold. Mirrors the nightly reorder_low_stock_reminder cron's logic but on-demand. Products with reorder_point=0 (disabled) are excluded. Sorted by deficit descending (worst first), then by name. Use when user asks 'what is low stock', 'what needs reordering', 'running low', 'below reorder point'.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            limit: { type: "number", description: "Max results (default 100, max 500)" }
+          },
+          required: []
+        }
       }
     ];
 
@@ -2327,6 +2338,94 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeReportLowStockProducts(dao, args) {
+      try {
+        var limit = args.limit ? parseInt(args.limit, 10) : 100;
+        if (isNaN(limit) || limit < 1) limit = 100;
+        if (limit > 500) limit = 500;
+
+        // Mirror reorder_low_stock_reminder.pb.js's 200-product scan window so
+        // the cron email and this on-demand tool always agree on which
+        // products are inspected. If the catalog exceeds this cap, the tool
+        // surfaces `truncated: true` so the caller knows the result is partial.
+        var PRODUCT_SCAN_CAP = 200;
+        var products = [];
+        try {
+          products = dao.findRecordsByFilter(
+            "products",
+            "reorder_point > 0 && is_active = true",
+            "name",
+            PRODUCT_SCAN_CAP,
+            0,
+            {}
+          );
+        } catch (_) {
+          return { low_stock: [], note: "products collection not available" };
+        }
+
+        var low = [];
+        for (var i = 0; i < products.length; i++) {
+          var p = products[i];
+          var reorderPoint = p.getInt("reorder_point");
+          var isSerialized = p.getBool("is_serialized");
+
+          var components = [];
+          try {
+            components = dao.findRecordsByFilter(
+              "components",
+              "product = {:pid} && is_active = true",
+              "",
+              500,
+              0,
+              { pid: p.id }
+            );
+          } catch (_) {
+            continue;
+          }
+
+          var onHand;
+          if (isSerialized === true) {
+            onHand = components.length;
+          } else {
+            onHand = 0;
+            for (var ci = 0; ci < components.length; ci++) {
+              onHand += components[ci].getInt("quantity") || 0;
+            }
+          }
+
+          if (onHand < reorderPoint) {
+            low.push({
+              product_id: p.id,
+              product_name: safeStr(p, "name"),
+              category: safeStr(p, "category"),
+              manufacturer: safeStr(p, "manufacturer"),
+              model: safeStr(p, "model"),
+              is_serialized: isSerialized,
+              on_hand: onHand,
+              reorder_point: reorderPoint,
+              deficit: reorderPoint - onHand
+            });
+          }
+        }
+
+        // Sort by deficit desc (worst first), then by name asc for stable tie-break.
+        low.sort(function (a, b) {
+          if (b.deficit !== a.deficit) return b.deficit - a.deficit;
+          return a.product_name < b.product_name ? -1 : a.product_name > b.product_name ? 1 : 0;
+        });
+
+        if (low.length > limit) low = low.slice(0, limit);
+        var result = { low_stock: low };
+        if (products.length >= PRODUCT_SCAN_CAP) {
+          result.truncated = true;
+          result.scanned = PRODUCT_SCAN_CAP;
+        }
+        return result;
+      } catch (err) {
+        return { error: "report_low_stock_products failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function execute(toolName, args, dao, userId, userRole) {
       try {
         if (toolName === "list_kits") return executeListKits(dao, args);
@@ -2358,6 +2457,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "report_overdue_returns") return executeReportOverdueReturns(dao, args);
         if (toolName === "report_maintenance_due") return executeReportMaintenanceDue(dao, args);
         if (toolName === "report_expiring_components") return executeReportExpiringComponents(dao, args);
+        if (toolName === "report_low_stock_products") return executeReportLowStockProducts(dao, args);
         return { error: "unknown tool: " + toolName };
       } catch (err) {
         return { error: "tool execution error", detail: String(err && err.message ? err.message : err) };

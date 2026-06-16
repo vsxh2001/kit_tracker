@@ -1572,4 +1572,123 @@ describe("ai_mcp POST /api/mcp", () => {
     const serials = payload.expiring.map((c) => c.serial);
     expect(serials).not.toContain(serial);
   });
+
+  it("report_low_stock_products surfaces products below reorder_point, ignoring reorder_point=0 and inactive products", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    // Three seed products:
+    //   - low: serialized, reorder_point=5, zero components (on_hand=0, deficit=5)
+    //   - sufficient: serialized, reorder_point=2, 5 active components (on_hand=5, not low)
+    //   - disabled: serialized, reorder_point=0 (disabled threshold) — never low
+    const lowName = `MCP-LOW-${suffix}`;
+    const sufficientName = `MCP-LOW-SUFF-${suffix}`;
+    const disabledName = `MCP-LOW-DIS-${suffix}`;
+
+    const lowRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 300, method: "tools/call",
+      params: { name: "create_product", arguments: { name: lowName, is_serialized: true, reorder_point: 5 } },
+    });
+    expect(toolPayload((await lowRes.json()).result).record_id).toBeTruthy();
+
+    const suffRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 301, method: "tools/call",
+      params: { name: "create_product", arguments: { name: sufficientName, is_serialized: true, reorder_point: 2 } },
+    });
+    const suffProductId = toolPayload((await suffRes.json()).result).record_id;
+    for (let i = 0; i < 5; i++) {
+      const r = await rpc(adminToken, {
+        jsonrpc: "2.0", id: 310 + i, method: "tools/call",
+        params: {
+          name: "create_component",
+          arguments: { product_id: suffProductId, serial: `MCP-LOW-SUFF-${suffix}-${i}` },
+        },
+      });
+      expect(toolPayload((await r.json()).result).success).toBe(true);
+    }
+
+    // Seed reorder_point=0 directly to assert the "0 = disabled" filter
+    // semantics — the MCP tool must skip these products even when on_hand=0.
+    await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: disabledName, is_active: true, is_serialized: true, reorder_point: 0 }),
+    });
+
+    const reportRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 320, method: "tools/call",
+      params: { name: "report_low_stock_products", arguments: {} },
+    });
+    expect(reportRes.status).toBe(200);
+    const payload = toolPayload((await reportRes.json()).result);
+    expect(Array.isArray(payload.low_stock)).toBe(true);
+
+    const lowRow = payload.low_stock.find((p) => p.product_name === lowName);
+    expect(lowRow).toBeTruthy();
+    expect(lowRow.reorder_point).toBe(5);
+    expect(lowRow.on_hand).toBe(0);
+    expect(lowRow.deficit).toBe(5);
+    expect(lowRow.is_serialized).toBe(true);
+
+    const names = payload.low_stock.map((p) => p.product_name);
+    expect(names).not.toContain(sufficientName);
+    expect(names).not.toContain(disabledName);
+
+    // A non-admin can call this read tool too — assert it surfaces the same row.
+    const userRes = await rpc(userToken, {
+      jsonrpc: "2.0", id: 321, method: "tools/call",
+      params: { name: "report_low_stock_products", arguments: {} },
+    });
+    expect(userRes.status).toBe(200);
+    const userBody = await userRes.json();
+    expect(userBody.error).toBeUndefined();
+    const userPayload = toolPayload(userBody.result);
+    expect(userPayload.low_stock.map((p) => p.product_name)).toContain(lowName);
+  });
+
+  it("report_low_stock_products counts bulk components by quantity sum, sorts by deficit desc", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const smallName = `MCP-LOW-BULK-SMALL-${suffix}`;
+    const bigName = `MCP-LOW-BULK-BIG-${suffix}`;
+
+    // smallName: reorder_point=20, on_hand=10 (deficit=10)
+    const smallRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 330, method: "tools/call",
+      params: { name: "create_product", arguments: { name: smallName, is_serialized: false, reorder_point: 20 } },
+    });
+    const smallId = toolPayload((await smallRes.json()).result).record_id;
+    const smallComp = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 331, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: smallId, is_bulk: true, quantity: 10 } },
+    });
+    expect(toolPayload((await smallComp.json()).result).success).toBe(true);
+
+    // bigName: reorder_point=100, on_hand=0 (deficit=100, worst)
+    const bigRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 332, method: "tools/call",
+      params: { name: "create_product", arguments: { name: bigName, is_serialized: false, reorder_point: 100 } },
+    });
+    expect(toolPayload((await bigRes.json()).result).record_id).toBeTruthy();
+
+    const reportRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 333, method: "tools/call",
+      params: { name: "report_low_stock_products", arguments: {} },
+    });
+    const payload = toolPayload((await reportRes.json()).result);
+
+    const smallRow = payload.low_stock.find((p) => p.product_name === smallName);
+    const bigRow = payload.low_stock.find((p) => p.product_name === bigName);
+    expect(smallRow).toBeTruthy();
+    expect(bigRow).toBeTruthy();
+    expect(smallRow.on_hand).toBe(10);
+    expect(smallRow.deficit).toBe(10);
+    expect(smallRow.is_serialized).toBe(false);
+    expect(bigRow.on_hand).toBe(0);
+    expect(bigRow.deficit).toBe(100);
+
+    // Sort: big (deficit=100) must come before small (deficit=10).
+    const bigIdx = payload.low_stock.findIndex((p) => p.product_name === bigName);
+    const smallIdx = payload.low_stock.findIndex((p) => p.product_name === smallName);
+    expect(bigIdx).toBeLessThan(smallIdx);
+  });
 });
