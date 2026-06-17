@@ -471,18 +471,19 @@ Protocol version: `2024-11-05`. Server: `kit-tracker-mcp v0.1.0`.
 Read tools (list_*, get_*, resolve_*) — any authenticated user.
 Write tools (create_*, move_*) — admin/technician only.
 
-### 33 MCP tools
+### 35 MCP tools
 
-Read (20): `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
-`get_request`, `list_components`, `resolve_kit`, `resolve_entity`, `resolve_product`,
-`get_product`, `report_kits_by_entity`, `report_maintenance_due`, `report_open_requests`,
-`report_overdue_returns`, `report_recent_activity`, `report_expiring_components`,
-`report_low_stock_products`, `report_idle_kits`, `report_components_by_lot`.
+Read (21): `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
+`get_request`, `list_components`, `get_component`, `resolve_kit`, `resolve_entity`,
+`resolve_product`, `get_product`, `report_kits_by_entity`, `report_maintenance_due`,
+`report_open_requests`, `report_overdue_returns`, `report_recent_activity`,
+`report_expiring_components`, `report_low_stock_products`, `report_idle_kits`,
+`report_components_by_lot`.
 
-Write (13): `create_entity`, `create_kit`, `move_kit`, `create_product`,
+Write (14): `create_entity`, `create_kit`, `move_kit`, `create_product`,
 `create_component`, `move_component`, `decide_request`,
 `link_component_to_product`, `update_entity`, `update_kit`, `update_product`,
-`update_user_phone`, `update_user_telegram_chat_id`.
+`update_component`, `update_user_phone`, `update_user_telegram_chat_id`.
 
 Writes audit-log with `changes.via = "mcp"`. Undo is not provided — issue a
 reverse op from the client.

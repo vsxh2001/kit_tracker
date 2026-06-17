@@ -124,6 +124,17 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       },
       {
+        name: "get_component",
+        description: "Get full details of one component including product, current location (kit or entity), is_bulk, quantity, bin_code, lot_code, expires_at, is_active, and timestamps. Fields list_components does not expose.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Component record ID" }
+          },
+          required: ["id"]
+        }
+      },
+      {
         name: "resolve_kit",
         description: "Fuzzy-match a kit by serial number fragment. Returns up to 5 candidates with confidence.",
         inputSchema: {
@@ -913,6 +924,79 @@ routerAdd("POST", "/api/mcp", function(c) {
         });
       }
       return results;
+    }
+
+    function executeGetComponent(dao, args) {
+      var c;
+      try {
+        c = dao.findRecordById("components", args.id);
+      } catch (_) {
+        return { error: "component not found", id: args.id };
+      }
+
+      var productId = safeStr(c, "product");
+      var productName = "";
+      var productManufacturer = "";
+      var productModel = "";
+      if (productId) {
+        try {
+          var product = dao.findRecordById("products", productId);
+          productName = safeStr(product, "name");
+          productManufacturer = safeStr(product, "manufacturer");
+          productModel = safeStr(product, "model");
+        } catch (_) {}
+      }
+
+      var currentKitId = "";
+      var currentKitSerial = "";
+      var currentEntityId = "";
+      var currentEntityName = "";
+      try {
+        var latestArr = dao.findRecordsByFilter(
+          "component_transactions",
+          "component = {:cid}",
+          "-timestamp,-created",
+          1,
+          0,
+          { cid: c.id }
+        );
+        if (latestArr && latestArr.length) {
+          var latestTx = latestArr[0];
+          currentKitId = safeStr(latestTx, "to_kit");
+          currentEntityId = safeStr(latestTx, "to_entity");
+          if (currentKitId) {
+            try { currentKitSerial = safeStr(dao.findRecordById("kits", currentKitId), "serial"); } catch (_) {}
+          }
+          if (currentEntityId) {
+            try { currentEntityName = safeStr(dao.findRecordById("entities", currentEntityId), "name"); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      var isBulk = c.getBool ? c.getBool("is_bulk") : (safeStr(c, "is_bulk") === "true");
+
+      return {
+        id: c.id,
+        serial: safeStr(c, "serial"),
+        type: safeStr(c, "type"),
+        notes: safeStr(c, "notes"),
+        product_id: productId,
+        product_name: productName,
+        product_manufacturer: productManufacturer,
+        product_model: productModel,
+        is_bulk: isBulk,
+        quantity: isBulk ? (c.getInt ? c.getInt("quantity") : 0) : null,
+        bin_code: safeStr(c, "bin_code"),
+        lot_code: safeStr(c, "lot_code"),
+        expires_at: safeStr(c, "expires_at").slice(0, 10),
+        is_active: c.getBool ? c.getBool("is_active") : (safeStr(c, "is_active") === "true"),
+        current_kit_id: currentKitId,
+        current_kit_serial: currentKitSerial,
+        current_entity_id: currentEntityId,
+        current_entity_name: currentEntityName,
+        created: safeStr(c, "created"),
+        updated: safeStr(c, "updated")
+      };
     }
 
     function executeResolveKit(dao, args) {
@@ -2779,6 +2863,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "list_requests") return executeListRequests(dao, args);
         if (toolName === "get_request") return executeGetRequest(dao, args);
         if (toolName === "list_components") return executeListComponents(dao, args);
+        if (toolName === "get_component") return executeGetComponent(dao, args);
         if (toolName === "resolve_kit") return executeResolveKit(dao, args);
         if (toolName === "resolve_entity") return executeResolveEntity(dao, args);
         if (toolName === "create_entity") return executeCreateEntity(dao, args, userId, userRole);
