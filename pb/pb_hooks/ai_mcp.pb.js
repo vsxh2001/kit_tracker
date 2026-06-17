@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 // POST /api/mcp — MCP server (Streamable HTTP transport, JSON-RPC 2.0)
 //
-// Exposes 27 kit-tracker tools (14 read, 13 write) via the Model Context Protocol
+// Exposes 36 kit-tracker tools (22 read, 14 write) via the Model Context Protocol
 // so any MCP client (Claude Code, Claude Desktop, Cursor, VS Code) can call them
 // directly without going through Anthropic.
 //
@@ -204,6 +204,19 @@ routerAdd("POST", "/api/mcp", function(c) {
             query: { type: "string", description: "Product name, manufacturer, or model to search" }
           },
           required: ["query"]
+        }
+      },
+      {
+        name: "list_products",
+        description: "List active product catalog entries, optionally filtered by name/manufacturer/model substring or category. Returns a sparse view (id, name, category, manufacturer, model); call get_product for the full record.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            search: { type: "string", description: "Substring match against name, manufacturer, or model" },
+            category: { type: "string", description: "Filter by exact category" },
+            limit: { type: "number", description: "Max results (default 20, max 50)" }
+          },
+          required: []
         }
       },
       {
@@ -1349,6 +1362,43 @@ routerAdd("POST", "/api/mcp", function(c) {
       } catch (_) {}
 
       return candidates.slice(0, 5);
+    }
+
+    function executeListProducts(dao, args) {
+      var limit = clamp(args.limit, 20, 50);
+      var filters = ["is_active = true"];
+      var params = {};
+
+      if (args.search) {
+        filters.push("(name ~ {:search} || manufacturer ~ {:search} || model ~ {:search})");
+        params.search = args.search;
+      }
+      if (args.category) {
+        filters.push("category = {:category}");
+        params.category = args.category;
+      }
+
+      var products = dao.findRecordsByFilter(
+        "products",
+        filters.join(" && "),
+        "name",
+        limit,
+        0,
+        params
+      );
+
+      var results = [];
+      for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        results.push({
+          id: p.id,
+          name: safeStr(p, "name"),
+          category: safeStr(p, "category"),
+          manufacturer: safeStr(p, "manufacturer"),
+          model: safeStr(p, "model")
+        });
+      }
+      return results;
     }
 
     function executeGetProduct(dao, args) {
@@ -2870,6 +2920,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "create_kit") return executeCreateKit(dao, args, userId, userRole);
         if (toolName === "move_kit") return executeMoveKit(dao, args, userId, userRole);
         if (toolName === "resolve_product") return executeResolveProduct(dao, args);
+        if (toolName === "list_products") return executeListProducts(dao, args);
         if (toolName === "get_product") return executeGetProduct(dao, args);
         if (toolName === "create_product") return executeCreateProduct(dao, args, userId, userRole);
         if (toolName === "create_component") return executeCreateComponent(dao, args, userId, userRole);
