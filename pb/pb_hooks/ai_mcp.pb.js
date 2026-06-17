@@ -196,6 +196,17 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       },
       {
+        name: "get_product",
+        description: "Get full details of one product including description, specs, url, reorder_point, is_consumable, is_serialized, track_in_status, is_active, active_component_count, and timestamps. Fields resolve_product does not expose.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Product record ID" }
+          },
+          required: ["id"]
+        }
+      },
+      {
         name: "create_product",
         description: "Create a new product catalog entry. ALWAYS call directly. Do NOT resolve_* first. Duplicate names allowed. Returns the new product record ID. Undo not available via MCP. Only admin/technician can call this.",
         inputSchema: {
@@ -1254,6 +1265,52 @@ routerAdd("POST", "/api/mcp", function(c) {
       } catch (_) {}
 
       return candidates.slice(0, 5);
+    }
+
+    function executeGetProduct(dao, args) {
+      var p;
+      try {
+        p = dao.findRecordById("products", args.id);
+      } catch (_) {
+        return { error: "product not found", id: args.id };
+      }
+
+      var activeComponentCount = 0;
+      try {
+        var comps = dao.findRecordsByFilter(
+          "components",
+          "product = {:productId} && is_active = true",
+          "",
+          500,
+          0,
+          { productId: p.id }
+        );
+        activeComponentCount = comps.length;
+      } catch (_) {}
+
+      var reorderPoint = 0;
+      try {
+        reorderPoint = p.getInt ? p.getInt("reorder_point") : parseInt(safeStr(p, "reorder_point"), 10) || 0;
+      } catch (_) {}
+
+      return {
+        id: p.id,
+        name: safeStr(p, "name"),
+        category: safeStr(p, "category"),
+        manufacturer: safeStr(p, "manufacturer"),
+        model: safeStr(p, "model"),
+        description: safeStr(p, "description"),
+        specs: safeStr(p, "specs"),
+        url: safeStr(p, "url"),
+        reorder_point: reorderPoint,
+        is_consumable: p.getBool ? p.getBool("is_consumable") : (safeStr(p, "is_consumable") === "true"),
+        is_serialized: p.getBool ? p.getBool("is_serialized") : (safeStr(p, "is_serialized") === "true"),
+        track_in_status: p.getBool ? p.getBool("track_in_status") : (safeStr(p, "track_in_status") === "true"),
+        is_active: p.getBool ? p.getBool("is_active") : (safeStr(p, "is_active") === "true"),
+        active_component_count: activeComponentCount,
+        created: safeStr(p, "created"),
+        updated: safeStr(p, "updated")
+      };
     }
 
     function executeCreateProduct(dao, args, userId, userRole) {
@@ -2728,6 +2785,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "create_kit") return executeCreateKit(dao, args, userId, userRole);
         if (toolName === "move_kit") return executeMoveKit(dao, args, userId, userRole);
         if (toolName === "resolve_product") return executeResolveProduct(dao, args);
+        if (toolName === "get_product") return executeGetProduct(dao, args);
         if (toolName === "create_product") return executeCreateProduct(dao, args, userId, userRole);
         if (toolName === "create_component") return executeCreateComponent(dao, args, userId, userRole);
         if (toolName === "move_component") return executeMoveComponent(dao, args, userId, userRole);

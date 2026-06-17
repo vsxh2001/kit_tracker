@@ -2115,4 +2115,106 @@ describe("ai_mcp POST /api/mcp", () => {
     const payload = toolPayload(body.result);
     expect(payload.id).toBe(requestId);
   });
+
+  // ---- get_product ----
+
+  it("get_product returns full product details including reorder_point, is_consumable, is_serialized, track_in_status, active_component_count, timestamps", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const name = `MCP-GETPROD-${suffix}`;
+
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        category: "cable",
+        manufacturer: "Acme",
+        model: "X-1000",
+        description: "Test product for get_product",
+        specs: "{\"length_m\":2}",
+        url: "https://example.com/x-1000",
+        reorder_point: 7,
+        is_consumable: true,
+        is_serialized: false,
+        track_in_status: true,
+        is_active: true,
+      }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    // Seed two active bulk components linked to the product to exercise active_component_count.
+    for (let i = 0; i < 2; i++) {
+      await fetch(`${baseUrl}/api/collections/components/records`, {
+        method: "POST",
+        headers: { Authorization: suToken, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product: productId,
+          is_bulk: true,
+          quantity: 5,
+          is_active: true,
+        }),
+      });
+    }
+
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 460, method: "tools/call",
+      params: { name: "get_product", arguments: { id: productId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const payload = toolPayload(body.result);
+
+    expect(payload.id).toBe(productId);
+    expect(payload.name).toBe(name);
+    expect(payload.category).toBe("cable");
+    expect(payload.manufacturer).toBe("Acme");
+    expect(payload.model).toBe("X-1000");
+    expect(payload.description).toBe("Test product for get_product");
+    expect(payload.specs).toBe("{\"length_m\":2}");
+    expect(payload.url).toBe("https://example.com/x-1000");
+    expect(payload.reorder_point).toBe(7);
+    expect(payload.is_consumable).toBe(true);
+    expect(payload.is_serialized).toBe(false);
+    expect(payload.track_in_status).toBe(true);
+    expect(payload.is_active).toBe(true);
+    expect(payload.active_component_count).toBe(2);
+    expect(payload.created).toBeTruthy();
+    expect(payload.updated).toBeTruthy();
+  });
+
+  it("get_product returns an error shape for a nonexistent id", async () => {
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 461, method: "tools/call",
+      params: { name: "get_product", arguments: { id: "nonexistent" } },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.error).toBe("product not found");
+    expect(payload.id).toBe("nonexistent");
+  });
+
+  it("a non-admin user can call get_product (read-only)", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-GETPROD-USER-${suffix}`,
+        is_active: true,
+      }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    const res = await rpc(userToken, {
+      jsonrpc: "2.0", id: 462, method: "tools/call",
+      params: { name: "get_product", arguments: { id: productId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const payload = toolPayload(body.result);
+    expect(payload.id).toBe(productId);
+    expect(payload.active_component_count).toBe(0);
+  });
 });
