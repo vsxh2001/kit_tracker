@@ -2356,4 +2356,75 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(payload.current_kit_id).toBe("");
     expect(payload.current_entity_id).toBe("");
   });
+
+  // ---- list_products ----
+
+  it("list_products returns active products and supports search + category filters", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const matchName = `MCP-LISTPROD-WIDGET-${suffix}`;
+    const otherName = `MCP-LISTPROD-OTHER-${suffix}`;
+    const inactiveName = `MCP-LISTPROD-INACTIVE-${suffix}`;
+
+    const seed = async (body) => {
+      const r = await fetch(`${baseUrl}/api/collections/products/records`, {
+        method: "POST",
+        headers: { Authorization: suToken, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return (await r.json()).id;
+    };
+    const matchId = await seed({
+      name: matchName, category: "widget", manufacturer: "Acme", model: "W-1", is_active: true,
+    });
+    await seed({
+      name: otherName, category: "cable", manufacturer: "Acme", model: "C-1", is_active: true,
+    });
+    await seed({
+      name: inactiveName, category: "widget", manufacturer: "Acme", model: "W-9", is_active: false,
+    });
+
+    const searchRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 480, method: "tools/call",
+      params: { name: "list_products", arguments: { search: `WIDGET-${suffix}` } },
+    });
+    expect(searchRes.status).toBe(200);
+    const searchPayload = toolPayload((await searchRes.json()).result);
+    expect(Array.isArray(searchPayload)).toBe(true);
+    const ids = searchPayload.map((p) => p.id);
+    expect(ids).toContain(matchId);
+    expect(searchPayload.some((p) => p.name === inactiveName)).toBe(false);
+    const hit = searchPayload.find((p) => p.id === matchId);
+    expect(hit.name).toBe(matchName);
+    expect(hit.category).toBe("widget");
+    expect(hit.manufacturer).toBe("Acme");
+    expect(hit.model).toBe("W-1");
+
+    const catRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 481, method: "tools/call",
+      params: { name: "list_products", arguments: { search: suffix, category: "widget" } },
+    });
+    const catPayload = toolPayload((await catRes.json()).result);
+    expect(catPayload.some((p) => p.id === matchId)).toBe(true);
+    expect(catPayload.every((p) => p.category === "widget")).toBe(true);
+    expect(catPayload.some((p) => p.name === otherName)).toBe(false);
+  });
+
+  it("a non-admin user can call list_products (read-only)", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const name = `MCP-LISTPROD-USER-${suffix}`;
+    await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name, is_active: true }),
+    });
+
+    const res = await rpc(userToken, {
+      jsonrpc: "2.0", id: 482, method: "tools/call",
+      params: { name: "list_products", arguments: { search: name } },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(Array.isArray(payload)).toBe(true);
+    expect(payload.some((p) => p.name === name)).toBe(true);
+  });
 });
