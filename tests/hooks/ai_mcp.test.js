@@ -2217,4 +2217,143 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(payload.id).toBe(productId);
     expect(payload.active_component_count).toBe(0);
   });
+
+  // ---- get_component ----
+
+  it("get_component returns full component details including product, current_kit, is_bulk, quantity, bin_code, lot_code, expires_at, timestamps", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const adminListRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent(`email="admin@hook-test.local"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const adminUserId = (await adminListRes.json()).items[0].id;
+
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-GETCOMP-PROD-${suffix}`,
+        manufacturer: "Acme",
+        model: "C-200",
+        is_serialized: false,
+        is_active: true,
+      }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    const compRes = await fetch(`${baseUrl}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: productId,
+        is_bulk: true,
+        quantity: 12,
+        bin_code: "A-12-03",
+        lot_code: "LOT-X-1",
+        expires_at: "2099-01-15",
+        notes: "get_component test",
+        is_active: true,
+      }),
+    });
+    const componentId = (await compRes.json()).id;
+
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: `MCP-GETCOMP-KIT-${suffix}`, is_active: true }),
+    });
+    const kitId = (await kitRes.json()).id;
+
+    const now = new Date().toISOString();
+    await fetch(`${baseUrl}/api/collections/component_transactions/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        component: componentId,
+        to_kit: kitId,
+        quantity: 12,
+        timestamp: now,
+        created_by: adminUserId,
+      }),
+    });
+
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 470, method: "tools/call",
+      params: { name: "get_component", arguments: { id: componentId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const payload = toolPayload(body.result);
+
+    expect(payload.id).toBe(componentId);
+    expect(payload.product_id).toBe(productId);
+    expect(payload.product_name).toBe(`MCP-GETCOMP-PROD-${suffix}`);
+    expect(payload.product_manufacturer).toBe("Acme");
+    expect(payload.product_model).toBe("C-200");
+    expect(payload.is_bulk).toBe(true);
+    expect(payload.quantity).toBe(12);
+    expect(payload.bin_code).toBe("A-12-03");
+    expect(payload.lot_code).toBe("LOT-X-1");
+    expect(payload.expires_at).toBe("2099-01-15");
+    expect(payload.notes).toBe("get_component test");
+    expect(payload.is_active).toBe(true);
+    expect(payload.current_kit_id).toBe(kitId);
+    expect(payload.current_kit_serial).toBe(`MCP-GETCOMP-KIT-${suffix}`);
+    expect(payload.current_entity_id).toBe("");
+    expect(payload.created).toBeTruthy();
+    expect(payload.updated).toBeTruthy();
+  });
+
+  it("get_component returns an error shape for a nonexistent id", async () => {
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 471, method: "tools/call",
+      params: { name: "get_component", arguments: { id: "nonexistent" } },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.error).toBe("component not found");
+    expect(payload.id).toBe("nonexistent");
+  });
+
+  it("a non-admin user can call get_component (read-only)", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const prodRes = await fetch(`${baseUrl}/api/collections/products/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `MCP-GETCOMP-USER-PROD-${suffix}`,
+        is_serialized: true,
+        is_active: true,
+      }),
+    });
+    const productId = (await prodRes.json()).id;
+
+    const compRes = await fetch(`${baseUrl}/api/collections/components/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product: productId,
+        serial: `MCP-GETCOMP-USER-SER-${suffix}`,
+        is_bulk: false,
+        is_active: true,
+      }),
+    });
+    const componentId = (await compRes.json()).id;
+
+    const res = await rpc(userToken, {
+      jsonrpc: "2.0", id: 472, method: "tools/call",
+      params: { name: "get_component", arguments: { id: componentId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const payload = toolPayload(body.result);
+    expect(payload.id).toBe(componentId);
+    expect(payload.is_bulk).toBe(false);
+    expect(payload.quantity).toBeNull();
+    expect(payload.current_kit_id).toBe("");
+    expect(payload.current_entity_id).toBe("");
+  });
 });
