@@ -2003,4 +2003,116 @@ describe("ai_mcp POST /api/mcp", () => {
     const userPayload = toolPayload(userBody.result);
     expect(userPayload.components.map((c) => c.serial)).toContain(serial);
   });
+
+  // ---- get_request ----
+
+  it("get_request returns full request details including delivery_date, decision_notes, created, updated", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const adminListRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent(`email="admin@hook-test.local"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const adminUserId = (await adminListRes.json()).items[0].id;
+
+    const kitRes = await fetch(`${baseUrl}/api/collections/kits/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ serial: `MCP-GETREQ-KIT-${suffix}`, is_active: true }),
+    });
+    const kitId = (await kitRes.json()).id;
+
+    const entityName = `MCP-GETREQ-ENT-${suffix}`;
+    const entRes = await fetch(`${baseUrl}/api/collections/entities/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: entityName, category: "field", is_active: true }),
+    });
+    const entityId = (await entRes.json()).id;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const reqRes = await fetch(`${baseUrl}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: adminUserId,
+        designated_kit: kitId,
+        target_entity: entityId,
+        status: "open",
+        date: today,
+        delivery_date: today,
+        notes: "get_request test notes",
+        decision_notes: "",
+      }),
+    });
+    const requestId = (await reqRes.json()).id;
+
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 450, method: "tools/call",
+      params: { name: "get_request", arguments: { id: requestId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const payload = toolPayload(body.result);
+
+    expect(payload.id).toBe(requestId);
+    expect(payload.status).toBe("open");
+    expect(payload.requester_id).toBe(adminUserId);
+    expect(payload.requester_name).toBeTruthy();
+    expect(payload.designated_kit_id).toBe(kitId);
+    expect(payload.designated_kit_serial).toBe(`MCP-GETREQ-KIT-${suffix}`);
+    expect(payload.target_entity_id).toBe(entityId);
+    expect(payload.target_entity_name).toBe(entityName);
+    expect(payload.date).toBeTruthy();
+    expect(payload.delivery_date).toBeTruthy();
+    expect(payload.notes).toBe("get_request test notes");
+    expect("decision_notes" in payload).toBe(true);
+    expect(payload.created).toBeTruthy();
+    expect(payload.updated).toBeTruthy();
+  });
+
+  it("get_request returns an error shape for a nonexistent id", async () => {
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 451, method: "tools/call",
+      params: { name: "get_request", arguments: { id: "nonexistent" } },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.error).toBe("request not found");
+    expect(payload.id).toBe("nonexistent");
+  });
+
+  it("a non-admin user can call get_request (read-only)", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const adminListRes = await fetch(
+      `${baseUrl}/api/collections/users/records?filter=${encodeURIComponent(`email="admin@hook-test.local"`)}`,
+      { headers: { Authorization: suToken } },
+    );
+    const adminUserId = (await adminListRes.json()).items[0].id;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const reqRes = await fetch(`${baseUrl}/api/collections/requests/records`, {
+      method: "POST",
+      headers: { Authorization: suToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requester: adminUserId,
+        status: "open",
+        date: today,
+        delivery_date: today,
+      }),
+    });
+    const requestId = (await reqRes.json()).id;
+
+    const res = await rpc(userToken, {
+      jsonrpc: "2.0", id: 452, method: "tools/call",
+      params: { name: "get_request", arguments: { id: requestId } },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error).toBeUndefined();
+    const payload = toolPayload(body.result);
+    expect(payload.id).toBe(requestId);
+  });
 });
