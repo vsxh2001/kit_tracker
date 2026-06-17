@@ -471,13 +471,13 @@ Protocol version: `2024-11-05`. Server: `kit-tracker-mcp v0.1.0`.
 Read tools (list_*, get_*, resolve_*) — any authenticated user.
 Write tools (create_*, move_*) — admin/technician only.
 
-### 30 MCP tools
+### 31 MCP tools
 
-Read (17): `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
+Read (18): `list_kits`, `get_kit`, `list_entities`, `get_entity`, `list_requests`,
 `list_components`, `resolve_kit`, `resolve_entity`, `resolve_product`,
 `report_kits_by_entity`, `report_maintenance_due`, `report_open_requests`,
 `report_overdue_returns`, `report_recent_activity`, `report_expiring_components`,
-`report_low_stock_products`, `report_idle_kits`.
+`report_low_stock_products`, `report_idle_kits`, `report_components_by_lot`.
 
 Write (13): `create_entity`, `create_kit`, `move_kit`, `create_product`,
 `create_component`, `move_component`, `decide_request`,

@@ -442,6 +442,19 @@ routerAdd("POST", "/api/mcp", function(c) {
           },
           required: []
         }
+      },
+      {
+        name: "report_components_by_lot",
+        description: "Return active components matching a lot_code (substring match, case-sensitive PB filter), with their current kit + entity holder derived from the latest component_transaction. Use for recall workflows ('find every component with lot LOT-2026-A and where it is now'), shelf-life sweeps, and audit tracing. Returns rows sorted by expires_at ascending (earliest first), with components missing expires_at at the end.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            lot_code: { type: "string", description: "Substring to match against components.lot_code (required, min 1 char, max 64)" },
+            active_only: { type: "boolean", description: "When false, also include is_active=false components for retired-lot audits (default true)" },
+            limit: { type: "number", description: "Max results (default 100, max 500)" }
+          },
+          required: ["lot_code"]
+        }
       }
     ];
 
@@ -2351,6 +2364,104 @@ routerAdd("POST", "/api/mcp", function(c) {
       }
     }
 
+    function executeReportComponentsByLot(dao, args) {
+      try {
+        var lotCode = String(args.lot_code === undefined || args.lot_code === null ? "" : args.lot_code).trim();
+        if (!lotCode) {
+          return { error: "lot_code is required" };
+        }
+        if (lotCode.length > 64) lotCode = lotCode.slice(0, 64);
+
+        var activeOnly = args.active_only !== false;
+        var limit = clamp(args.limit, 100, 500);
+
+        var filter = "lot_code ~ {:lot}";
+        if (activeOnly) filter += " && is_active = true";
+
+        var rows = [];
+        try {
+          rows = dao.findRecordsByFilter(
+            "components",
+            filter,
+            "expires_at",
+            limit,
+            0,
+            { lot: lotCode }
+          );
+        } catch (_) {
+          return { components: [], lot_code_query: lotCode, count: 0, note: "components collection not available" };
+        }
+
+        var components = [];
+        for (var i = 0; i < rows.length; i++) {
+          var c = rows[i];
+          var productId = safeStr(c, "product");
+          var productName = "";
+          if (productId) {
+            try { productName = safeStr(dao.findRecordById("products", productId), "name"); } catch (_) { /* product may be missing */ }
+          }
+
+          var currentKitId = "";
+          var currentKitSerial = "";
+          var currentEntityId = "";
+          var currentEntityName = "";
+          try {
+            var latestArr = dao.findRecordsByFilter(
+              "component_transactions",
+              "component = {:cid}",
+              "-timestamp,-created",
+              1,
+              0,
+              { cid: c.id }
+            );
+            if (latestArr && latestArr.length) {
+              var latestTx = latestArr[0];
+              currentKitId = safeStr(latestTx, "to_kit");
+              currentEntityId = safeStr(latestTx, "to_entity");
+              if (currentKitId) {
+                try { currentKitSerial = safeStr(dao.findRecordById("kits", currentKitId), "serial"); } catch (_) { /* kit may be missing */ }
+              }
+              if (currentEntityId) {
+                try { currentEntityName = safeStr(dao.findRecordById("entities", currentEntityId), "name"); } catch (_) { /* entity may be missing */ }
+              }
+            }
+          } catch (_) { /* component_transactions lookup failed */ }
+
+          var isBulk = c.getBool("is_bulk");
+          components.push({
+            component_id: c.id,
+            serial: safeStr(c, "serial"),
+            product_id: productId,
+            product_name: productName,
+            lot_code: safeStr(c, "lot_code"),
+            bin_code: safeStr(c, "bin_code"),
+            expires_at: safeStr(c, "expires_at").slice(0, 10),
+            is_bulk: isBulk,
+            quantity: isBulk ? c.getInt("quantity") : null,
+            current_kit_id: currentKitId,
+            current_kit_serial: currentKitSerial,
+            current_entity_id: currentEntityId,
+            current_entity_name: currentEntityName,
+            is_active: c.getBool("is_active")
+          });
+        }
+
+        // PB's ascending sort on `expires_at` places empty strings first;
+        // push components missing expires_at to the end instead.
+        var withExpiry = [];
+        var withoutExpiry = [];
+        for (var j = 0; j < components.length; j++) {
+          if (components[j].expires_at) withExpiry.push(components[j]);
+          else withoutExpiry.push(components[j]);
+        }
+        components = withExpiry.concat(withoutExpiry);
+
+        return { components: components, lot_code_query: lotCode, count: components.length };
+      } catch (err) {
+        return { error: "report_components_by_lot failed", detail: String(err && err.message ? err.message : err) };
+      }
+    }
+
     function executeReportLowStockProducts(dao, args) {
       try {
         var limit = args.limit ? parseInt(args.limit, 10) : 100;
@@ -2572,6 +2683,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "report_expiring_components") return executeReportExpiringComponents(dao, args);
         if (toolName === "report_low_stock_products") return executeReportLowStockProducts(dao, args);
         if (toolName === "report_idle_kits") return executeReportIdleKits(dao, args);
+        if (toolName === "report_components_by_lot") return executeReportComponentsByLot(dao, args);
         return { error: "unknown tool: " + toolName };
       } catch (err) {
         return { error: "tool execution error", detail: String(err && err.message ? err.message : err) };

@@ -1816,4 +1816,191 @@ describe("ai_mcp POST /api/mcp", () => {
     expect(userPayload.idle_kits.map((k) => k.serial)).toContain(neverSerial);
     expect(userPayload.idle_kits.map((k) => k.serial)).toContain(oldSerial);
   });
+
+  it("report_components_by_lot returns matching components with current location resolved", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 410, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-LOT-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    const recallSerial1 = `MCP-LOT-RECALL-1-${suffix}`;
+    const recallSerial2 = `MCP-LOT-RECALL-2-${suffix}`;
+    const otherSerial = `MCP-LOT-OTHER-${suffix}`;
+    const recallLot = `LOT-RECALL-${suffix}`;
+    const otherLot = `LOT-OTHER-${suffix}`;
+
+    const comp1Res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 411, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: recallSerial1, lot_code: recallLot } },
+    });
+    const comp1Id = toolPayload((await comp1Res.json()).result).record_id;
+
+    const comp2Res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 412, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: recallSerial2, lot_code: recallLot } },
+    });
+    const comp2Id = toolPayload((await comp2Res.json()).result).record_id;
+
+    const comp3Res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 413, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: otherSerial, lot_code: otherLot } },
+    });
+    expect(toolPayload((await comp3Res.json()).result).success).toBe(true);
+
+    const kitRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 414, method: "tools/call",
+      params: { name: "create_kit", arguments: { serial: `MCP-LOT-KIT-${suffix}` } },
+    });
+    const kitId = toolPayload((await kitRes.json()).result).record_id;
+    const kitSerial = `MCP-LOT-KIT-${suffix}`;
+
+    for (const componentId of [comp1Id, comp2Id]) {
+      const moveRes = await rpc(adminToken, {
+        jsonrpc: "2.0", id: 415, method: "tools/call",
+        params: { name: "move_component", arguments: { component_id: componentId, to_kit_id: kitId } },
+      });
+      expect(toolPayload((await moveRes.json()).result).success).toBe(true);
+    }
+
+    const reportRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 416, method: "tools/call",
+      params: { name: "report_components_by_lot", arguments: { lot_code: `LOT-RECALL-${suffix}` } },
+    });
+    expect(reportRes.status).toBe(200);
+    const payload = toolPayload((await reportRes.json()).result);
+    expect(payload.lot_code_query).toBe(`LOT-RECALL-${suffix}`);
+    expect(payload.count).toBe(2);
+    expect(payload.components.length).toBe(2);
+
+    const serials = payload.components.map((c) => c.serial);
+    expect(serials).toContain(recallSerial1);
+    expect(serials).toContain(recallSerial2);
+    expect(serials).not.toContain(otherSerial);
+
+    for (const row of payload.components) {
+      expect(row.current_kit_serial).toBe(kitSerial);
+      expect(row).toHaveProperty("component_id");
+      expect(row).toHaveProperty("serial");
+      expect(row).toHaveProperty("lot_code");
+      expect(row).toHaveProperty("bin_code");
+      expect(row).toHaveProperty("expires_at");
+      expect(row).toHaveProperty("is_bulk");
+      expect(row).toHaveProperty("quantity");
+      expect(row).toHaveProperty("current_kit_id");
+      expect(row).toHaveProperty("current_kit_serial");
+      expect(row).toHaveProperty("current_entity_id");
+      expect(row).toHaveProperty("current_entity_name");
+      expect(row).toHaveProperty("is_active");
+      expect(row).toHaveProperty("product_id");
+      expect(row).toHaveProperty("product_name");
+      expect(row.product_id).toBe(productId);
+      expect(row.product_name).toBe(`MCP-LOT-PROD-${suffix}`);
+      expect(row.current_kit_id).toBe(kitId);
+      expect(row.is_active).toBe(true);
+    }
+  });
+
+  it("report_components_by_lot excludes inactive components by default and includes them when active_only=false", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const lot = `LOT-INACT-${suffix}`;
+
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 420, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-LOT-INACT-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    const activeSerial = `MCP-LOT-INACT-ACTIVE-${suffix}`;
+    const retiredSerial = `MCP-LOT-INACT-RETIRED-${suffix}`;
+
+    const activeRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 421, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: activeSerial, lot_code: lot } },
+    });
+    expect(toolPayload((await activeRes.json()).result).success).toBe(true);
+
+    const retiredRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 422, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial: retiredSerial, lot_code: lot } },
+    });
+    const retiredId = toolPayload((await retiredRes.json()).result).record_id;
+
+    const deactRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 423, method: "tools/call",
+      params: { name: "update_component", arguments: { id: retiredId, is_active: false } },
+    });
+    expect(toolPayload((await deactRes.json()).result).success).toBe(true);
+
+    const defaultRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 424, method: "tools/call",
+      params: { name: "report_components_by_lot", arguments: { lot_code: lot } },
+    });
+    const defaultPayload = toolPayload((await defaultRes.json()).result);
+    expect(defaultPayload.count).toBe(1);
+    expect(defaultPayload.components[0].serial).toBe(activeSerial);
+
+    const allRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 425, method: "tools/call",
+      params: { name: "report_components_by_lot", arguments: { lot_code: lot, active_only: false } },
+    });
+    const allPayload = toolPayload((await allRes.json()).result);
+    expect(allPayload.count).toBe(2);
+    const retiredRow = allPayload.components.find((c) => c.serial === retiredSerial);
+    expect(retiredRow).toBeTruthy();
+    expect(retiredRow.is_active).toBe(false);
+  });
+
+  it("report_components_by_lot returns empty components array when no matches", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+
+    const reportRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 430, method: "tools/call",
+      params: { name: "report_components_by_lot", arguments: { lot_code: `LOT-NONEXISTENT-${suffix}` } },
+    });
+    expect(reportRes.status).toBe(200);
+    const payload = toolPayload((await reportRes.json()).result);
+    expect(payload.count).toBe(0);
+    expect(payload.components).toEqual([]);
+  });
+
+  it("report_components_by_lot returns error when lot_code missing", async () => {
+    const res = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 431, method: "tools/call",
+      params: { name: "report_components_by_lot", arguments: {} },
+    });
+    expect(res.status).toBe(200);
+    const payload = toolPayload((await res.json()).result);
+    expect(payload.error).toMatch(/lot_code is required/);
+  });
+
+  it("report_components_by_lot is callable by a non-admin (read-only)", async () => {
+    const suffix = Math.random().toString(36).slice(2);
+    const lot = `LOT-NONADMIN-${suffix}`;
+
+    const prodRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 440, method: "tools/call",
+      params: { name: "create_product", arguments: { name: `MCP-LOT-NONADMIN-PROD-${suffix}`, is_serialized: true } },
+    });
+    const productId = toolPayload((await prodRes.json()).result).record_id;
+
+    const serial = `MCP-LOT-NONADMIN-COMP-${suffix}`;
+    const compRes = await rpc(adminToken, {
+      jsonrpc: "2.0", id: 441, method: "tools/call",
+      params: { name: "create_component", arguments: { product_id: productId, serial, lot_code: lot } },
+    });
+    expect(toolPayload((await compRes.json()).result).success).toBe(true);
+
+    const userRes = await rpc(userToken, {
+      jsonrpc: "2.0", id: 442, method: "tools/call",
+      params: { name: "report_components_by_lot", arguments: { lot_code: lot } },
+    });
+    expect(userRes.status).toBe(200);
+    const userBody = await userRes.json();
+    expect(userBody.error).toBeUndefined();
+    const userPayload = toolPayload(userBody.result);
+    expect(userPayload.components.map((c) => c.serial)).toContain(serial);
+  });
 });
