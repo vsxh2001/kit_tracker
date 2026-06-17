@@ -99,6 +99,17 @@ routerAdd("POST", "/api/mcp", function(c) {
         }
       },
       {
+        name: "get_request",
+        description: "Get full details of one request including requester name, designated kit serial, target entity name, decision notes, and timestamps.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Request record ID" }
+          },
+          required: ["id"]
+        }
+      },
+      {
         name: "list_components",
         description: "List components, optionally filtered by search, type, or product.",
         inputSchema: {
@@ -789,6 +800,58 @@ routerAdd("POST", "/api/mcp", function(c) {
         });
       }
       return results;
+    }
+
+    function executeGetRequest(dao, args) {
+      var r;
+      try {
+        r = dao.findRecordById("requests", args.id);
+      } catch (_) {
+        return { error: "request not found", id: args.id };
+      }
+
+      var requesterName = "";
+      var requesterId = safeStr(r, "requester");
+      if (requesterId) {
+        try {
+          var requester = dao.findRecordById("users", requesterId);
+          requesterName = safeStr(requester, "name") || safeStr(requester, "email");
+        } catch (_) {}
+      }
+      var kitSerial = "";
+      var kitId = safeStr(r, "designated_kit");
+      if (kitId) {
+        try {
+          var kit = dao.findRecordById("kits", kitId);
+          kitSerial = safeStr(kit, "serial");
+        } catch (_) {}
+      }
+      var entityName = "";
+      var entityId = safeStr(r, "target_entity");
+      if (entityId) {
+        try {
+          var targetEntity = dao.findRecordById("entities", entityId);
+          entityName = safeStr(targetEntity, "name");
+        } catch (_) {}
+      }
+
+      return {
+        id: r.id,
+        status: safeStr(r, "status"),
+        requester_id: requesterId,
+        requester_name: requesterName,
+        designated_kit_id: kitId,
+        designated_kit_serial: kitSerial,
+        target_entity_id: entityId,
+        target_entity_name: entityName,
+        date: safeStr(r, "date"),
+        delivery_date: safeStr(r, "delivery_date"),
+        expected_return: safeStr(r, "expected_return"),
+        notes: safeStr(r, "notes"),
+        decision_notes: safeStr(r, "decision_notes"),
+        created: safeStr(r, "created"),
+        updated: safeStr(r, "updated")
+      };
     }
 
     function executeListComponents(dao, args) {
@@ -2657,6 +2720,7 @@ routerAdd("POST", "/api/mcp", function(c) {
         if (toolName === "list_entities") return executeListEntities(dao, args);
         if (toolName === "get_entity") return executeGetEntity(dao, args);
         if (toolName === "list_requests") return executeListRequests(dao, args);
+        if (toolName === "get_request") return executeGetRequest(dao, args);
         if (toolName === "list_components") return executeListComponents(dao, args);
         if (toolName === "resolve_kit") return executeResolveKit(dao, args);
         if (toolName === "resolve_entity") return executeResolveEntity(dao, args);
